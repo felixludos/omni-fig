@@ -27,5 +27,7 @@ setup(name=info.name,
       author_email=info.author_email,
       license=info.license,
       packages=info.packages,
+      scripts=info.scripts,
       install_requires=info.install_requires,
-      zip_safe=False)
+      zip_safe=False
+      )

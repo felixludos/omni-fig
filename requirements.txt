@@ -1,1 +1,3 @@
 pyyaml
+C3Linearize
+humpack
