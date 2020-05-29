@@ -1,0 +1,10 @@
+extra/
+temp/
+tmp/
+_build/
+build/
+dist/
+__pycache__/
+.idea/
+.ipynb_checkpoints/
+omnifig.egg-info/
