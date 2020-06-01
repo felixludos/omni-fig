@@ -1,9 +1,32 @@
 
-import sys
+import sys, os
 import inspect
+
+import importlib.util as imp
 
 from .registry import view_script_registry, autofill_args
 from .config import parse_config
+
+
+
+def initialize():
+	
+	if 'FIG_INIT' in os.environ:
+		paths = os.environ['FIG_INIT'].split(':')
+		for path in paths:
+			spec = imp.spec_from_file_location('figinit', path)
+			mod = imp.module_from_spec(spec)
+			try:
+				spec.loader.exec_module(mod)
+				mod.MyClass()
+			except Exception as e:
+				print(f'Error during loading: {path}')
+				raise e
+
+
+def main(script_name, *argv):
+	return _main_script((script_name, *argv))
+
 
 _help_msg = '''fig <script> [args...]
 Please specify a script (and optionally args), registered scripts:
@@ -13,9 +36,6 @@ _help_cmds = {'-h', '--help'}
 _error_msg = '''Error script {} is not registered.
 Please specify a script (and optionally args), registered scripts:
 {}'''
-
-def main(script_name, *argv):
-	return _main_script((script_name, *argv))
 
 def _main_script(argv=None):
 	if argv is None:
