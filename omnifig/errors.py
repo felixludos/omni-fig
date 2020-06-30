@@ -9,6 +9,9 @@ class YamlifyError(Exception):
 class ParsingError(Exception):
 	pass
 
+class MissingConfigError(Exception):
+	def __init__(self, key):
+		super().__init__(key)
 
 class NoConfigFound(Exception):
 	def __init__(self):

@@ -5,11 +5,11 @@ import yaml, json
 from collections import defaultdict
 from c3linearize import linearize
 
-from .errors import YamlifyError, ParsingError, NoConfigFound
+from .util import primitives
+from .errors import YamlifyError, ParsingError, NoConfigFound, MissingConfigError
+from .preload import find_config_path
+from .registry import create_component, _appendable_keys
 
-from .registry import find_config_path, create_component, MissingConfigError, _reserved_names, _appendable_keys
-
-primitives = (str, int, float, bool)
 nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
 
 
@@ -43,9 +43,9 @@ def yamlify(data):
 
 
 def load_config_from_path(path, process=True):
-	path = find_config_path(path)
+	# path = find_config_path(path)
 	with open(path, 'r') as f:
-		data = yaml.load(f)
+		data = yaml.safe_load(f)
 	
 	if process:
 		return configurize(data)
@@ -215,7 +215,7 @@ def parse_config(argv=None, parent_defaults=True, include_load_history=False):
 	return root
 
 
-_reserved_names.update({'_x_'})
+# _reserved_names.update({'_x_'})
 
 
 def _add_default_parent(C):

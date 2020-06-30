@@ -1,89 +1,37 @@
 
 import sys, os
 import inspect
+from collections import namedtuple
+import importlib.util
+
+from .errors import MissingConfigError
+from .containers import Registry, Entry_Registry
+from .loading import get_active_project
+from .util import get_printer, autofill_args, get_global_setting
+
+prt = get_printer(__name__)
 
 
-_config_registry = {}
-def register_config(name, path):
-	assert os.path.isfile(path), 'Cant find config file: {}'.format(path)
-	_config_registry[name] = path
-def register_config_dir(path, recursive=False, prefix=None, joiner='/'):
-	assert os.path.isdir(path)
-	for fname in os.listdir(path):
-		parts = fname.split('.')
-		candidate = os.path.join(path, fname)
-		if os.path.isfile(candidate) and len(parts) > 1 and parts[-1] in {'yml', 'yaml'}:
-			name = parts[0]
-			if prefix is not None:
-				name = joiner.join([prefix, name])
-			register_config(name, os.path.join(path, fname))
-		elif recursive and os.path.isdir(candidate):
-			newprefix = fname if prefix is None else joiner.join([prefix, fname])
-			register_config_dir(candidate, recursive=recursive, prefix=newprefix, joiner=joiner)
+# region Scripts
 
-def view_config_registry():
-	return _config_registry.copy()
+class _Script_Registry(Entry_Registry, components=['fn', 'use_config', 'project']):
+	pass
+_script_registry = _Script_Registry()
 
-def find_config_path(name):
-	if os.path.isfile(name):
-		return name
-
-	reg = _config_registry
-
-	if name in _config_registry:
-		return _config_registry[name]
-	elif os.path.isfile(name):
-		return name
-	elif 'FOUNDATION_SAVE_DIR' in os.environ:
-
-		run_dir = name if os.path.isdir(name) else os.path.join(os.environ['FOUNDATION_SAVE_DIR'], name)
-		path = os.path.join(run_dir, 'config.yml')
-		
-		if os.path.isfile(path):
-			return path
-		
-		# path = os.path.join(os.environ['FOUNDATION_SAVE_DIR'], name)
-		# run_dir = os.path.dirname(path)
-		#
-		# path = os.path.join(run_dir, 'config.yml') # run dir
-		#
-		# name = path
-	
-	raise Exception(f'Unknown config: {name}')
-
-
-	assert os.path.isfile(name), 'invalid path: {}'.format(name)
-	return name
-
-_component_registry = {}
-_reserved_names = set() #{'list'}
-def register_component(name, create_fn):
-	'''
-	create_fn takes a single input - a Config object
-	The config object is guaranteed to have at least one entry with key "_type" and the value is the same as
-	the registered name of the component.
-
-	:param name: str (should be unique to this component)
-	:param create_fn: callable accepting one arg (a Config object) (these should usually be classes)
-	'''
-	assert name not in _reserved_names, '{} is reserved'.format(name)
-	if name in _component_registry:
-		print('WARNING: A component with name {} was already registered'.format(name))
-	_component_registry[name] = create_fn
-
-def view_component_registry():
-	return _component_registry.copy()
-
-_appendable_keys = {'_mod'} # mods can be appended when updating (instead of overwriting)
-# def register_appendable_key(key): # At that point, they might as well manipulate _appendable_keys directly
-# 	_appendable_keys.add(key)
-
-_script_registry = {}
 def register_script(name, fn, use_config=False):
+	prt.debug(f'Registering script {name}')
 	if name in _script_registry:
-		print(f'WARNING: A script with name {name} was already registered')
-	_script_registry[name] = fn, use_config
-
+		prt.warning(f'A script with name {name} has already been registered, now overwriting')
+	
+	project = get_active_project()
+	_script_registry.new(name, fn=fn, use_config=use_config, project=project)
+	
+	if project is not None:
+		project.new_script(name)
+	
+def get_script(name):
+	return _script_registry.get(name, None)
+	
 def view_script_registry():
 	return _script_registry.copy()
 
@@ -98,7 +46,112 @@ def Script(name, use_config=False):
 def AutoScript(name):
 	return Script(name)
 
-_mod_registry = {}
+# endregion
+
+# region Components
+
+class _Component_Registry(Entry_Registry, components=['create_fn', 'project']):
+	pass
+_component_registry = _Component_Registry()
+
+def register_component(name, create_fn):
+	'''
+	create_fn takes a single input - a Config object
+	The config object is guaranteed to have at least one entry with key "_type" and the value is the same as
+	the registered name of the component.
+
+	:param name: str (should be unique to this component)
+	:param create_fn: callable accepting one arg (a Config object) (these should usually be classes)
+	'''
+	# assert name not in _reserved_names, '{} is reserved'.format(name)
+	prt.debug(f'Registering component {name}')
+	if name in _component_registry:
+		prt.warning(f'A component with name {name} has already been registered, now overwriting')
+	
+	project = get_active_project()
+	_component_registry.new(name, create_fn=create_fn, project=project)
+
+	if project is not None:
+		project.new_component(name)
+	
+	
+def view_component_registry():
+	return _component_registry.copy()
+
+
+def Component(name=None):
+	'''
+	Decorator to register a component
+
+	NOTE: components should usually be types/classes to allow modifications
+
+	:param name: if not provided, will use the __name__ attribute.
+	:return: decorator function
+	'''
+	
+	def _cmp(cmp):
+		nonlocal name
+		if name is None:
+			name = cmp.__name__
+		register_component(name, cmp)
+		return cmp
+	
+	return _cmp
+
+
+def AutoComponent(name=None, aliases=None):
+	'''
+	Instead of directly passing the config to an AutoComponent, the necessary args are auto filled and passed in.
+	This means AutoComponents are somewhat limited in that they cannot modify the config object and they cannot be
+	modified with AutoModifiers.
+
+	Note: AutoComponents are usually components that are created with functions (rather than classes) since they can't
+	be automodified. When registering classes as components, you should probably use `Component` instead, and pull
+	from the config directly.
+
+	:param name: name to use when registering the auto component
+	:param aliases: optional aliases for arguments used when autofilling (should be a dict[name,list[aliases]])
+	:return: decorator function
+	'''
+	
+	def _auto_cmp(cmp):
+		nonlocal name, aliases
+		
+		if type(cmp) == type:  # to allow AutoModifiers
+			
+			cls = type('Auto_{}'.format(cmp.__name__), (cmp,), {})
+			
+			def cmp_init(self, info):
+				args, kwargs = autofill_args(cmp, info, aliases=aliases, run=False)
+				super(cls, self).__init__(*args, **kwargs)
+			
+			cls.__init__ = cmp_init
+			
+			_create = cls
+		
+		else:
+			def _create(config):
+				nonlocal cmp, aliases
+				return autofill_args(cmp, config, aliases)
+		
+		Component(name)(_create)
+		
+		return cmp
+	
+	return _auto_cmp
+
+# endregion
+
+# region Modifier
+
+_appendable_keys = {'_mod'} # mods can be appended when updating (instead of overwriting)
+# def register_appendable_key(key): # At that point, they might as well manipulate _appendable_keys directly
+# 	_appendable_keys.add(key)
+
+class _Modifier_Registry(Entry_Registry, components=['fn', 'expects_config', 'project']):
+	pass
+_mod_registry = _Modifier_Registry()
+
 def register_modifier(name, mod_fn, expects_config=False):
 	'''
 	Takes as input the "create_fn" of some component and a Config object.
@@ -110,9 +163,17 @@ def register_modifier(name, mod_fn, expects_config=False):
 	:param mod_fn: callable accepting one arg (the "create_fn" of a registered component)
 	(these should usually be classes)
 	'''
-	assert name not in _reserved_names, '{} is reserved'.format(name)
-	_mod_registry[name] = mod_fn, expects_config
-
+	# assert name not in _reserved_names, '{} is reserved'.format(name)
+	prt.debug(f'Registering modifier {name}')
+	if name in _mod_registry:
+		prt.warning(f'A modifier with name {name} has already been registered, now overwriting')
+	
+	project = get_active_project()
+	_mod_registry.new(name, fn=mod_fn, expects_config=expects_config, project=project)
+	
+	if project is not None:
+		project.new_modifier(name)
+	
 def view_modifier_registry():
 	return _mod_registry.copy()
 
@@ -187,102 +248,8 @@ def Modification(name=None):
 	
 	return _reg_modification
 
+# endregion
 
-def Component(name=None):
-	'''
-	Decorator to register a component
-
-	NOTE: components should usually be types/classes to allow modifications
-
-	:param name: if not provided, will use the __name__ attribute.
-	:return: decorator function
-	'''
-	def _cmp(cmp):
-		nonlocal name
-		if name is None:
-			name = cmp.__name__
-		register_component(name, cmp)
-		return cmp
-	return _cmp
-
-def AutoComponent(name=None, aliases=None):
-	'''
-	Instead of directly passing the config to an AutoComponent, the necessary args are auto filled and passed in.
-	This means AutoComponents are somewhat limited in that they cannot modify the config object and they cannot be
-	modified with AutoModifiers.
-
-	Note: AutoComponents are usually components that are created with functions (rather than classes) since they can't
-	be automodified. When registering classes as components, you should probably use `Component` instead, and pull
-	from the config directly.
-
-	:param name: name to use when registering the auto component
-	:param aliases: optional aliases for arguments used when autofilling (should be a dict[name,list[aliases]])
-	:return: decorator function
-	'''
-
-	def _auto_cmp(cmp):
-		nonlocal name, aliases
-		
-		if type(cmp) == type: # to allow AutoModifiers
-			
-			cls = type('Auto_{}'.format(cmp.__name__), (cmp,), {})
-			
-			def cmp_init(self, info):
-				args, kwargs = autofill_args(cmp, info, aliases=aliases, run=False)
-				super(cls, self).__init__(*args, **kwargs)
-			
-			cls.__init__ = cmp_init
-			
-			_create = cls
-
-		else:
-			def _create(config):
-				nonlocal cmp, aliases
-				return autofill_args(cmp, config, aliases)
-
-		Component(name)(_create)
-
-		return cmp
-
-	return _auto_cmp
-
-
-def autofill_args(fn, config, aliases=None, run=True):
-
-	params = inspect.signature(fn).parameters
-
-	args = []
-	kwargs = {}
-
-	for n, p in params.items():
-
-		order = [n]
-		if aliases is not None and n in aliases: # include aliases
-			order.extend('<>{}'.format(a) for a in aliases[n])
-		if p.default != inspect._empty:
-			order.append(p.default)
-		elif p.kind == p.VAR_POSITIONAL:
-			order.append(())
-		elif p.kind == p.VAR_KEYWORD:
-			order.append({})
-
-		arg = config.pull(*order)
-
-		if p.kind == p.POSITIONAL_ONLY:
-			args.append(arg)
-		elif p.kind == p.VAR_POSITIONAL:
-			args.extend(arg)
-		elif p.kind == p.VAR_KEYWORD:
-			kwargs.update(arg)
-		else:
-			kwargs[n] = arg
-	if run:
-		return fn(*args, **kwargs)
-	return args, kwargs
-
-class MissingConfigError(Exception): # TODO: move to a file containing all custom exceptions
-	def __init__(self, key):
-		super().__init__(key)
 
 def create_component(info):
 	'''
