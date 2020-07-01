@@ -31,6 +31,7 @@ global_settings.update({
 	#      ],
 })
 
+set_global_setting('level', 'error')
 
 prt = get_printer(__name__)
 

@@ -1,4 +1,6 @@
 
+from collections import OrderedDict
+
 from .containers import Registry
 from .util import get_printer
 from .registry import get_script
@@ -46,7 +48,7 @@ class Run_Mode: # TODO: maybe upgrade to a Customizable_Information subclass (?)
 	def get_name(cls):
 		return cls.name
 	
-	def __init__(self, meta):
+	def __init__(self, meta, config, auto_meta_args=[]):
 		'''
 		This is called initially for any required initial start up of the run_mode
 		(should be independent of the config)
@@ -55,17 +57,13 @@ class Run_Mode: # TODO: maybe upgrade to a Customizable_Information subclass (?)
 		:return: None
 		'''
 		
-		self.meta_args = Registry() if self.meta_args is None else Registry(self.meta_args)
-	
-	def add_meta_arg(self, arg):
-		'''
-		After instantiating this Run_Mode, meta args can be added (usually if auto detected in command),
-		even if they haven't been registered.
-		
-		:param arg: Missing meta arg to be added to this run_mode instance only
-		:return: None
-		'''
-		self.meta_args.new(arg.get_code(), arg)
+		meta_args = OrderedDict()
+		for marg in auto_meta_args:
+			meta_args[marg.get_name()] = marg
+		for name, marg in self.meta_args.items():
+			if name not in meta_args:
+				meta_args[name] = marg(meta, config)
+		self.meta_args = meta_args
 	
 	def get_meta_args(self):
 		return self.meta_args.values()
@@ -73,7 +71,7 @@ class Run_Mode: # TODO: maybe upgrade to a Customizable_Information subclass (?)
 	def find_meta_arg(self, code):
 		return self.meta_args.get(code, None)
 	
-	def prepare(self, meta, config, _instances=None):
+	def prepare(self, meta, config):
 		'''
 		Called before run() allowing meta and config to be modified,
 		including the script name found in meta.script_name
@@ -85,14 +83,8 @@ class Run_Mode: # TODO: maybe upgrade to a Customizable_Information subclass (?)
 		:return: meta, config
 		'''
 
-		if _instances is None: # by default use the classes
-			_instances = self._instantiate_meta_args(meta)
-		for arg in sorted(_instances, key=lambda m: getattr(m, 'priority', 0), reverse=True):
+		for arg in sorted(self.meta_args.values(), key=lambda m: getattr(m, 'priority', 0), reverse=True):
 			meta, config = arg.run(meta, config)
-	
-	def _instantiate_meta_args(self, meta):
-		return [arg(meta) for arg in self.get_meta_args()] # in registration order
-		
 	
 	def run(cls, script_fn, meta, config):
 		'''
@@ -151,7 +143,7 @@ class Meta_Argument: # TODO: possibly upgrade to a Customizable_Infomation subcl
 		else:
 			meta_arg_registry.new(cls)
 	
-	def __init__(self, meta):
+	def __init__(self, meta, config):
 		pass
 	
 	@classmethod
@@ -179,17 +171,18 @@ class Meta_Argument: # TODO: possibly upgrade to a Customizable_Infomation subcl
 	def run(self, meta, config):
 		return meta, config
 	
-_help_msg = '''fig -[meta-args...] <script> --[args...]
+_help_msg = '''fig -[meta-args...] <script> [configs...] --[args...]
 Please specify a script (and optionally meta-args/args)'''
 
 
-_help_script_msg = '''fig -[meta-args...] {} --[args...]
+_help_script_msg = '''fig -[meta-args...] {} [configs...] --[args...]
 Script documentation:
 {}'''
 
 class Help_Arg(Meta_Argument, name='help', code='h'):
 	
-	def __init__(self, meta):
+	def __init__(self, meta, config):
+		super().__init__(meta, config)
 		
 		hlp = meta.pull('help', False)
 		sname = meta.pull('script_name', None)

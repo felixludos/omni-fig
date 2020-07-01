@@ -109,11 +109,11 @@ class Customizable_Infomation:
 		
 		for key in self.required_attrs:
 			if getattr(self, key) is None:
-				prt.error(f'{key} not found in manager {self}')
+				prt.error(f'{key} not found in {self.__class__.__name__} {self}')
 
 		for key in self.recommended_attrs:
 			if getattr(self, key) is None:
-				prt.warning(f'{key} not found in manager {self}')
+				prt.warning(f'{key} not found in {self.__class__.__name__} {self}')
 	
 	def export_info(self, path=None):
 		'''

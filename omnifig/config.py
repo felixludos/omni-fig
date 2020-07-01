@@ -47,6 +47,9 @@ def load_config_from_path(path, process=True):
 	with open(path, 'r') as f:
 		data = yaml.safe_load(f)
 	
+	if data is None:
+		data = {}
+	
 	if process:
 		return configurize(data)
 	return data
@@ -55,6 +58,7 @@ def load_config_from_path(path, process=True):
 def load_single_config(data, process=True, parents=None):  # data can either be an existing config or a path to a config
 	
 	if isinstance(data, str):
+		data = find_config_path(data)
 		data = load_config_from_path(data, process=process)
 	
 	if parents is not None and 'parents' in data:
@@ -398,17 +402,20 @@ class _ConfigType(hp.Transactionable):
 
 				# TODO: should probably be deprecated - just register a "list" component separately
 				if val['_type'] == 'list':
-					_print_indent += 1
-					print(_print_with_indent('{} (type={}): '.format(item, val['_type'])))
+					if not silent:
+						_print_indent += 1
+						print(_print_with_indent('{} (type={}): '.format(item, val['_type'])))
 					terms = []
 					for i, v in enumerate(val._elements): # WARNING: elements must be listed with '_elements' key
 						terms.append(self._process_val('[{}]'.format(i), v, reuse=reuse, silent=silent))
 					val = tuple(terms)
-					_print_indent -= 1
+					if not silent:
+						_print_indent -= 1
 
 				elif val['_type'] == 'iter':
 					elms = val['_elements']
-					print(_print_with_indent('{} (type={}) with {} elements'.format(item, val['_type'], len(elms))))
+					if not silent:
+						print(_print_with_indent('{} (type={}) with {} elements'.format(item, val['_type'], len(elms))))
 					val = _Config_Iter(self, item, elms)
 
 				elif val['_type'] == 'config': # get the actual config (raw, no view)
@@ -456,22 +463,26 @@ class _ConfigType(hp.Transactionable):
 					val = cmpn
 
 			else: # convert config to dict (by pulling all entries) and return full dict
-				_print_indent += 1
-				print(_print_with_indent('{} (type={}): '.format(item, 'dict')))
+				if not silent:
+					_print_indent += 1
+					print(_print_with_indent('{} (type={}): '.format(item, 'dict')))
 				terms = {}
 				for k, v in val.items():  # WARNING: pulls all entries in dict
 					terms[k] = self._process_val('({})'.format(k), v, reuse=reuse, silent=silent)
 				val = terms
-				_print_indent -= 1
+				if not silent:
+					_print_indent -= 1
 
 		elif isinstance(val, list):
-			_print_indent += 1
-			print(_print_with_indent('{} (type={}): '.format(item, 'list')))
+			if not silent:
+				_print_indent += 1
+				print(_print_with_indent('{} (type={}): '.format(item, 'list')))
 			terms = []
 			for i, v in enumerate(val):  # WARNING: elements must be listed with '_elements' key
 				terms.append(self._process_val('[{}]'.format(i), v, reuse=reuse, silent=silent))
 			val = terms
-			_print_indent -= 1
+			if not silent:
+				_print_indent -= 1
 
 
 		elif isinstance(val, str) and val[:2] == '<>':  # alias
@@ -480,14 +491,14 @@ class _ConfigType(hp.Transactionable):
 
 			if not silent:
 				print(_print_with_indent('{} --> '.format(item)), end='')
-			_print_waiting = True
+				_print_waiting = True
 			val = self.pull(alias, *defaults, silent=silent)
-			_print_waiting = False
-
-		else:
 			if not silent:
-				print(_print_with_indent('{}: {}{}{}'.format(item, val, ' (by default)' if defaulted
-						else (' (in parent)' if byparent else ''), ' (by child)' if bychild else '')))
+				_print_waiting = False
+
+		elif not silent:
+			print(_print_with_indent('{}: {}{}{}'.format(item, val, ' (by default)' if defaulted
+					else (' (in parent)' if byparent else ''), ' (by child)' if bychild else '')))
 
 		return val
 

@@ -1,8 +1,6 @@
 
 import sys, os
 import inspect
-import logging
-
 
 from .util import get_printer, get_global_setting, resolve_order, autofill_args, set_global_setting
 from .registry import get_script
@@ -36,14 +34,11 @@ def initialize(**overrides):
 		include_files(*fig_init)
 	
 	# endregion
-	# region Load Profile
+	# region Load Profile/Project
 	
-	profile = load_profile(**overrides)
-
-	# endregion
-	# region Local Projects
+	load_profile(**overrides)
 	
-	project = get_project()
+	get_project()
 	
 	# endregion
 
@@ -53,16 +48,24 @@ Please specify a script (and optionally args), registered scripts:
 _error_msg = '''Error script {} is not registered.'''
 
 def run(meta, config):
-	mode_name = meta.pull('mode', None)
-	script_name = meta.pull('script_name')
+	
+	margs = [marg(meta, config) for marg in meta.pull('_args', [], silent=True)]
+	if len(margs):
+		del config._meta._args
+		
+	mode_name = meta.pull('mode', None, silent=True)
 	
 	mode_cls = get_run_mode(mode_name)
-	mode = mode_cls(meta)
+	mode = mode_cls(meta, config)
 	
 	mode.prepare(meta, config)
 	
-	script_info = get_script(script_name)
+	script_name = meta.pull('script_name', None, silent=True)
+	if script_name is None:
+		prt.error('No script specified')
+		quit()
 	
+	script_info = get_script(script_name)
 	if script_info is None:
 		print(_error_msg.format(script_name, ))
 		return 1
@@ -82,6 +85,7 @@ def cmd_arg_parse(argv=()):
 	waiting = None
 	args_started = False
 	config_parents = []
+	margs = []
 	
 	for arg in argv:
 		if waiting_meta > 0:
@@ -108,6 +112,7 @@ def cmd_arg_parse(argv=()):
 				if text.startswith(code):
 					text = text[len(code):]
 					num = marg.get_num_params()
+					margs.append(marg)
 					if num:
 						if len(text):
 							raise Exception(f'Can\'t combine multiple meta-args if they require params: {code}')
@@ -135,8 +140,19 @@ def cmd_arg_parse(argv=()):
 		else:
 			prt.error(f'Failed to parse arg: {arg}')
 	
+	parents = config.pull('parents', [], silent=True)
+	config.parents = list(parents) + config_parents
+
+	if script_name is not None and script_name != '_':
+		meta['script_name'] = script_name
 	
-	meta['script_name'] = script_name
+	if len(margs):
+		meta._args = margs
+	
+	config = get_config(config, include_load_history=True)
+	config._meta.update(meta)
+	meta = config._meta
+	
 	return meta, config
 
 
