@@ -5,14 +5,13 @@ import inspect
 from .util import get_printer, get_global_setting, resolve_order, autofill_args, set_global_setting
 from .registry import get_script
 from .loading import load_profile, include_files, get_project
-from .config import parse_config, get_config
+from .config import get_config
 from .modes import get_run_mode, meta_arg_registry
 
 prt = get_printer(__name__)
 
 def entry():
 	argv = sys.argv[1:]
-	# print(argv)
 	return main(*argv)
 
 def main(*argv):
@@ -36,7 +35,8 @@ def initialize(**overrides):
 	# endregion
 	# region Load Profile/Project
 	
-	load_profile(**overrides)
+	profile = load_profile(**overrides)
+	profile.prepare()
 	
 	get_project()
 	
@@ -49,14 +49,16 @@ _error_msg = '''Error script {} is not registered.'''
 
 def run(meta, config):
 	
-	margs = [marg(meta, config) for marg in meta.pull('_args', [], silent=True)]
-	if len(margs):
-		del config._meta._args
+	margs = []
+	for name in meta:
+		marg = meta_arg_registry.get(name, None)
+		if marg is not None:
+			margs.append(marg(meta, config))
 		
 	mode_name = meta.pull('mode', None, silent=True)
 	
 	mode_cls = get_run_mode(mode_name)
-	mode = mode_cls(meta, config)
+	mode = mode_cls(meta, config, auto_meta_args=margs)
 	
 	mode.prepare(meta, config)
 	
@@ -67,10 +69,10 @@ def run(meta, config):
 	
 	script_info = get_script(script_name)
 	if script_info is None:
-		print(_error_msg.format(script_name, ))
+		print(_error_msg.format(script_name))
 		return 1
 	
-	return mode.run(script_info.fn, meta, config)
+	return mode.run(script_info, meta, config)
 
 
 
@@ -85,7 +87,7 @@ def cmd_arg_parse(argv=()):
 	waiting = None
 	args_started = False
 	config_parents = []
-	margs = []
+	# margs = []
 	
 	for arg in argv:
 		if waiting_meta > 0:
@@ -112,7 +114,7 @@ def cmd_arg_parse(argv=()):
 				if text.startswith(code):
 					text = text[len(code):]
 					num = marg.get_num_params()
-					margs.append(marg)
+					# margs.append(marg)
 					if num:
 						if len(text):
 							raise Exception(f'Can\'t combine multiple meta-args if they require params: {code}')
@@ -120,6 +122,8 @@ def cmd_arg_parse(argv=()):
 						waiting_meta = num
 						if num > 1:
 							meta[waiting_key] = []
+					else:
+						meta[name] = True
 				if not len(text):
 					break
 				
@@ -146,8 +150,8 @@ def cmd_arg_parse(argv=()):
 	if script_name is not None and script_name != '_':
 		meta['script_name'] = script_name
 	
-	if len(margs):
-		meta._args = margs
+	# if len(margs):
+	# 	meta._args = margs
 	
 	config = get_config(config, include_load_history=True)
 	config._meta.update(meta)

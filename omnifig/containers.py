@@ -59,9 +59,9 @@ class Customizable_Infomation:
 		
 		self.import_info(raw)
 			
-		if name is None:
-			prt.warning(f'No name provided for the profile')
-		else:
+		if name is not None:
+		# 	prt.warning(f'No name provided for the profile')
+		# else:
 			self.name = name
 	
 	@staticmethod
@@ -155,8 +155,8 @@ class Registry(OrderedDict):
 	def new(self, name, obj): # register a new entry
 		if name in self:
 			prt.warning(f'Register {self.__class__.__name__} already contains {name}, now overwriting')
-		else:
-			prt.debug(f'Registering {name} in {self.__class__.__name__}')
+		# else:
+		# 	prt.debug(f'Registering {name} in {self.__class__.__name__}')
 			
 		self[name] = obj
 		

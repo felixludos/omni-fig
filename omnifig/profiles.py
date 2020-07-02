@@ -2,7 +2,7 @@
 import sys, os
 from collections import OrderedDict
 
-from .util import get_printer, get_global_setting, resolve_order, spawn_path_options
+from .util import get_printer, get_global_setting, resolve_order, spawn_path_options, set_global_setting
 from .containers import Customizable_Infomation, Registry
 from .preload import include_files
 
@@ -24,6 +24,8 @@ class Profile(Customizable_Infomation):
 		self._loaded_projects = OrderedDict()
 		self._loaded_project_paths = OrderedDict()
 		
+		self.global_settings = raw.get('global_settings', {})
+		
 		self._active_project = None
 		self.active_project = raw.get('active_project', None)
 		
@@ -31,6 +33,11 @@ class Profile(Customizable_Infomation):
 	
 	def prepare(self):
 		self.load_src()
+		self.update_global_settings()
+	
+	def update_global_settings(self):
+		for item in self.global_settings.items():
+			set_global_setting(*item)
 	
 	def load_src(self):
 		include_files(*self.src_paths)

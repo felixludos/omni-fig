@@ -32,7 +32,7 @@ def set_profile(profile):
 def load_profile(**overrides):
 	global _profile
 	
-	prt.debug(f'Initializing profile')
+	# prt.debug(f'Initializing profile')
 	allow_profile_src = get_global_setting('allow_profile_sources')
 	if allow_profile_src:
 		profile_src_path = resolve_order(get_global_setting('profile_src_env_var'),
@@ -78,11 +78,15 @@ def get_project(ident=None, auto_include=True, set_active=True):
 	:return:
 	'''
 	
-	if _profile is None:
-		prt.warning('No profile has been loaded, generally a profile should be loaded before loading projects')
 	profile = get_profile()
+	if profile is None:
+		prt.warning('No profile has been loaded, generally a profile should be loaded before loading projects')
+		raise Exception('Profile must be loaded before loading a project')
 	
 	if ident is None:
+		active = profile.get_active_project()
+		if active is not None:
+			return active
 		ident = os.getcwd()
 	
 	# region Loaded
@@ -123,7 +127,7 @@ def get_project(ident=None, auto_include=True, set_active=True):
 	
 	while len(todo):
 		info_path = todo.pop()
-		if not profile.contains_project(info_path):
+		if os.path.isfile(info_path) and not profile.contains_project(info_path):
 			project = _create_project(info_path)
 			
 			for related in project.get_related().values():

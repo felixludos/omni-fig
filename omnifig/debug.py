@@ -4,7 +4,7 @@ from .modes import Run_Mode, Meta_Argument
 
 DEBUG_MODE_NAME = 'debug'
 
-class Pycharm_Arg(Meta_Argument, name='pycharm', code='p'):
+class Debug_Arg(Meta_Argument, name=DEBUG_MODE_NAME, code='d'):
 	def __init__(self, meta, config):
 		super().__init__(meta, config)
 		
@@ -14,11 +14,11 @@ class Debug_Mode(Run_Mode, name=DEBUG_MODE_NAME):
 	
 	def __init__(self, meta, config, auto_meta_args=[]):
 		
-		pycharm = get_config('pycharm')
+		debug = get_config(DEBUG_MODE_NAME)
 		
-		pycharm.update(config)
+		debug.update(config)
 		config.clear()
-		config.update(pycharm)
+		config.update(debug)
 		
 		meta.update(config._meta)
 		

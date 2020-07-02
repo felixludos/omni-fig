@@ -1,10 +1,12 @@
 
 import sys, os
+import inspect
 import time
 
-from omnibelt import *
-from omnibelt import primitives, autofill_args, get_printer, \
-	global_settings, get_global_settings, set_global_setting, get_global_setting
+from omnibelt import primitives, get_printer, \
+	get_global_settings, set_global_setting, get_global_setting, get_now, resolve_order, \
+	spawn_path_options
+from omnibelt.logging import global_settings
 
 LIB_PATH = os.path.dirname(__file__)
 
@@ -31,9 +33,41 @@ global_settings.update({
 	#      ],
 })
 
-set_global_setting('level', 'error')
-
 prt = get_printer(__name__)
+
+
+def autofill_args(fn, config, aliases=None, run=True):
+
+	params = inspect.signature(fn).parameters
+
+	args = []
+	kwargs = {}
+
+	for n, p in params.items():
+
+		order = [n]
+		if aliases is not None and n in aliases: # include aliases
+			order.extend('<>{}'.format(a) for a in aliases[n])
+		if p.default != inspect._empty:
+			order.append(p.default)
+		elif p.kind == p.VAR_POSITIONAL:
+			order.append(())
+		elif p.kind == p.VAR_KEYWORD:
+			order.append({})
+
+		arg = config.pull(*order)
+
+		if p.kind == p.POSITIONAL_ONLY:
+			args.append(arg)
+		elif p.kind == p.VAR_POSITIONAL:
+			args.extend(arg)
+		elif p.kind == p.VAR_KEYWORD:
+			kwargs.update(arg)
+		else:
+			kwargs[n] = arg
+	if run:
+		return fn(*args, **kwargs)
+	return args, kwargs
 
 
 

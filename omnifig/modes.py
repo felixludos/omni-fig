@@ -1,8 +1,9 @@
 
+import inspect
 from collections import OrderedDict
 
 from .containers import Registry
-from .util import get_printer
+from .util import get_printer, autofill_args
 from .registry import get_script
 
 prt = get_printer(__name__)
@@ -60,9 +61,10 @@ class Run_Mode: # TODO: maybe upgrade to a Customizable_Information subclass (?)
 		meta_args = OrderedDict()
 		for marg in auto_meta_args:
 			meta_args[marg.get_name()] = marg
-		for name, marg in self.meta_args.items():
-			if name not in meta_args:
-				meta_args[name] = marg(meta, config)
+		if self.meta_args is not None:
+			for name, marg in self.meta_args.items():
+				if name not in meta_args:
+					meta_args[name] = marg(meta, config)
 		self.meta_args = meta_args
 	
 	def get_meta_args(self):
@@ -86,18 +88,23 @@ class Run_Mode: # TODO: maybe upgrade to a Customizable_Information subclass (?)
 		for arg in sorted(self.meta_args.values(), key=lambda m: getattr(m, 'priority', 0), reverse=True):
 			meta, config = arg.run(meta, config)
 	
-	def run(cls, script_fn, meta, config):
+	def run(cls, script_info, meta, config):
 		'''
 		When called this should actually execute the `script_fn` using `config`
 		If need be, the additional behavior according to the meta args can affect how/when the script is called
 
-		:param script_fn: callable with 1 input (the config object)
+		:param script_info: entry with callable in ".fn"
 		:param meta: meta args, in case some modify the subsequent behavior
 		:param config: config for script_fn
 		:return: whatever the script_fn returns (possibly modified according to meta_args and `meta`)
 		'''
-		return script_fn(config)
-
+		
+		script_fn = script_info.fn
+		
+		if script_info.use_config:
+			return script_fn(config)
+		return autofill_args(script_fn, config)
+		
 
 class Meta_Arg_Registry(Registry):
 	def __init__(self, *args, **kwargs):
@@ -179,6 +186,11 @@ _help_script_msg = '''fig -[meta-args...] {} [configs...] --[args...]
 Script documentation:
 {}'''
 
+_help_script_sig_msg = '''fig -[meta-args...] {} [configs...] --[args...]
+Signature: {}
+Script documentation:
+{}'''
+
 class Help_Arg(Meta_Argument, name='help', code='h'):
 	
 	def __init__(self, meta, config):
@@ -190,7 +202,10 @@ class Help_Arg(Meta_Argument, name='help', code='h'):
 		if hlp:
 			if sname is None:
 				sinfo = get_script(sname)
-				print(_help_script_msg.format(sname, sinfo.fn.__doc__))
+				if sinfo.use_config:
+					print(_help_script_msg.format(sname, sinfo.fn.__doc__))
+				else:
+					print(_help_script_sig_msg.format(sname, str(inspect.signature(sinfo.fn)), sinfo.fn.__doc__))
 			else:
 				print(_help_msg)
 			quit()

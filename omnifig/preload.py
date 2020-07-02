@@ -14,7 +14,7 @@ def include_files(*paths):
 	global _load_counter
 	
 	for path in paths:
-		if os.path.join(path):
+		if os.path.isfile(path):
 			apath = os.path.abspath(path)
 			if apath not in _loaded_files:
 				prt.debug(f'Loading {apath}')
@@ -122,7 +122,7 @@ def register_project_type(name, cls, auto_assoc=[]):
 	:return:
 	'''
 	
-	prt.debug(f'Registering project type {name}')
+	# prt.debug(f'Registering project type {name}')
 	if name in _ptype_registry:
 		prt.warning(f'A project type with name {name} has already been registered, now overwriting')
 	

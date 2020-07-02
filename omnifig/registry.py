@@ -35,7 +35,7 @@ def get_script(name):
 def view_script_registry():
 	return _script_registry.copy()
 
-def Script(name, use_config=False):
+def Script(name, use_config=True):
 	def _reg_script(fn):
 		nonlocal name, use_config
 		register_script(name, fn, use_config=use_config)
@@ -44,7 +44,7 @@ def Script(name, use_config=False):
 	return _reg_script
 
 def AutoScript(name):
-	return Script(name)
+	return Script(name, use_config=False)
 
 # endregion
 

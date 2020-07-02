@@ -3,10 +3,10 @@ from .registry import AutoScript, Script, Component, AutoComponent, Modifier, Au
 	create_component, register_component, register_modifier, \
 	view_component_registry, view_modifier_registry, view_script_registry
 from .config import get_config, parse_config
-from .scripts import entry, main, run
-
+from .scripts import entry, main, run, initialize
+from .loading import get_project, get_profile
 from .modes import Run_Mode, Meta_Argument
-from .pycharm import Debug_Mode
+from .debug import Debug_Mode
 
 
 # import sys, os
