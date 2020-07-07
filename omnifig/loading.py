@@ -130,7 +130,7 @@ def get_project(ident=None, auto_include=True, set_active=True):
 		if os.path.isfile(info_path) and not profile.contains_project(info_path):
 			project = _create_project(info_path)
 			
-			for related in project.get_related().values():
+			for related in project.get_related():
 				get_project(related, auto_include=auto_include)
 			
 			profile.include_project(project, register=auto_include)

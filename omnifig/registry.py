@@ -272,7 +272,7 @@ def create_component(info):
 
 	assert name in _component_registry, 'Unknown component type (have you registered it?): {}'.format(name)
 
-	component = _component_registry[name]
+	component = _component_registry[name].create_fn
 
 	try:
 		mod_names = info.pull('_mod', silent=True)

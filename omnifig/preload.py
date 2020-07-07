@@ -1,4 +1,5 @@
 import sys, os
+import importlib
 import importlib.util
 
 from .util import get_printer
@@ -24,6 +25,10 @@ def include_files(*paths):
 				# mod.MyClass()
 				_loaded_files[apath] = mod
 				_load_counter += 1
+
+def include_package(*packages):
+	for pkg in packages:
+		importlib.import_module(pkg)
 
 # endregion
 

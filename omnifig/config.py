@@ -501,7 +501,52 @@ class _ConfigType(hp.Transactionable):
 					else (' (in parent)' if byparent else ''), ' (by child)' if bychild else '')))
 
 		return val
+	
+	def push(self, key, val, silent=False, overwrite=True, no_parent=False, force_root=False):
+		'''
+		
+		:param key: key to check/set (can be list or '.' separated string)
+		:param val: data to possibly write into the config object
+		:param silent: Do not print messages
+		:param overwrite: If key is already set, overwrite with (configurized) 'val'
+		:param no_parent: Do not check parent object if not found in self
+		:param force_root: Push key to the root config object
+		:return: current val of key (updated if written)
+		'''
+		
+		if '.' in key:
+			key = key.split('.')
 
+		line = []
+		if isinstance(key, (list, tuple)):
+			line = key[1:]
+			key = key[0]
+		
+		exists = self.contains_nodefault(key)
+		
+		parent = self._parent_obj_for_defaults
+		if no_parent:
+			assert not force_root, 'makes no sense'
+			parent = None
+		
+		if parent is not None and force_root:
+			return parent.push((key, *line), val, silent=silent, overwrite=overwrite,
+			                   no_parent=no_parent, force_root=True)
+		elif exists and len(line): # push me
+			return self[key].push(line, val, silent=silent, overwrite=overwrite, no_parent=True)
+		elif parent is not None and key in parent: # push parent
+			return parent.push((key, *line), val, silent=silent, overwrite=overwrite, no_parent=no_parent)
+		elif len(line): # push child
+			return self[key].push(line, val, silent=silent, overwrite=overwrite, no_parent=True)
+		
+		if exists and not overwrite:
+			return self.pull(key, silent=silent)
+		
+		val = configurize(val)
+		self[key] = val
+		
+		val = self._process_val(f'[Pushed] {key}:', val, silent=silent)
+		return val
 
 	def export(self, path=None):
 

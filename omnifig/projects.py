@@ -5,7 +5,7 @@ from argparse import Namespace
 
 from .util import get_printer, get_now
 from .containers import Registry, Customizable_Infomation
-from .preload import include_files, register_project_type, include_configs
+from .preload import include_files, register_project_type, include_configs, include_package
 
 prt = get_printer(__name__)
 
@@ -113,6 +113,7 @@ class Project(Customizable_Infomation):
 		self.src_paths = raw.get('src_paths', [])
 		if src is not None:
 			self.src_paths = [src] + self.src_paths
+		self.src_packages = raw.get('src_packages', [])
 		
 		self.scripts = raw.get('scripts', [])
 		self.configs = raw.get('configs', [])
@@ -151,6 +152,9 @@ class Project(Customizable_Infomation):
 			srcs.append(os.path.join(self.info_dir, s))
 		if len(srcs):
 			include_files(*srcs)
+			
+		include_package(*self.src_packages)
+			
 		
 	def get_related(self):
 		return self.related
