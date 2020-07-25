@@ -10,13 +10,13 @@ from .modes import get_run_mode, meta_arg_registry
 
 prt = get_printer(__name__)
 
-def entry():
+def entry(script_name=None):
 	argv = sys.argv[1:]
-	return main(*argv)
+	return main(*argv, script_name=script_name)
 
-def main(*argv):
+def main(*argv, script_name=None):
 	initialize()
-	meta, config = cmd_arg_parse(argv)
+	meta, config = cmd_arg_parse(argv, script_name=script_name)
 	return full_run(meta, config)
 
 def initialize(**overrides):
@@ -50,7 +50,7 @@ _error_msg = '''Error script {} is not registered.'''
 def full_run(meta, config):
 	
 	margs = []
-	for name in meta:
+	for name in list(meta):
 		marg = meta_arg_registry.get(name, None)
 		if marg is not None:
 			margs.append(marg(meta, config))
@@ -77,7 +77,7 @@ def full_run(meta, config):
 
 def run(script_name, config, **meta_args):
 	
-	meta = get_config()
+	meta = config._meta
 	meta.update(meta_args)
 	meta.script_name = script_name
 	
@@ -92,12 +92,11 @@ def quick_run(script_name, **args):
 	
 	return run(script_name, config)
 
-def cmd_arg_parse(argv=()):
+def cmd_arg_parse(argv=(), script_name=None):
 	
 	meta = get_config()
 	config = get_config()
 	
-	script_name = None
 	waiting_key = None
 	waiting_meta = 0
 	waiting = None
@@ -118,9 +117,14 @@ def cmd_arg_parse(argv=()):
 			continue
 		
 		elif waiting is not None:
-			config[waiting] = arg
-			waiting = None
-			continue
+			if arg.startswith('--'):
+				config[waiting] = True
+				args_started = True
+				waiting = arg[2:]
+			else:
+				config[waiting] = arg
+				waiting = None
+				continue
 		
 		elif '-' == arg[0] and not arg.startswith('--'):
 			text = arg[1:]

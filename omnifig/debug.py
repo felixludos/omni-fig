@@ -1,4 +1,7 @@
 
+import sys, os
+import traceback
+
 from .config import get_config
 from .modes import Run_Mode, Meta_Argument
 
@@ -22,7 +25,25 @@ class Debug_Mode(Run_Mode, name=DEBUG_MODE_NAME):
 		
 		meta.update(config._meta)
 		
-		super().__init__(meta, config, auto_meta_args=auto_meta_args)
+
+	def run(self, script_info, meta, config):
+		
+		try:
+			return super().run(script_info, meta, config)
+		except KeyboardInterrupt:
+			extype, value, tb = sys.exc_info()
+			traceback.print_exc()
+
+		except Exception as e:
+			if sys.gettrace() is None:
+				import ipdb
+				extype, value, tb = sys.exc_info()
+				traceback.print_exc()
+				ipdb.post_mortem(tb)
+			else:
+				print('[Skipping debug]')
+				raise e
+		
 	
 
 

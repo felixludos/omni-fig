@@ -33,7 +33,7 @@ def yamlify(data):
 	if data is None:
 		return '_None'
 	if isinstance(data, dict):
-		return {k: yamlify(v) for k, v in data.items()}
+		return {k: yamlify(v) for k, v in data.items() if not k.startswith('__')}
 	if isinstance(data, (list, tuple, set)):
 		return [yamlify(x) for x in data]
 	if isinstance(data, primitives):
@@ -368,7 +368,7 @@ class _ConfigType(hp.Transactionable):
 			byparent = not self.contains_nodefault(item)
 			val = self[item]
 
-		if len(line): # child pull
+		if not defaulted and len(line): # child pull
 			val = val.pull(line, *defaults, silent=silent, ref=ref, no_parent=no_parent,
 			               _byparent=_byparent, _bychild=True,
 			               _defaulted=_defaulted)
@@ -388,6 +388,8 @@ class _ConfigType(hp.Transactionable):
 	def _process_val(self, item, val, *defaults, silent=False, reuse=False, defaulted=False, byparent=False, bychild=False):
 		global _print_indent, _print_waiting
 
+		# TODO: add option to return an "iterator" of the value (both list and dict)
+
 		if isinstance(val, dict):
 
 			if '_type' in val:
@@ -397,7 +399,7 @@ class _ConfigType(hp.Transactionable):
 				# no longer an issue
 				# assert not byparent, 'Pulling a sub-component from a parent is not supported (yet): {}'.format(item)
 
-				assert not defaulted
+				assert not (reuse and defaulted)
 
 
 				# TODO: should probably be deprecated - just register a "list" component separately
@@ -456,9 +458,9 @@ class _ConfigType(hp.Transactionable):
 
 					if self.in_transaction():
 						self[item]['__obj'] = cmpn
-					else:
-						print('WARNING: this Config is NOT currently in a transaction, so all subcomponents will be created '
-						      'again everytime they are pulled')
+					# else:
+					# 	print('WARNING: this Config is NOT currently in a transaction, so all subcomponents will be created '
+					# 	      'again everytime they are pulled')
 
 					val = cmpn
 
@@ -502,11 +504,12 @@ class _ConfigType(hp.Transactionable):
 
 		return val
 	
-	def push(self, key, val, silent=False, overwrite=True, no_parent=False, force_root=False):
+	def push(self, key, val, *_skip, silent=False, overwrite=True, no_parent=False, force_root=False):
 		'''
 		
 		:param key: key to check/set (can be list or '.' separated string)
 		:param val: data to possibly write into the config object
+		:param _skip: soak up all other positional arguments to make sure the remaining are keyword only
 		:param silent: Do not print messages
 		:param overwrite: If key is already set, overwrite with (configurized) 'val'
 		:param no_parent: Do not check parent object if not found in self
@@ -546,8 +549,23 @@ class _ConfigType(hp.Transactionable):
 		self[key] = val
 		
 		val = self._process_val(f'[Pushed] {key}:', val, silent=silent)
+		
+		# TODO clean up _update_tree (maybe should be here)
+		
 		return val
 
+	def is_root(self):
+		return self.get_parent() is None
+
+	def get_parent(self):
+		return self._parent_obj_for_defaults
+	
+	def get_root(self):
+		parent = self.get_parent()
+		if parent is None:
+			return self
+		return parent.get_root()
+	
 	def export(self, path=None):
 
 		data = yamlify(self)
@@ -569,43 +587,7 @@ class _ConfigType(hp.Transactionable):
 
 
 
-class NS(hp.tdict): # NOTE: avoid hasattr! - always returns true (creating new attrs), use __contains__ instead
-	'''
-	Namespace - like a dictionary but where keys can be accessed as attributes, and if not found will create new NS
-	allowing:
-
-	a = NS()
-	a.b.c.d = 'hello'
-	print(repr(a)) # --> NS('b':NS('c':NS('d':'hello')))
-
-	'''
-
-	def __getitem__(self, key):
-		try:
-			v = super().__getitem__(key)
-			# print(key,v)
-			return v
-		except KeyError:
-			try:
-				return super().__getattribute__(key)
-			except AttributeError:
-				# print('**WARNING: defaulting {}'.format(key))
-				self.__setitem__(key, self.__class__())
-				return super().__getitem__(key)
-
-	def todict(self):
-		d = {}
-		for k,v in self.items():
-			if isinstance(v, NS):
-				v = v.todict()
-			d[k] = v
-		return d
-
-	def __repr__(self):
-		return '{}{}{}'.format('{{', ', '.join(['{}:{}'.format(repr(k), repr(v)) for k,v in self.items()]), '}}')
-
-
-class ConfigDict(_ConfigType, NS): # TODO: allow adding aliases
+class ConfigDict(_ConfigType, hp.TreeSpace): # TODO: allow adding aliases
 	'''
 	Features:
 
@@ -633,27 +615,27 @@ class ConfigDict(_ConfigType, NS): # TODO: allow adding aliases
 
 	def update(self, other={}, parent_defaults=True):
 		if not isinstance(other, ConfigDict):
-			super().update(other)
-		else:
-			for k, v in other.items():
-				if self.contains_nodefault(k) and '_x_' == v: # reserved for deleting settings in parents
-					del self[k]
-				elif self.contains_nodefault(k) and isinstance(v, ConfigDict) and isinstance(self[k], ConfigDict):
-					self[k].update(v)
+			# super().update(other)
+			other = configurize(other)
+		for k, v in other.items():
+			if self.contains_nodefault(k) and '_x_' == v: # reserved for deleting settings in parents
+				del self[k]
+			elif self.contains_nodefault(k) and isinstance(v, ConfigDict) and isinstance(self[k], ConfigDict):
+				self[k].update(v)
 
-				elif k in _appendable_keys and v[0] == '+':
-					# values of appendable keys can be appended instead of overwritten,
-					# only when the new value starts with "+"
-					vs = []
-					if self.contains_nodefault(k):
-						prev = self[k]
-						if not isinstance(prev, list):
-							prev = [prev]
-						vs = prev
-					vs.append(v[1:])
-					self[k] = vs
-				else:
-					self[k] = v
+			elif k in _appendable_keys and v[0] == '+':
+				# values of appendable keys can be appended instead of overwritten,
+				# only when the new value starts with "+"
+				vs = []
+				if self.contains_nodefault(k):
+					prev = self[k]
+					if not isinstance(prev, list):
+						prev = [prev]
+					vs = prev
+				vs.append(v[1:])
+				self[k] = vs
+			else:
+				self[k] = v
 
 		self._update_tree(parent_defaults=parent_defaults)
 
@@ -711,21 +693,39 @@ class ConfigList(_ConfigType, hp.tlist):
 
 		return self.get_nodefault(item)
 
+	def push(self, first, *rest, **kwargs):
+		'''
+		
+		:param first: if no additional args are provided in `rest`, then this is used as the value and the key
+		is the end of the list, otherwise this is used as key and the first element in `rest` is the value
+		:param rest: optional second argument to specify the key, rather than defaulting to the end of the list
+		:param kwargs: same keyword args as for the ConfigDict
+		:return: same as for ConfigDict
+		'''
 
+		if len(rest):
+			val, *rest = rest
+			return super().push(first, val, *rest, **kwargs)
+		
+		val = first
+		key = len(self)
+		self.append(None)
+		return super().push(key, val, *rest, **kwargs) # note that *rest will have no effect
+		
 	def contains_nodefault(self, item):
 		idx = self._str_to_int(item)
 		return 0 <= idx < len(self)
 
 	def append(self, item, parent_defaults=True):
 		super().append(item)
-		self._update_tree(parent_defaults=parent_defaults)
+		# self._update_tree(parent_defaults=parent_defaults)  # TODO: make sure this makes sense
 
 	def extend(self, item, parent_defaults=True):
 		super().extend(item)
-		self._update_tree(parent_defaults=parent_defaults)
+		# self._update_tree(parent_defaults=parent_defaults)
 
 
-class _Config_Iter(object):
+class _Config_Iter(object): # TODO: generalize to dict as well (maybe iterating through full items)
 
 	def __init__(self, config, name, elms):
 		self._idx = 0

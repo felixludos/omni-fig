@@ -4,7 +4,7 @@ from .registry import AutoScript, Script, Component, AutoComponent, Modifier, Au
 	view_component_registry, view_modifier_registry, view_script_registry
 from .config import get_config, parse_config, MissingConfigError
 from .preload import register_config, register_config_dir
-from .scripts import entry, main, full_run, initialize
+from .scripts import entry, main, full_run, initialize, run, quick_run
 from .loading import get_project, get_profile
 from .containers import Registry, Entry_Registry
 from .modes import Run_Mode, Meta_Argument

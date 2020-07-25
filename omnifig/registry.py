@@ -287,8 +287,8 @@ def create_component(info):
 		for mod_name in mod_names: # WARNING: apply modifications in reverse order
 			if mod_name[0] == '+': # filter out initial + if found
 				mod_name = mod_name[1:]
-			mod, expects_config = _mod_registry[mod_name]
-			component = mod(component, info) if expects_config else mod(component)
+			mod = _mod_registry[mod_name]
+			component = mod.fn(component, info) if mod.expects_config else mod.fn(component)
 
 	return component(info)
 

@@ -88,7 +88,7 @@ class Run_Mode: # TODO: maybe upgrade to a Customizable_Information subclass (?)
 		for arg in sorted(self.meta_args.values(), key=lambda m: getattr(m, 'priority', 0), reverse=True):
 			meta, config = arg.run(meta, config)
 	
-	def run(cls, script_info, meta, config):
+	def run(self, script_info, meta, config):
 		'''
 		When called this should actually execute the `script_fn` using `config`
 		If need be, the additional behavior according to the meta args can affect how/when the script is called
