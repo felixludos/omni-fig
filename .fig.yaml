@@ -16,7 +16,7 @@ readme: 'README.rst'
 
 packages: ['omnifig']
 
-install_requires: ['C3Linearize', 'humpack'] # omnibelt
+install_requires: ['C3Linearize', 'humpack', 'omnibelt'] # omnibelt
 
 entry_points:
   console_scripts: 'fig = omnifig.scripts:entry'
