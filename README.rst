@@ -12,6 +12,11 @@
 omni-fig
 --------
 
+.. image:: https://readthedocs.org/projects/omnifig/badge/?version=latest
+:target: https://omnifig.readthedocs.io/en/latest/?badge=latest
+:alt: Documentation Status
+
+
 
 .. setup-marker-do-not-remove
 

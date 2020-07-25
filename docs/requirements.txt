@@ -2,3 +2,4 @@ numpy
 Sphinx==2.2.0
 sphinx-autodoc-typehints
 sphinx-rtd-theme==0.4.3
+-r ../requirements.txt

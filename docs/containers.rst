@@ -1,4 +1,4 @@
-Config System
+Containers
 ==========
 
 .. automodule:: omnifig.containers

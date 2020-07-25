@@ -26,6 +26,7 @@ Welcome to HumPack!
    preload
    loading
    profiles
+   projects
    modes
    util
    errors

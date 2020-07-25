@@ -11,6 +11,7 @@ Topics
 
 - package vs leaf projects
 - project maintenance (levels)
+
 Topics
 ------
 
@@ -18,3 +19,4 @@ Topics
 - project maintenance (levels)
 - good project hygiene
 - dependencies and related projects
+

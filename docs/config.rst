@@ -1,5 +1,5 @@
 Config System
-==========
+=============
 
 .. automodule:: omnifig.config
     :members:
