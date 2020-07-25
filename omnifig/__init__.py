@@ -10,12 +10,8 @@ from .containers import Registry, Entry_Registry
 from .modes import Run_Mode, Meta_Argument
 from .debug import Debug_Mode
 
-__author__ = 'Felix Leeb'
-__version__ = '0.1'
-
-# import sys, os
-#
-# import __main__
-# print(__main__)
-#
-# print(os.path.abspath(sys.modules['__main__'].__file__))
+import os
+from omnibelt import load_yaml
+__info__ = load_yaml(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.fig.yaml'))
+__author__ = __info__['author']
+__version__ = __info__['version']
