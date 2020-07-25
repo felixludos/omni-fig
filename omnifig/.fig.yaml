@@ -2,7 +2,7 @@
 name: omnifig
 long_name: omni-fig
 
-version: '0.1.1'
+version: '0.1'
 url: 'https://github.com/felixludos/omni-fig'
 
 description: 'Universal configuration system for common execution environments'
@@ -16,7 +16,7 @@ readme: 'README.rst'
 
 packages: ['omnifig']
 
-install_requires: ['C3Linearize', 'humpack', 'omnibelt']
+install_requires: ['pyyaml', 'C3Linearize', 'humpack', 'omnibelt'] # omnibelt
 
 entry_points:
-  console_scripts: 'fig = omnifig.scripts:entry'
+  console_scripts: 'fig = omnifig.scripts

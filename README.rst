@@ -16,6 +16,9 @@ omni-fig
     :target: https://omnifig.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
+.. image:: https://travis-ci.com/felixludos/omni-fig.svg?branch=master
+    :target: https://travis-ci.com/felixludos/omni-fig
+    :alt: Test Status
 
 .. setup-marker-do-not-remove
 
