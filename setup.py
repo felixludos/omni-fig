@@ -1,9 +1,10 @@
 import os
-from yaml import safe_load
 from setuptools import setup
 
-with open('.fig.yaml', 'r') as f:
-	info = safe_load(f)
+info = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), 'omnifig', '_info.py')}
+with open(info['__file__'], 'r') as f:
+	exec(f.read(), info)
+del info['__file__']
 
 if 'readme' in info:
 	with open(info['readme'], 'r') as f:

@@ -11,7 +11,10 @@ from .modes import Run_Mode, Meta_Argument
 from .debug import Debug_Mode
 
 import os
-from omnibelt import load_yaml
-__info__ = load_yaml(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.fig.yaml'))
+__info__ = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py')}
+with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py'), 'r') as f:
+	exec(f.read(), __info__)
+del os
+del __info__['__file__']
 __author__ = __info__['author']
 __version__ = __info__['version']
