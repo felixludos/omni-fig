@@ -20,12 +20,7 @@ omni-fig
 
 A universal configuration system for managing scripts and their arguments for several different kinds of execution environments.
 
-Supported execution environments:
-
-- Terminal - most basic environment, just calling a script directly from the terminal (including ipdb debugging)
-- Jupyter - running scripts (or individual parts) in a jupyter notebook
-- Pycharm - using the pycharm debugger to step through the scripts with the desired configuration.
-- Cluster - submitting scripts as jobs on to a remote computing cluster or cloud computing.
+This also includes a registration system for module components and modifiers to enable automatically creating any component (or modification thereof) without having to deal with import statements.
 
 
 Install
@@ -43,6 +38,15 @@ You can clone this repo and install the local version for development:
     pip install -e ./omni-fig
 
 .. end-install-marker-do-not-remove
+
+Quickstart
+==========
+
+.. quickstart-marker-do-not-remove
+
+[todo]
+
+.. end-quickstart-marker-do-not-remove
 
 
 TODO

@@ -10,6 +10,8 @@ from .containers import Registry, Entry_Registry
 from .modes import Run_Mode, Meta_Argument
 from .debug import Debug_Mode
 
+__author__ = 'Felix Leeb'
+__version__ = '0.1'
 
 # import sys, os
 #
