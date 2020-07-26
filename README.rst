@@ -62,6 +62,9 @@ TODO
 Features that could be added/improved:
 
 - make sure json strings can be passed from the terminal
+- add the "py_info" arg to integrate branch project meta data automatically
+- make sure updating config objects works as expected
+- fill in UNIT TESTS !! (especially for config system!)
 
 Contributions and suggestions are always welcome.
 

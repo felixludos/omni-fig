@@ -5,6 +5,8 @@ import yaml, json
 from collections import defaultdict
 from c3linearize import linearize
 
+from omnibelt import load_yaml
+
 from .util import primitives
 from .errors import YamlifyError, ParsingError, NoConfigFound, MissingConfigError
 from .preload import find_config_path
@@ -14,6 +16,12 @@ nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
 
 
 def configurize(data):
+	'''
+	Transform data container to use config objects (ConfigDict/ConfigList)
+	
+	:param data: dict/list data
+	:return: deep copy of data using ConfigDict/ConfigList
+	'''
 	if isinstance(data, dict):
 		return ConfigDict({k: configurize(v) for k, v in data.items()})
 	if isinstance(data, list):
@@ -22,14 +30,20 @@ def configurize(data):
 		cfg = False
 		for x in data:
 			x = configurize(x)
-			cfg = cfg or isinstance(x, _ConfigType)
+			cfg = cfg or isinstance(x, ConfigType)
 		return ConfigList(ls) if cfg else util.tlist(ls)
 	if isinstance(data, str) and data in nones:
 		return None
 	return data
 
 
-def yamlify(data):
+def yamlify(data): # TODO: allow adding yamlify rules for custom objects
+	'''
+	Transform data container into regular dicts/lists to export to yaml file
+	
+	:param data: Config object
+	:return: deep copy of data using dict/list
+	'''
 	if data is None:
 		return '_None'
 	if isinstance(data, dict):
@@ -43,9 +57,15 @@ def yamlify(data):
 
 
 def load_config_from_path(path, process=True):
+	'''
+	Load the yaml file and transform data to a config object
+	
+	:param path: must be the full path to a yaml file
+	:param process: if False, the loaded yaml data is passed without converting to a config object
+	:return: loaded data from path (usually as a config object)
+	'''
 	# path = find_config_path(path)
-	with open(path, 'r') as f:
-		data = yaml.safe_load(f)
+	data = load_yaml(path)
 	
 	if data is None:
 		data = {}
@@ -55,7 +75,16 @@ def load_config_from_path(path, process=True):
 	return data
 
 
-def load_single_config(data, process=True, parents=None):  # data can either be an existing config or a path to a config
+def process_single_config(data, process=True, parents=None):  # data can either be an existing config or a path to a config
+	'''
+	This loads the data (if a path or name is provided) and then checks for parents and loads those as well
+	
+	:param data: config name or path or raw data (dict/list) or config object
+	:param process: configurize loaded data
+	:param parents: if None, no parents are loaded, otherwise it must be a dict where the keys are the absolute paths
+	to the config (yaml) file and values are the loaded data
+	:return: loaded data (as a config object or raw)
+	'''
 	
 	if isinstance(data, str):
 		data = find_config_path(data)
@@ -70,26 +99,13 @@ def load_single_config(data, process=True, parents=None):  # data can either be 
 				todo.append(ppath)
 				parents[ppath] = None
 		for ppath in todo:  # load parents
-			parents[ppath] = load_single_config(ppath, parents=parents)
+			parents[ppath] = process_single_config(ppath, parents=parents)
 	
 	return data
-
-
-# def _check_for_load(config, parent_defaults=True):
-#
-# 	if 'load' in config:
-# 		lparents = {}
-# 		load = load_single_config(config.load, parents=lparents)
-# 		assert len(lparents) == 0, 'Loaded configs are not allowed to have parents.'
-# 		load.update(config, parent_defaults=parent_defaults)
-# 		config = load
-#
-# 	return config
 
 def merge_configs(configs, parent_defaults=True):
 	'''
 	configs should be ordered from oldest to newest (ie. parents first, children last)
-	also configs can contain "load"
 	'''
 	
 	if not len(configs):
@@ -104,14 +120,28 @@ def merge_configs(configs, parent_defaults=True):
 	return merged
 
 
-def get_config(path=None, parent_defaults=True, include_load_history=False):  # Top level function
+def get_config(*paths, parent_defaults=True, include_load_history=False):  # Top level function
+	'''
+	Top level function for users. This is the best way to load/create a config object.
 	
-	if path is None:
-		return ConfigDict()
-	
+	:param paths: one or more paths or names of registered config files
+	:param parent_defaults: use the parents as defaults when a key is not found
+	:param include_load_history: save load ordered history (parents) under the key `_history`
+	:return: config object
+	'''
+	root = ConfigDict()
+	if len(paths) == 0:
+		return root
+
 	parents = {}
-	
-	root = load_single_config(path, parents=parents)
+	if len(paths) == 1:
+		root = process_single_config(paths[0], parents=parents)
+	else:
+		root = ConfigDict()
+		if len(paths) == 0:
+			return root
+		root.parents = ConfigList(paths)
+		root = process_single_config(root, parents=parents)
 	
 	pnames = []
 	if len(parents):  # topo sort parents
@@ -162,67 +192,75 @@ def get_config(path=None, parent_defaults=True, include_load_history=False):  # 
 
 
 
-
-def parse_config(argv=None, parent_defaults=True, include_load_history=False):
-	# WARNING: 'argv' should not be equivalent to sys.argv here (no script name in element 0)
-	
-	if argv is None:
-		argv = sys.argv[1:]
-	
-	# argv = argv[1:]
-	
-	root = ConfigDict()  # from argv
-	
-	parents = []
-	for term in argv:
-		if len(term) >= 2 and term[:2] == '--':
-			break
-		else:
-			# assert term in _config_registry or os.path.isfile(term), 'invalid config name/path: {}'.format(term)
-			parents.append(term)
-	root.parents = parents
-	
-	argv = argv[len(parents):]
-	
-	if len(argv):
-		
-		terms = iter(argv)
-		
-		term = next(terms)
-		if term[:2] != '--':
-			raise ParsingError(term)
-		done = False
-		while not done:
-			keys = term[2:].split('.')
-			values = []
-			try:
-				val = next(terms)
-				while val[:2] != '--':
-					try:
-						values.append(configurize(json.loads(val)))
-					except json.JSONDecodeError:
-						print('Json failed to parse: {}'.format(repr(val)))
-						values.append(val)
-					val = next(terms)
-				term = val
-			except StopIteration:
-				done = True
-			
-			if len(values) == 0:
-				values = [True]
-			if len(values) == 1:
-				values = values[0]
-			root[keys] = values
-	
-	root = get_config(root, parent_defaults=parent_defaults, include_load_history=include_load_history)
-	
-	return root
+#
+# def parse_config(argv=None, parent_defaults=True, include_load_history=False):
+# 	# WARNING: 'argv' should not be equivalent to sys.argv here (no script name in element 0)
+#
+# 	if argv is None:
+# 		argv = sys.argv[1:]
+#
+# 	# argv = argv[1:]
+#
+# 	root = ConfigDict()  # from argv
+#
+# 	parents = []
+# 	for term in argv:
+# 		if len(term) >= 2 and term[:2] == '--':
+# 			break
+# 		else:
+# 			# assert term in _config_registry or os.path.isfile(term), 'invalid config name/path: {}'.format(term)
+# 			parents.append(term)
+# 	root.parents = parents
+#
+# 	argv = argv[len(parents):]
+#
+# 	if len(argv):
+#
+# 		terms = iter(argv)
+#
+# 		term = next(terms)
+# 		if term[:2] != '--':
+# 			raise ParsingError(term)
+# 		done = False
+# 		while not done:
+# 			keys = term[2:].split('.')
+# 			values = []
+# 			try:
+# 				val = next(terms)
+# 				while val[:2] != '--':
+# 					try:
+# 						values.append(configurize(json.loads(val)))
+# 					except json.JSONDecodeError:
+# 						print('Json failed to parse: {}'.format(repr(val)))
+# 						values.append(val)
+# 					val = next(terms)
+# 				term = val
+# 			except StopIteration:
+# 				done = True
+#
+# 			if len(values) == 0:
+# 				values = [True]
+# 			if len(values) == 1:
+# 				values = values[0]
+# 			root[keys] = values
+#
+# 	root = get_config(root, parent_defaults=parent_defaults, include_load_history=include_load_history)
+#
+# 	return root
 
 
 # _reserved_names.update({'_x_'})
 
 
 def _add_default_parent(C):
+	'''
+	Set C to be the parent of all children of C.
+	
+	This is used when merging, combining, or updating config objects.
+	
+	:param C: config object
+	:return: None
+	'''
 	for k, child in C.items():
 		if isinstance(child, ConfigDict):
 			child._parent_obj_for_defaults = C
@@ -235,6 +273,14 @@ def _add_default_parent(C):
 
 
 def _clean_up_reserved(C):
+	'''
+	Remove any unnecessary reserved entries in the config.
+	
+	This is used when merging, combining, or updating config objects.
+	
+	:param C: config object
+	:return: None
+	'''
 	bad = []
 	for k, v in C.items():
 		if v == '_x_':  # maybe include other _reserved_names
@@ -251,10 +297,35 @@ _print_indent = 0
 
 
 def _print_with_indent(s):
+	'''
+	Print message when taking the current global indent into account.
+	
+	:param s: str message
+	:return: indented message
+	'''
 	return s if _print_waiting else ''.join(['  ' * _print_indent, s])
 
 
-class _ConfigType(hp.Transactionable):
+class ConfigType(hp.Transactionable):
+	'''
+	The abstract super class of config objects.
+	
+	The most important methods:
+		- ``push()`` - set a parameter in the config
+		- ``pull()`` - get a parameter in the config
+		- ``update()`` - update a config with a different config
+		- ``export()`` - save the config object as a yaml file
+	
+	Another important property of the config object is that it acts as a tree where each node can hold parameters.
+	If a parameter cannot be found at one node, it will search up the tree for the parameter.
+	
+	Config objects also allow for "deep" gets/sets, which means you can get and set parameters not just in
+	the current node, but any number of nodes deeper in the tree by passing a list/tuple of keys
+	or keys separated by ".".
+	
+	Note: that all parameters should be valid identifiers (strings with no white space that don't start with a number).
+	
+	'''
 
 	def __init__(self, *args, _parent_obj_for_defaults=None, **kwargs):
 		self.__dict__['_parent_obj_for_defaults'] = _parent_obj_for_defaults
@@ -291,6 +362,7 @@ class _ConfigType(hp.Transactionable):
 		return super().__setitem__(key, configurize(value))
 
 	def __contains__(self, item):
+		'''Check if ``item`` is in this config, item can be "deep" (multiple steps'''
 		if '.' in item:
 			item = item.split('.')
 
@@ -298,17 +370,6 @@ class _ConfigType(hp.Transactionable):
 			if len(item) == 1:
 				item = item[0]
 			else:
-
-				# got = self._single_get(item[0])
-				#
-				# if len(item) >= 2 and isinstance(got, list):
-				# 	idx = int(item[1])
-				# 	got = got[idx]
-				# 	if len(item) == 2:
-				# 		return got
-				# 	item = item[1:]
-				# return got[item[1:]]
-
 				return item[0] in self and item[1:] in self[item[0]]
 
 		return self.contains_nodefault(item) \
@@ -327,17 +388,14 @@ class _ConfigType(hp.Transactionable):
 		return self.get_nodefault(item)
 
 	def get_nodefault(self, item):
+		'''Get ``item`` without defaulting up the tree if not found.'''
 		val = super().__getitem__(item)
 		if val == '__x__':
 			raise KeyError(item)
 		return val
 
 	def contains_nodefault(self, item):
-		# if isinstance(item, (tuple, list)):
-		# 	if len(item) == 1:
-		# 		item = item[0]
-		# 	else:
-		# 		return item[0] in self and item[1:] in self
+		'''Check if ``item`` is contained in this config object without defaulting up the tree if ``item`` is not found'''
 		if super().__contains__(item):
 			return super().__getitem__(item) != '__x__'
 		return False
@@ -345,6 +403,20 @@ class _ConfigType(hp.Transactionable):
 
 	def pull(self, item, *defaults, silent=False, ref=False, no_parent=False,
 	         _byparent=False, _bychild=False, _defaulted=False):
+		'''
+		Top-level function to get parameters from the config object (including automatically creating components)
+		
+		:param item: name of the parameter to get
+		:param defaults: defaults to check if ``item`` is not found
+		:param silent: don't print message that this parameter was pulled
+		:param ref: if the parameter is a component that has already been created, get a reference to the created
+		component instead of creating a new instance
+		:param no_parent: don't default to parent node if the ``item`` is not found
+		:param _byparent: should not be set manually (used for printing)
+		:param _bychild: should not be set manually (used for printing)
+		:param _defaulted: should not be set manually (used for printing)
+		:return: value of the parameter (or default if ``item`` is not found)
+		'''
 		# TODO: change defaults to be a keyword argument providing *1* default, and have item*s* instead,
 		#  which are the keys to be checked in order
 
@@ -386,6 +458,7 @@ class _ConfigType(hp.Transactionable):
 
 
 	def _process_val(self, item, val, *defaults, silent=False, reuse=False, defaulted=False, byparent=False, bychild=False):
+		'''This is used by ``pull()`` to process the recovered value and print the correct message if ``not silent``'''
 		global _print_indent, _print_waiting
 
 		# TODO: add option to return an "iterator" of the value (both list and dict)
@@ -506,6 +579,9 @@ class _ConfigType(hp.Transactionable):
 	
 	def push(self, key, val, *_skip, silent=False, overwrite=True, no_parent=False, force_root=False):
 		'''
+		Set ``key`` with ``val`` in the config object, but pulls ``key`` first so that `val` is only set
+		if it is not found or ``overwrite`` is set to ``True``. It will return the current value of ``key`` after
+		possibly setting with ``val``.
 		
 		:param key: key to check/set (can be list or '.' separated string)
 		:param val: data to possibly write into the config object
@@ -555,18 +631,23 @@ class _ConfigType(hp.Transactionable):
 		return val
 
 	def is_root(self):
+		'''Check if this config object has a parent for defaults'''
 		return self.get_parent() is None
 
 	def get_parent(self):
+		'''Get parent (returns None if this is the root)'''
 		return self._parent_obj_for_defaults
 	
 	def get_root(self):
+		'''Gets the root config object (returns ``self`` if ``self`` is the root)'''
 		parent = self.get_parent()
 		if parent is None:
 			return self
 		return parent.get_root()
 	
 	def export(self, path=None):
+		'''Convert all data to a raw data (using dict/list) and save as yaml file to ``path`` if provided.
+		Also returns data.'''
 
 		data = yamlify(self)
 
@@ -580,6 +661,7 @@ class _ConfigType(hp.Transactionable):
 		return data
 
 	def _update_tree(self, parent_defaults=True):
+		'''Should be called (automatically) after updating/merging ``self`` with another config object'''
 		_clean_up_reserved(self)
 
 		if parent_defaults:
@@ -587,33 +669,16 @@ class _ConfigType(hp.Transactionable):
 
 
 
-class ConfigDict(_ConfigType, hp.TreeSpace): # TODO: allow adding aliases
+class ConfigDict(ConfigType, hp.TreeSpace): # TODO: allow adding aliases
 	'''
-	Features:
+	Keys should all be valid python attributes (strings with no whitespace, and not starting with a number).
 
-	Keys:
-	'_{}' = protected - not visible to children
-	({1}, {2}, ...) = [{1}][{2}]...
-	'{1}.{2}' = ['{1}']['{2}']
-	'{1}.{2}' = ['{1}'][{2}] (where {2} is an int and self['{1}'] is a list)
-	if {} not found: first check parent (if exists) otherwise create self[{}] = Config(parent=self)
-
-	Values:
-	'<>{}' = alias to key '{}'
-	'_x_' = (only when merging) remove this key locally, if exists
-	'__x__' = dont default this key and behaves as though it doesnt exist (except on iteration)
-	(for values of "appendable" keys)
-	"+{}" = '{}' gets appended to preexisting value if if it exists
-		(otherwise, the "+" is removed and the value is turned into a list with itself as the only element)
-
-	Also, this is Transactionable, so when creating subcomponents, the same instance is returned when pulling the same
-	sub component again.
-
-	NOTE: avoid setting '__obj' keys (unless you really know what you are doing)
-
+	NOTE: avoid setting keys that start with more than one underscore (especially '__obj')
+	(unless you really know what you are doing)
 	'''
 
 	def update(self, other={}, parent_defaults=True):
+		'''Merges ``self`` with ``other`` overwriting any parameters in ``self`` with those in ``other``'''
 		if not isinstance(other, ConfigDict):
 			# super().update(other)
 			other = configurize(other)
@@ -645,14 +710,16 @@ class ConfigDict(_ConfigType, hp.TreeSpace): # TODO: allow adding aliases
 
 
 class InvalidKeyError(Exception):
+	'''Only raised when a key cannot be converted to an index for ``ConfigList``s'''
 	pass
 
-class ConfigList(_ConfigType, hp.tlist):
+class ConfigList(ConfigType, hp.tlist):
 
-	# def pull_iter(self):
+	# def pull_iter(self): # TODO: allow a method to automatically pull ConfigLists as an iter
 	# 	return _Config_Iter(self, '', self)
 
 	def _str_to_int(self, item):
+		'''Convert the input items to indices of the list'''
 		if isinstance(item, int):
 			return item
 
@@ -668,6 +735,7 @@ class ConfigList(_ConfigType, hp.tlist):
 
 
 	def update(self, other=[], parent_defaults=True):
+		'''Overwrite ``self`` with the provided list ``other``'''
 		for i, x in enumerate(other):
 			if len(self) == i:
 				self.append(x)
@@ -718,7 +786,7 @@ class ConfigList(_ConfigType, hp.tlist):
 
 	def append(self, item, parent_defaults=True):
 		super().append(item)
-		# self._update_tree(parent_defaults=parent_defaults)  # TODO: make sure this makes sense
+		# self._update_tree(parent_defaults=parent_defaults)  # TODO: make sure manipulating lists works and updates parents
 
 	def extend(self, item, parent_defaults=True):
 		super().extend(item)
@@ -726,6 +794,7 @@ class ConfigList(_ConfigType, hp.tlist):
 
 
 class _Config_Iter(object): # TODO: generalize to dict as well (maybe iterating through full items)
+	'''Iterate through a list of parameters, processing each item only when it is iterated over (with ``next()``)'''
 
 	def __init__(self, config, name, elms):
 		self._idx = 0

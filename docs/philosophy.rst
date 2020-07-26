@@ -21,7 +21,25 @@ Topics
 - profiles and projects
     - related projects
 - config object (push, pull, export)
-    - aliases and references
+    - features:
+        - Keys:
+            - '_{}' = protected - not visible to children
+            - ({1}, {2}, ...) = [{1}][{2}]...
+            - '{1}.{2}' = ['{1}']['{2}']
+            - '{1}.{2}' = ['{1}'][{2}] (where {2} is an int and self['{1}'] is a list)
+            - if {} not found: first check parent (if exists) otherwise create self[{}] = Config(parent=self)
+
+        - Values:
+            - '<>{}' = alias to key '{}'
+            - '_x_' = (only when merging) remove this key locally, if exists
+            - '__x__' = dont default this key and behaves as though it doesnt exist (except on iteration)
+              (for values of "appendable" keys)
+            - "+{}" = '{}' gets appended to preexisting value if if it exists
+                (otherwise, the "+" is removed and the value is turned into a list with itself as the only element)
+
+        - Also, this is Transactionable, so when creating subcomponents, the same instance is returned when pulling the same
+        sub component again.
+
 - config files (hierarchy/inheritance)
 - scripts
     - meta args
