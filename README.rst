@@ -65,6 +65,9 @@ Features that could be added/improved:
 - add the "py_info" arg to integrate branch project meta data automatically
 - make sure updating config objects works as expected
 - fill in UNIT TESTS !! (especially for config system!)
+- some system to check when registered objects are overwritten or finding the origins of registered objects
+- walkthrough the full startup of omnifig (searching for projects, environment variables, loading projects)
+- improve monitoring system of config pulls/pushes (better than just printing) (and fix printing)
 
 Contributions and suggestions are always welcome.
 
