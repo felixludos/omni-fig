@@ -67,7 +67,15 @@ Components
 Modifiers
 ---------
 
+Initialization
+--------------
 
+inittime vs runtime
+
+Execution
+---------
+
+different ways to execute scripts
 
 Topics
 ------
