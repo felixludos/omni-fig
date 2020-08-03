@@ -5,26 +5,27 @@ from collections import namedtuple
 import importlib.util
 
 from .errors import MissingConfigError
-from .containers import Registry, Entry_Registry
-from .loading import get_active_project
-from .util import get_printer, autofill_args, get_global_setting
+from .loading import get_current_project
+from .util import autofill_args
+
+from omnibelt import Registry, Entry_Registry, get_printer, get_global_setting
 
 prt = get_printer(__name__)
 
 
 # region Scripts
 
-class _Script_Registry(Entry_Registry, components=['fn', 'use_config', 'project']):
+class _Script_Registry(Entry_Registry, components=['fn', 'use_config', 'description', 'project']):
 	pass
 _script_registry = _Script_Registry()
 
-def register_script(name, fn, use_config=False):
+def register_script(name, fn, use_config=False, description=None):
 	prt.debug(f'Registering script {name}')
 	if name in _script_registry:
 		prt.warning(f'A script with name {name} has already been registered, now overwriting')
 	
-	project = get_active_project()
-	_script_registry.new(name, fn=fn, use_config=use_config, project=project)
+	project = get_current_project()
+	_script_registry.new(name, fn=fn, use_config=use_config, description=description, project=project)
 	
 	if project is not None:
 		project.new_script(name)
@@ -35,16 +36,16 @@ def get_script(name):
 def view_script_registry():
 	return _script_registry.copy()
 
-def Script(name, use_config=True):
+def Script(name, use_config=True, description=None):
 	def _reg_script(fn):
 		nonlocal name, use_config
-		register_script(name, fn, use_config=use_config)
+		register_script(name, fn, use_config=use_config, description=description)
 		return fn
 	
 	return _reg_script
 
-def AutoScript(name):
-	return Script(name, use_config=False)
+def AutoScript(name, description=None):
+	return Script(name, use_config=False, description=description)
 
 # endregion
 
@@ -68,7 +69,7 @@ def register_component(name, create_fn):
 	if name in _component_registry:
 		prt.warning(f'A component with name {name} has already been registered, now overwriting')
 	
-	project = get_active_project()
+	project = get_current_project()
 	_component_registry.new(name, create_fn=create_fn, project=project)
 
 	if project is not None:
@@ -168,7 +169,7 @@ def register_modifier(name, mod_fn, expects_config=False):
 	if name in _mod_registry:
 		prt.warning(f'A modifier with name {name} has already been registered, now overwriting')
 	
-	project = get_active_project()
+	project = get_current_project()
 	_mod_registry.new(name, fn=mod_fn, expects_config=expects_config, project=project)
 	
 	if project is not None:

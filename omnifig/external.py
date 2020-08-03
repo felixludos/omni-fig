@@ -2,8 +2,8 @@ import sys, os
 import importlib
 import importlib.util
 
-from .util import get_printer
-from .containers import Entry_Registry, Registry
+from omnibelt import get_printer, Registry, Entry_Registry
+
 
 prt = get_printer(__name__)
 
@@ -77,7 +77,7 @@ def include_configs(*paths, project=None):
 			if len(parts) > 1 and parts[-1] in {'yml', 'yaml'}:
 				register_config(parts[0], path, project=project)
 
-def view_config_registry():
+def view_config_registry(): # TODO: clean this up - return view not copy of the full registry
 	return _config_registry.copy()
 
 
@@ -111,32 +111,21 @@ def find_config_path(name):
 
 # endregion
 
-# region projects
+# region project types
 
-_ptype_assocs = {}
 _ptype_registry = Registry()
 
 
-def register_project_type(name, cls, auto_assoc=[]):
+def register_project_type(name, cls):
 	'''
 	Project types allow users to customize the behavior of project objects
 
 	:param name: identifier of this project type
 	:param cls: project type class
-	:param auto_assoc: list of project names for which this project type should be used automatically
 	:return:
 	'''
-	
-	# prt.debug(f'Registering project type {name}')
-	if name in _ptype_registry:
-		prt.warning(f'A project type with name {name} has already been registered, now overwriting')
-	
+
 	_ptype_registry.new(name, cls)
-	for auto in auto_assoc:
-		prt.debug(f'Including assoc {auto} -> {name}')
-		if name in _ptype_assocs:
-			prt.warning(f'Auto Association for {auto} already exists, now overwriting to {name}')
-		_ptype_assocs[auto] = name
 
 
 def get_project_type(name):
@@ -156,11 +145,11 @@ def view_project_types():
 	return _ptype_registry.copy()
 
 
-def view_project_assocs():
-	return _ptype_assocs.copy()
-
-
-def get_project_assoc(name):
-	return _ptype_assocs.get(name, None)
+# def view_project_assocs():
+# 	return _ptype_assocs.copy()
+#
+#
+# def get_project_assoc(name):
+# 	return _ptype_assocs.get(name, None)
 
 # endregion

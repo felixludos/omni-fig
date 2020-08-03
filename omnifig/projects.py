@@ -3,9 +3,10 @@ import sys, os
 import yaml
 from argparse import Namespace
 
-from .util import get_printer, get_now
-from .containers import Registry, Customizable_Infomation
-from .preload import include_files, register_project_type, include_configs, include_package
+from .containers import Customizable_Infomation
+from .external import include_files, register_project_type, include_configs, include_package
+
+from omnibelt import get_printer, get_now
 
 prt = get_printer(__name__)
 
@@ -14,9 +15,9 @@ class Project(Customizable_Infomation):
 	required_attrs = ['name', 'author', 'info_path']
 	recommended_attrs = ['url', 'version', 'license', 'description']
 	
-	def __init_subclass__(cls, ptype=None, auto_assoc=[]):
+	def __init_subclass__(cls, ptype=None):
 		cls.ptype = ptype
-		register_project_type(ptype, cls, auto_assoc=auto_assoc)
+		register_project_type(ptype, cls)
 	
 	@classmethod
 	def get_project_type(cls):
@@ -36,7 +37,7 @@ class Project(Customizable_Infomation):
 	@staticmethod
 	def check_project_name(raw):
 		if 'name' not in raw:
-			prt.critical('No name found in project info')
+			prt.error('No name found in project info')
 		return raw['name'] # must be included
 	
 	@staticmethod
@@ -60,17 +61,21 @@ class Project(Customizable_Infomation):
 		:param raw: dictionary of info (usually loaded from a yaml)
 		'''
 		
-		# region check project type
 		
-		self.check_project_type(raw)
-		
-		# endregion
 		# region path
 		
 		self.info_path = raw['info_path']
 		self.root = os.path.dirname(self.info_path)
 		
 		# endregion
+		
+		if 'py_info' in raw:
+			info = {'__file__': os.path.join(self.root, raw['py_info'])}
+			with open(info['__file__'], 'r') as f:
+				exec(f.read(), info)
+			del info['__file__']
+			raw.update(info)
+		
 		# region info
 		
 		self.name = raw.get('name', None)
@@ -87,7 +92,7 @@ class Project(Customizable_Infomation):
 		
 		self.version = raw.get('version', None)
 		self.license = raw.get('license', None)
-		self.type = raw.get('type', 'leaf') # {leaf, package}
+		self.use = raw.get('use', 'leaf') # {leaf, package}
 		
 		self.description = raw.get('description', None)
 		
@@ -99,8 +104,8 @@ class Project(Customizable_Infomation):
 		# endregion
 		# region related
 		
-		self.related = raw.get('related', {}) # should be a map of project name -> path
-		self.dependenies = raw.get('dependency', []) # names of projects that must be loaded before this one
+		self.related = raw.get('related', []) # should be a list of idents (paths or names in profile)
+		# self.dependenies = raw.get('dependency', []) # names of projects that must be loaded before this one
 		
 		# endregion
 		# region components
@@ -115,7 +120,7 @@ class Project(Customizable_Infomation):
 			self.src_paths = [src] + self.src_paths
 		self.src_packages = raw.get('src_packages', [])
 		
-		self.scripts = raw.get('scripts', [])
+		self.scripts = raw.get('scripts', []) # TODO: maybe track contents
 		self.configs = raw.get('configs', [])
 		self.components = raw.get('components', [])
 		self.modifiers = raw.get('modifiers', [])
@@ -136,7 +141,7 @@ class Project(Customizable_Infomation):
 		
 		super().import_info(raw)
 		
-	def prepare(self):
+	def initialize(self):
 		self.load_configs()
 		self.load_src()
 		
@@ -145,17 +150,9 @@ class Project(Customizable_Infomation):
 			include_configs(*self.config_paths, project=self)
 			
 	def load_src(self):
-		
-		srcs = []
-		for s in self.src_paths:
-			srcs.append(s)
-			srcs.append(os.path.join(self.info_dir, s))
-		if len(srcs):
-			include_files(*srcs)
-			
+		include_files(*self.src_paths)
 		include_package(*self.src_packages)
-			
-		
+	
 	def get_related(self):
 		return self.related
 		

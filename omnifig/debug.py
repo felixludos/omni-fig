@@ -1,35 +1,37 @@
 
-import sys, os
+import sys
 import traceback
 
 from .config import get_config
-from .modes import Run_Mode, Meta_Argument
+from .modes import Run_Mode
+from .rules import Meta_Rule
+from .registry import Component
 
-DEBUG_MODE_NAME = 'debug'
+DEBUG_CODE = 'd'
+DEBUG_NAME = 'debug'
+DEBUG_MODE_NAME = f'run_mode/{DEBUG_NAME}'
 
-class Debug_Arg(Meta_Argument, name=DEBUG_MODE_NAME, code='d'):
-	def __init__(self, meta, config):
-		super().__init__(meta, config)
-		
-		meta.mode = DEBUG_MODE_NAME
-
-class Debug_Mode(Run_Mode, name=DEBUG_MODE_NAME):
+@Meta_Rule(DEBUG_NAME, priority=100, code=DEBUG_CODE, description='Switch to debug mode')
+def debug_rule(meta, config):
 	
-	def __init__(self, meta, config, auto_meta_args=[]):
-		
-		debug = get_config(DEBUG_MODE_NAME)
-		
-		debug.update(config)
-		config.clear()
+	debug = meta.pull(DEBUG_NAME, False, silent=True)
+	if debug:
+		meta.push('_type', DEBUG_MODE_NAME, silent=True)
+		print('Switched to debug run mode')
+	
+		debug = get_config(DEBUG_NAME)
 		config.update(debug)
-		
-		meta.update(config._meta)
-		
 
-	def run(self, script_info, meta, config):
+	return config
+
+
+@Component(DEBUG_MODE_NAME)
+class Debug_Mode(Run_Mode):
+
+	def run(self, meta, config):
 		
 		try:
-			return super().run(script_info, meta, config)
+			return super().run(meta, config)
 		except KeyboardInterrupt:
 			extype, value, tb = sys.exc_info()
 			traceback.print_exc()

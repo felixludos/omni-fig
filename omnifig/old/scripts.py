@@ -1,12 +1,11 @@
 
 import sys, os
-import inspect
 
-from .util import get_printer, get_global_setting, resolve_order, autofill_args, set_global_setting
-from .registry import get_script
-from .loading import load_profile, include_files, get_project
-from .config import get_config
-from .modes import get_run_mode, meta_arg_registry
+from omnifig.util import get_printer, get_global_setting, resolve_order
+from omnifig.registry import get_script
+from omnifig.loading import load_profile, include_files, get_project
+from omnifig.config import get_config
+from omnifig.old.modes import get_run_mode, meta_arg_registry
 
 prt = get_printer(__name__)
 

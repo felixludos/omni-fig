@@ -21,6 +21,8 @@ The most important distinction between `Scripts` and `Components` is that `Compo
 
 Once registered, `Scripts`, `Components`, and `Modifiers` can be used anywhere mitigating the need for lots of ``import`` statements in every new file. Additionally, `Scripts` can be run using all of the registered "run modes" (eg. run from the terminal, with a debugger, etc.).
 
+- also registries allow objects/classes to be specified in a config (yaml) file - everything is a string (with the real thing being stored in a registry)
+
 Config System
 -------------
 
@@ -30,8 +32,11 @@ The code you write is only as valuable as you are able to use it in the way you 
 
 - defaulting
 
+- generally dont iterate through a config object (just pull whatever is needed)
+
 - Keys:
     - '_{}' = protected - not visible to children for defaulting
+    - '__{}' = volatile - not exported
     - ({1}, {2}, ...) = [{1}][{2}]...
     - '{1}.{2}' = ['{1}']['{2}']
     - '{1}.{2}' = ['{1}'][{2}] (where {2} is an int and self['{1}'] is a list)

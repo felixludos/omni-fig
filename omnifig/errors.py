@@ -1,6 +1,10 @@
 
 
 
+class NoValidProjectError(Exception):
+	def __init__(self, ident):
+		super().__init__(f'Not a valid project: {ident}')
+
 class YamlifyError(Exception):
 	def __init__(self, obj):
 		super().__init__('Unable to yamlify: {} (type={})'.format(obj, type(obj)))
@@ -8,6 +12,8 @@ class YamlifyError(Exception):
 
 class ParsingError(Exception):
 	pass
+
+
 
 class MissingConfigError(Exception):
 	def __init__(self, key):
