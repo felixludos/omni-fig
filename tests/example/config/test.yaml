@@ -1,0 +1,26 @@
+
+
+arg1: test
+
+a123: [1,2,another]
+
+a.b: 1.e-3
+
+deep:
+  x1: 10
+  x2:
+    a: 1.2
+  plus1: <>x1
+  b2: <>test
+  qwerty:
+    - first
+    - t:
+        d: 2
+        x5: <>x1
+        cabbage: null
+        check:
+          - this one
+          - H: asdf
+    - for:
+        q: True
+        v: None

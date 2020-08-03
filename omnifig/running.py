@@ -14,6 +14,8 @@ PRINCEPS_NAME = 'FIG_PRINCEPS_PATH'
 
 def entry(script_name=None):
 	argv = sys.argv[1:]
+	print(argv)
+	quit()
 	return main(*argv, script_name=script_name)
 
 def main(*argv, script_name=None):

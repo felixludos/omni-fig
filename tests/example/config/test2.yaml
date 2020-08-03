@@ -1,0 +1,34 @@
+
+
+simple: p
+
+alias_option: found
+
+unseen: 45
+
+a.b: inside
+
+fruit:
+  - apples
+  - bananas
+  - peaches
+
+others:
+  - tom
+  - jerry
+  - not:
+      mickey: mouse
+
+x:
+  y: hello
+  z: [1,2]
+
+costs:
+  steel: 10.e+9
+  lumber: 400.1
+  copper: unknown
+  gold: None
+  gems:
+    rubies: 1
+    diamond: '?'
+

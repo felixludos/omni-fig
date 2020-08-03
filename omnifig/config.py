@@ -5,7 +5,7 @@ import yaml, json
 from collections import defaultdict
 from c3linearize import linearize
 
-from omnibelt import load_yaml
+from omnibelt import load_yaml, get_printer
 
 from .util import primitives
 from .errors import YamlifyError, ParsingError, NoConfigFound, MissingConfigError
@@ -14,6 +14,7 @@ from .registry import create_component, _appendable_keys, Component
 
 nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
 
+prt = get_printer(__name__)
 
 def configurize(data, parent_defaults=True):
 	'''
@@ -139,6 +140,7 @@ def get_config(*contents, parent_defaults=True, include_load_history=True):  # T
 		return root
 
 	reg = []
+	terms = {}
 	allow_reg = True
 	waiting_key = None
 	
@@ -147,11 +149,11 @@ def get_config(*contents, parent_defaults=True, include_load_history=True):  # T
 		if term.startswith('--'):
 			allow_reg = False
 			if waiting_key is not None:
-				root[waiting_key] = True
+				terms[waiting_key] = True
 			waiting_key = term[2:]
 		
 		elif waiting_key is not None:
-			root[waiting_key] = process_raw_argv(term)
+			terms[waiting_key] = process_raw_argv(term)
 			waiting_key = None
 			
 		elif allow_reg:
@@ -160,6 +162,8 @@ def get_config(*contents, parent_defaults=True, include_load_history=True):  # T
 		else:
 			raise Exception(f'Parsing error: {term} in {contents}')
 		
+	root.update(configurize(terms))
+	
 	if len(reg) == 0:
 		return root
 
@@ -195,140 +199,13 @@ def get_config(*contents, parent_defaults=True, include_load_history=True):  # T
 	else:  # TODO: clean up
 		order = [root]
 	
-	# load = None
-	# for part in order:
-	# 	if 'load' in part:
-	# 		assert load is None, 'Only one load config is allowed in a config'
-	# 		load = part.load
-	#
-	# order.insert(0, get_config(load, parent_defaults=parent_defaults, include_load_history=include_load_history))
-	
 	root = merge_configs(order,
 	                     parent_defaults=parent_defaults)  # update to connect parents and children in tree and remove reversed - see Config.update
 	
 	if include_load_history:
 		root._history = pnames
-		# if load is not None:
-		# 	root._loaded = load
-		# if 'load' in root:
-		# 	del root.load
 	
 	return root
-
-
-
-#
-# def parse_config(argv=None, parent_defaults=True, include_load_history=False):
-# 	# WARNING: 'argv' should not be equivalent to sys.argv here (no script name in element 0)
-#
-# 	if argv is None:
-# 		argv = sys.argv[1:]
-#
-# 	# argv = argv[1:]
-#
-# 	root = ConfigDict()  # from argv
-#
-# 	parents = []
-# 	for term in argv:
-# 		if len(term) >= 2 and term[:2] == '--':
-# 			break
-# 		else:
-# 			# assert term in _config_registry or os.path.isfile(term), 'invalid config name/path: {}'.format(term)
-# 			parents.append(term)
-# 	root.parents = parents
-#
-# 	argv = argv[len(parents):]
-#
-# 	if len(argv):
-#
-# 		terms = iter(argv)
-#
-# 		term = next(terms)
-# 		if term[:2] != '--':
-# 			raise ParsingError(term)
-# 		done = False
-# 		while not done:
-# 			keys = term[2:].split('.')
-# 			values = []
-# 			try:
-# 				val = next(terms)
-# 				while val[:2] != '--':
-# 					try:
-# 						values.append(configurize(json.loads(val)))
-# 					except json.JSONDecodeError:
-# 						print('Json failed to parse: {}'.format(repr(val)))
-# 						values.append(val)
-# 					val = next(terms)
-# 				term = val
-# 			except StopIteration:
-# 				done = True
-#
-# 			if len(values) == 0:
-# 				values = [True]
-# 			if len(values) == 1:
-# 				values = values[0]
-# 			root[keys] = values
-#
-# 	root = get_config(root, parent_defaults=parent_defaults, include_load_history=include_load_history)
-#
-# 	return root
-
-
-# _reserved_names.update({'_x_'})
-
-
-# def _add_default_parent(C):
-# 	'''
-# 	Set C to be the parent of all children of C.
-#
-# 	This is used when merging, combining, or updating config objects.
-#
-# 	:param C: config object
-# 	:return: None
-# 	'''
-# 	for k, child in C.items():
-# 		if isinstance(child, ConfigDict):
-# 			child._parent_obj_for_defaults = C
-# 			_add_default_parent(child)
-# 		elif isinstance(child, (tuple, list, set)):
-# 			for c in child:
-# 				if isinstance(c, ConfigDict):
-# 					c._parent_obj_for_defaults = C
-# 					_add_default_parent(c)
-#
-#
-# def _clean_up_reserved(C):
-# 	'''
-# 	Remove any unnecessary reserved entries in the config.
-#
-# 	This is used when merging, combining, or updating config objects.
-#
-# 	:param C: config object
-# 	:return: None
-# 	'''
-# 	bad = []
-# 	for k, v in C.items():
-# 		if v == '_x_':  # maybe include other _reserved_names
-# 			bad.append(k)
-# 		elif isinstance(v, ConfigDict):
-# 			_clean_up_reserved(v)
-# 	for k in bad:
-# 		del C[k]
-
-
-# TODO: find a way to avoid this ... probably not easy
-_print_waiting = False
-_print_indent = 0
-
-
-def _print_with_indent(s):
-	'''
-	Print message when taking the current global indent into account.
-	
-	:param s: str message
-	:return: indented message
-	'''
-	return s if _print_waiting else ''.join(['  ' * _print_indent, s])
 
 
 class _Silent_Config:
@@ -486,6 +363,11 @@ class ConfigType(hp.Transactionable):
 
 	@staticmethod
 	def parse_argv(arg):
+		try:
+			return json.loads(arg)
+		except:
+			pass
+			# prt.error(f'Json decoding failed for: {arg}')
 		return arg
 
 	def _single_get(self, item):
@@ -967,9 +849,6 @@ class InvalidKeyError(Exception):
 
 class ConfigList(ConfigType, hp.tlist):
 
-	# def pull_iter(self): # TODO: allow a method to automatically pull ConfigLists as an iter
-	# 	return _Config_Iter(self, '', self)
-	
 	def purge_volatile(self):
 		bad = []
 		for k, v in self.items():
@@ -1048,7 +927,7 @@ class ConfigList(ConfigType, hp.tlist):
 		
 	def contains_nodefault(self, item):
 		idx = self._str_to_int(item)
-		return 0 <= idx < len(self)
+		return -len(self) <= idx < len(self)
 
 	def append(self, item, parent_defaults=True):
 		super().append(item)
