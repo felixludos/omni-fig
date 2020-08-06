@@ -11,15 +11,31 @@ _default_help_msg = '''
 Usage: fig [-<meta>] {script} [<configs>...] [--<args>]
 
 {scripts}
-meta: Optional meta arguments (usually specified with a single letter)
+
++------+
+| meta |
++------+
+Optional meta arguments (usually specified with a single letter)
 {metas}
-configs: Specify any registered configs to merge
+
++---------+
+| configs |
++---------+
+Specify any registered configs to merge
+
 {configs}
-args: Any additional arguments specified manually
+
++------+
+| args |
++------+
+Any additional arguments specified manually
 as key-value pairs (keys with "--")
 '''
 
-_default_script_info = '''script: Specify a registered script name to run
+_default_script_info = '''+--------+
+| script |
++--------+
+Specify a registered script name to run
 {available}'''
 
 _script_sel = '''Script: {script}
@@ -29,13 +45,18 @@ _script_sel = '''Script: {script}
 @Meta_Rule('help', priority=99, code='h', description='Display this help message')
 def help_message(meta, config):
 	
+	show_help = meta.pull('help', False, silent=True)
+	
+	if not show_help:
+		return config
+	
 	name = meta.pull('script_name', None, silent=True)
 	num = meta.pull('show_args', 4, silent=True)
 	
 	metas = [(f'-{r.code}', r.name, '-' if r.description is None else r.description)
 	         for r in view_meta_rules() if r.code is not None][:num]
 	
-	minfo = tabulate(metas, headers=['Code', 'Name', 'Description'], ) + '\n' # tablefmt="plain"
+	minfo = tabulate(metas, headers=['Code', 'Name', 'Description'], ) # tablefmt="plain"
 	
 	scripts = [(s.name, '-' if s.description is None else s.description)
 	           for s in view_script_registry().values()]#[:num]
@@ -47,14 +68,17 @@ def help_message(meta, config):
 		end = f' ... [{len(configs)} items]'
 	
 	cinfo = ', '.join(configs)
-	cinfo = f'Registered configs: {cinfo}{end}\n'
+	cinfo = f'Registered configs: {cinfo}{end}'
 	
 	if name is None:
 		name = '<script>'
 		
-		sinfo = _default_script_info.format(available=
-		                    tabulate(scripts, headers=['Name', 'Description'],)) + '\n' #tablefmt="plain"
+		if len(scripts) == 0:
+			sinfo = '\n  - No scripts registered -'
+		else:
+			sinfo = tabulate(scripts, headers=['Name', 'Description'],) #tablefmt="plain"
 		
+		sinfo = _default_script_info.format(available=sinfo)
 	
 	else:
 		

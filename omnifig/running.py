@@ -14,8 +14,6 @@ PRINCEPS_NAME = 'FIG_PRINCEPS_PATH'
 
 def entry(script_name=None):
 	argv = sys.argv[1:]
-	print(argv)
-	quit()
 	return main(*argv, script_name=script_name)
 
 def main(*argv, script_name=None):
@@ -83,7 +81,7 @@ def process_argv(argv=(), script_name=None):
 	
 	# call get_config
 	config = get_config(*remaining)
-	config._meta.update(meta)
+	config.sub('_meta').update(meta)
 	
 	return config
 
@@ -121,14 +119,14 @@ def run(script_name=None, config=None, **meta_args):
 	# config._meta.update(meta_args)
 	
 	for rule in meta_rule_fns():
-		config = rule(config._meta, config)
+		config = rule(config.sub('_meta'), config)
 	
 	config.push('_meta._type', 'run_mode/default', overwrite=False, silent=True)
 	silent = config.pull('_meta._quiet_run_mode', True, silent=True)
 	mode = config.pull('_meta', silent=silent)
 	# config = mode.process(config)
 	
-	return mode.run(config._meta, config)
+	return mode.run(config.sub('_meta'), config)
 
 
 def quick_run(script_name, **args):
