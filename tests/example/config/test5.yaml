@@ -1,0 +1,38 @@
+
+
+a1: 1
+
+a2: b2
+
+a3: [b4, b5]
+
+a4:
+  a5: 1
+  a6: 2
+
+a12:
+  a13: not good
+
+a14: bad
+
+a7:
+  _type: c1
+
+  a2: worked
+
+  a8:
+    a9: 5
+
+  a10: ['0',-1]
+
+  a11: <>a1
+
+  a14: success
+
+  a12:
+    a13: <o>a14
+    a15: <>a14
+    a14: next
+
+
+

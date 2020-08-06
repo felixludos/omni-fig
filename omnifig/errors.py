@@ -13,7 +13,9 @@ class YamlifyError(Exception):
 class ParsingError(Exception):
 	pass
 
-
+class UnknownActionError(Exception):
+	pass
+	
 
 class MissingConfigError(Exception):
 	def __init__(self, key):

@@ -1,0 +1,51 @@
+
+
+s1: <>p1
+
+l4:
+  l5: # should be subbed here for s2
+    s2: <>b1
+    p7: nope
+  b6: <>l4.b7
+  l4:
+    b7: <>l1.l2.2
+  b7: uh oh
+  l3:
+    p5: <o>b6
+  b1: <>l2.b2
+
+b6: oh no
+
+p1: <>l1.p2
+
+p3: <>l1.l2.1.p4
+
+p7: f1
+
+l3:
+  p5: <>b5
+
+l1:
+  p2: <>p3
+  l1: not good
+  l2:
+    - distraction
+    - p4: <>l3.p5
+      b3: <o>l3.p5
+      l3:
+        p5: <>p6
+    - f2
+  p6: <o>p7
+  p7: bad
+
+
+p6: woops
+
+l2:
+  l1:
+    b3: wrong
+  b2: <o>l1.l2.1.b3
+
+
+
+

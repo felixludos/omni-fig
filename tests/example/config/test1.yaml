@@ -4,7 +4,15 @@ arg1: test
 
 a123: [1,2,another]
 
-a.b: 1.e-3
+a.b: 10
+
+a:
+  x: 1
+
+fruit:
+  - tomato
+
+unknown: bad
 
 deep:
   x1: 10
@@ -12,11 +20,14 @@ deep:
     a: 1.2
   plus1: <>x1
   b2: <>test
+  qw: <o>unknown
   qwerty:
     - first
     - t:
         d: 2
         x5: <>x1
+        difficult: <>qw
+        unknown: good
         cabbage: null
         check:
           - this one

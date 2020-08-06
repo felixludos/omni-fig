@@ -69,6 +69,8 @@ Scripts
 Components
 ----------
 
+good hygiene dictates that the config object is not stored in any components (all required information should be pulled instead)
+
 Modifiers
 ---------
 

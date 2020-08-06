@@ -7,6 +7,7 @@ alias_option: found
 unseen: 45
 
 a.b: inside
+a.c: 2
 
 fruit:
   - apples
@@ -18,6 +19,13 @@ others:
   - jerry
   - not:
       mickey: mouse
+
+papageno: 10
+
+vogel:
+  papageno: __x__
+  papagei: parrot
+  papagena: <>papageno
 
 x:
   y: hello
