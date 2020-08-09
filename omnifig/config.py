@@ -155,6 +155,9 @@ def get_config(*contents, parent_defaults=True, include_load_history=True):  # T
 		else:
 			raise Exception(f'Parsing error: {term} in {contents}')
 		
+	if waiting_key is not None:
+		terms[waiting_key] = True
+		
 	root.update(configurize(terms))
 	
 	if len(reg) == 0:
@@ -280,8 +283,8 @@ class Config_Printing:
 		return msg
 		
 
-# class ConfigType(hp.Transactionable):
-class ConfigType(object):
+class ConfigType(hp.Transactionable):
+# class ConfigType(object):
 	'''
 	The abstract super class of config objects.
 	
@@ -622,7 +625,7 @@ class ConfigType(object):
 		if action in {'created', 'pulled-dict', 'pulled-list'}:
 			assert obj is not None, 'no object provided'
 			printer.dec_indent()
-			# return ''
+			return ''
 			return printer.log_record(f'=> id={hex(id(obj))}', silent=silent)
 
 		pval = None if val is None else repr(val)
@@ -927,8 +930,8 @@ class ConfigType(object):
 
 
 
-# class ConfigDict(ConfigType, hp.tdict):
-class ConfigDict(ConfigType, OrderedDict):
+class ConfigDict(ConfigType, hp.tdict):
+# class ConfigDict(ConfigType, OrderedDict):
 	
 	'''
 	Keys should all be valid python attributes (strings with no whitespace, and not starting with a number).
@@ -984,8 +987,8 @@ class InvalidKeyError(Exception):
 	'''Only raised when a key cannot be converted to an index for ``ConfigList``s'''
 	pass
 
-# class ConfigList(ConfigType, hp.tlist):
-class ConfigList(ConfigType, list):
+class ConfigList(ConfigType, hp.tlist):
+# class ConfigList(ConfigType, list):
 
 	def __init__(self, *args, empty_fill_value=None, **kwargs):
 		super().__init__(*args, **kwargs)

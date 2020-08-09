@@ -21,6 +21,8 @@ def debug_rule(meta, config):
 	
 		debug = get_config(DEBUG_NAME)
 		config.update(debug)
+		
+		meta.push('debug', False, silent=True) # to prevent running this rule multiple times for the same config
 
 	return config
 

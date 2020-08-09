@@ -12,8 +12,8 @@ prt = get_printer(__name__)
 
 class Project(Customizable_Infomation):
 
-	required_attrs = ['name', 'author', 'info_path']
-	recommended_attrs = ['url', 'version', 'license', 'description']
+	# required_attrs = ['name', 'author', 'info_path']
+	# recommended_attrs = ['url', 'version', 'license', 'description']
 	
 	def __init_subclass__(cls, ptype=None):
 		cls.ptype = ptype
@@ -94,6 +94,8 @@ class Project(Customizable_Infomation):
 		self.license = raw.get('license', None)
 		self.use = raw.get('use', 'leaf') # {leaf, package}
 		
+		self.add_to_path = raw.get('add_to_path', True)
+		
 		self.description = raw.get('description', None)
 		
 		for key in raw:
@@ -142,6 +144,14 @@ class Project(Customizable_Infomation):
 		super().import_info(raw)
 		
 	def initialize(self):
+		# if 'PYTHONPATH' not in os.environ:
+		# 	os.environ['PYTHONPATH'] = self.root
+		# elif self.root not in os.environ['PYTHONPATH']:
+		# 	rest = os.environ['PYTHONPATH']
+		# 	os.environ['PYTHONPATH'] = f'{rest};{self.root}'
+		# print(sys.path)
+		if self.add_to_path:
+			sys.path.append(self.root)
 		self.load_configs()
 		self.load_src()
 		

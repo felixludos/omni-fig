@@ -3,7 +3,7 @@
 name = 'omnifig'
 long_name = 'omni-fig'
 
-version = '0.3'
+version = '0.3.1'
 
 url = 'https://github.com/felixludos/omni-fig'
 
