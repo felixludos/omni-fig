@@ -1,14 +1,14 @@
 
 import sys, os
 import humpack as hp
-import yaml, json
+import io, yaml, json
 from collections import defaultdict, OrderedDict
 from c3linearize import linearize
 
 from omnibelt import load_yaml, get_printer
 
 from .util import primitives
-from .errors import YamlifyError, ParsingError, NoConfigFound, MissingConfigError, UnknownActionError
+from .errors import YamlifyError, MissingConfigError, UnknownActionError, InvalidKeyError
 from .external import find_config_path
 from .registry import create_component, _appendable_keys, Component
 
@@ -16,46 +16,11 @@ nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
 
 prt = get_printer(__name__)
 
-def configurize(data):
-	'''
-	Transform data container to use config objects (ConfigDict/ConfigList)
-	
-	:param data: dict/list data
-	:return: deep copy of data using ConfigDict/ConfigList
-	'''
-	if isinstance(data, ConfigType):
-		return data
-	if isinstance(data, dict):
-		return ConfigDict(data={k: configurize(v) for k, v in data.items()})
-	if isinstance(data, (list, set)):
-		return ConfigList(data=[configurize(x) for x in data])
-	if isinstance(data, str) and data in nones:
-		return None
-	return data
-
-
-def yamlify(data): # TODO: allow adding yamlify rules for custom objects
-	'''
-	Transform data container into regular dicts/lists to export to yaml file
-	
-	:param data: Config object
-	:return: deep copy of data using dict/list
-	'''
-	if data is None:
-		return '_None'
-	if isinstance(data, dict):
-		return {k: yamlify(v) for k, v in data.items() if not k.startswith('__')}
-	if isinstance(data, (list, tuple, set)):
-		return [yamlify(x) for x in data]
-	if isinstance(data, primitives):
-		return data
-	
-	raise YamlifyError(data)
-
-
 def load_config_from_path(path, process=True):
 	'''
 	Load the yaml file and transform data to a config object
+	
+	Generally, ``get_config`` should be used instead of this method
 	
 	:param path: must be the full path to a yaml file
 	:param process: if False, the loaded yaml data is passed without converting to a config object
@@ -75,10 +40,11 @@ def process_single_config(data, process=True, parents=None):  # data can either 
 	'''
 	This loads the data (if a path or name is provided) and then checks for parents and loads those as well
 	
+	Generally, ``get_config`` should be used instead of this method
+	
 	:param data: config name or path or raw data (dict/list) or config object
 	:param process: configurize loaded data
-	:param parents: if None, no parents are loaded, otherwise it must be a dict where the keys are the absolute paths
-	to the config (yaml) file and values are the loaded data
+	:param parents: if None, no parents are loaded, otherwise it must be a dict where the keys are the absolute paths to the config (yaml) file and values are the loaded data
 	:return: loaded data (as a config object or raw)
 	'''
 	
@@ -102,6 +68,8 @@ def process_single_config(data, process=True, parents=None):  # data can either 
 def merge_configs(configs, parent_defaults=True):
 	'''
 	configs should be ordered from oldest to newest (ie. parents first, children last)
+	
+	This is an internal method used by ``get_config()`` and should generally not be called manually.
 	'''
 	
 	if not len(configs):
@@ -116,16 +84,18 @@ def merge_configs(configs, parent_defaults=True):
 	return merged
 
 
-def get_config(*contents, parent_defaults=True, include_load_history=True):  # Top level function
+def get_config(*contents, **manual):  # Top level function
 	'''
 	Top level function for users. This is the best way to load/create a config object.
 
-	All registered config names or paths must precede any manual entries.
-	For manual entries, "--" must be added to the key, followed by the value (``True`` if no value is given)
+	All parent config (registered names or paths) that should be loaded
+	must precede any manual entries, and will be loaded in reverse order (like python class inheritance).
+	
+	If the key ``_history_key`` is specified and not :code:`None`, a flattened list of all parents of
+	this config is pushed to the given key.
 	
 	:param contents: registered configs or paths or manual entries (like in terminal)
-	:param parent_defaults: use the parents as defaults when a key is not found
-	:param include_load_history: save load ordered history (parents) under the key `_history`
+	:param manual: specify parameters manually as key value pairs
 	:return: config object
 	'''
 	root = ConfigDict()
@@ -133,7 +103,7 @@ def get_config(*contents, parent_defaults=True, include_load_history=True):  # T
 		return root
 
 	reg = []
-	terms = {}
+	terms = {**manual}
 	allow_reg = True
 	waiting_key = None
 	
@@ -163,13 +133,16 @@ def get_config(*contents, parent_defaults=True, include_load_history=True):  # T
 	if len(reg) == 0:
 		return root
 
+	root['parents'] = ConfigList(data=reg + (list(root['parents']) if 'parents' in root else []))
+
 	parents = {}
 	
-	root['parents'] = ConfigList(data=reg)
 	root = process_single_config(root, parents=parents)
 
 	pnames = []
 	if len(parents):  # topo sort parents
+		
+		# TODO: maybe clean up?
 		
 		root_id = ' root'
 		src = defaultdict(list)
@@ -188,43 +161,27 @@ def get_config(*contents, parent_defaults=True, include_load_history=True):  # T
 		order = [root] + [parents[p] for p in order[1:]]
 		
 		# for analysis, record the history of all loaded parents
-
 		order = list(reversed(order))
-		
-		# for p in order:
-		# 	if 'parents' in p:
-		# 		for prt in p.parents:
-		# 			if len(pnames) == 0 or prt not in pnames:
-		# 				pnames.append(prt)
-		# pnames = list(reversed(pnames))
 	
 	else:  # TODO: clean up
 		order = [root]
 	
-	root = merge_configs(order,
-	                     parent_defaults=parent_defaults)  # update to connect parents and children in tree and remove reversed - see Config.update
+	root = merge_configs(order,)
 	
-	if include_load_history:
-		root['_history'] = pnames
+	include_history = root.pull('_history_key', None, silent=True)
+	if include_history is not None:
+		root.push(include_history, pnames, silent=True)
 	
 	return root
 
 
-class _Silent_Config:
-	def __init__(self, config, setting):
-		self.config = config
-		self.setting = setting
-		self.prev = config._get_silent()
-	
-	def __enter__(self):
-		self.config._set_silent(self.setting)
-		return self.config
-	
-	def __exit__(self, exc_type, exc_val, exc_tb):
-		self.config._set_silent(self.prev)
+
 
 _printing_instance = None
 class Config_Printing:
+	'''
+	Internal class to manage the printing pulls/pushes of the config object. (eg. indent/line styles)
+	'''
 	def __new__(cls, *args, **kwargs): # singleton
 		global _printing_instance
 		if _printing_instance is None:
@@ -238,7 +195,7 @@ class Config_Printing:
 		self.silent = False
 	
 	def __repr__(self):
-		return f'ConfigPrinting[{id(self)}]'
+		return f'ConfigPrinting[{hex(id(self))}]'
 	def __str__(self):
 		return f'ConfigPrinting'
 	
@@ -284,11 +241,11 @@ class Config_Printing:
 		
 
 class ConfigType(hp.Transactionable):
-# class ConfigType(object):
 	'''
 	The abstract super class of config objects.
 	
 	The most important methods:
+	
 		- ``push()`` - set a parameter in the config
 		- ``pull()`` - get a parameter in the config
 		- ``sub()`` - get a sub branch of this config
@@ -301,15 +258,25 @@ class ConfigType(hp.Transactionable):
 	
 	Config objects also allow for "deep" gets/sets, which means you can get and set parameters not just in
 	the current node, but any number of nodes deeper in the tree by passing a list/tuple of keys
-	or keys separated by ".".
+	or keys separated by "." (hereafter called the "address" of the parameter).
 	
-	Note: that all parameters must not contain "." and should generally be valid identifiers
+	Note: that all parameters must not contain "." and should generally be valid python identifiers
 	(strings with no white space that don't start with a number).
 	
 	'''
 
-	def __init__(self, parent=None, silent=False, printer=None, prefix=None, data=None):
+	def __init__(self, parent=None, silent=False, printer=None, prefix=None, safe_mode=False,
+	             data=None):
+		'''
+		Generally it should not be necessary to create a ConfigType manually, instead use ``get_config()``.
 		
+		:param parent: parent config used for defaults
+		:param silent: don't print ``pull``s and ``push``es
+		:param printer: printer object to handle printing messages
+		:param prefix: initial prefix used for printing
+		:param safe_mode: don't save created component instances, unless during a transaction
+		:param data: raw parameters to immediately add to this config
+		'''
 		
 		if printer is None:
 			printer = Config_Printing()
@@ -319,6 +286,7 @@ class ConfigType(hp.Transactionable):
 			prefix = []
 		self.__dict__['_prefix'] = prefix
 		self.__dict__['_hidden_prefix'] = prefix.copy()
+		self.__dict__['_safe_mode'] = safe_mode
 		
 		self.set_parent(parent)
 		self._set_silent(silent)
@@ -328,219 +296,12 @@ class ConfigType(hp.Transactionable):
 		if data is not None:
 			self.update(data)
 		
-	# region Silencing
-	
-	def _set_silent(self, silent=True):
-		self.__dict__['_printer'].silent = silent
-		# self._silent_config_flag = silent
-
-	def _get_silent(self):
-		return self.__dict__['_printer'].silent
-
-	def silenced(self, setting=True):
-		return _Silent_Config(self, setting=setting)
-
-	# endregion
-
-	# region Parents
-	
-	def is_root(self):  # TODO: move to tree space
-		'''Check if this config object has a parent for defaults'''
-		return self.get_parent() is None
-	
-	def set_parent(self, parent):
-		self.__dict__['_parent'] = parent
-	
-	def get_parent(self):
-		'''Get parent (returns None if this is the root)'''
-		return self.__dict__['_parent']
-	
-	def get_root(self):
-		'''Gets the root config object (returns ``self`` if ``self`` is the root)'''
-		parent = self.get_parent()
-		if parent is None:
-			return self
-		return parent.get_root()
-	
-	# endregion
-	
-	# region Addressing
-	
-	def _get_printer(self):
-		return self.__dict__['_printer']
-	
-	def get_prefix(self):
-		return self._prefix
-	
-	def _send_prefix(self, obj=None, new=None):
-		
-		if new is not None:
-			self._append_prefix(new)
-		
-		if obj is not None:
-			obj._swap_prefix(self._prefix)
-			
-	def _receive_prefix(self, obj=None, pop=False):
-		
-		if obj is not None:
-			self._swap_prefix(obj._prefix)
-			
-		if pop:
-			self._pop_prefix()
-		
-	def _swap_prefix(self, prefix=None):
-		if prefix is None:
-			prefix = self._hidden_prefix.copy()
-		self._prefix = prefix
-		return prefix
-		
-	def _store_prefix(self):
-		self._hidden_prefix = self._prefix.copy()
-		
-	def _append_prefix(self, item):
-		self._prefix.append(item)
-	def _pop_prefix(self):
-		self._prefix.pop()
-		
-	
-	# endregion
-	
-	# region Misc
-	
-	@staticmethod
-	def parse_argv(arg):
-		try:
-			return json.loads(arg)
-		except:
-			pass
-			# prt.error(f'Json decoding failed for: {arg}')
-		return arg
-	
-	def purge_volatile(self):
-		raise NotImplementedError
-	
-	# endregion
-	
-	# region Get/Set/Contains
-	
-	def __setitem__(self, key, value):
-		if isinstance(key, str) and '.' in key:
-			key = key.split('.')
-
-		if isinstance(key, (list, tuple)):
-			if len(key) == 1:
-				return self.__setitem__(key[0], value)
-			child = self.__getitem__(key[0])
-			assert isinstance(child, ConfigType)
-			return child.__setitem__(key[1:], value)
-			# if isinstance(child, ConfigType):
-			# 	return child.__setitem__(key[1:], value)
-			# if not isinstance(child, ConfigType):
-			# 	prt.warning(f'Trying to set {key[1:]} in {child}')
-			# return child.__setitem__(key[1:], value)
-
-		value = configurize(value)
-
-		if isinstance(value, ConfigType):
-			value.set_parent(self)
-		return super().__setitem__(key, value)
-
-	
-	def __getattr__(self, item):
-		return super().__getattribute__(item)
-	
-	def __setattr__(self, key, value):
-		return super().__setattr__(key, value)
-	
-	def __getitem__(self, item):
-
-		if isinstance(item, str) and '.' in item:
-			item = item.split('.')
-
-		if isinstance(item, (list, tuple)):
-			if len(item) == 1:
-				item = item[0]
-			else:
-				return self.__getitem__(item[0])[item[1:]]
-
-		parent = self.get_parent()
-
-		if  not self.contains_nodefault(item) \
-				and parent is not None \
-				and item[0] != '_':
-			return parent[item]
-
-		return self._single_get(item)
-
-	def get_nodefault(self, item):
-		'''Get ``item`` without defaulting up the tree if not found.'''
-
-		if isinstance(item, str) and '.' in item:
-			item = item.split('.')
-
-		if isinstance(item, (list, tuple)):
-			if len(item) == 1:
-				item = item[0]
-			else:
-				return self.get_nodefault(item[0])[item[1:]]
-
-		return self._single_get(item)
-
-	def _single_get(self, item):
-		try:
-			val = super().__getitem__(item)
-		except KeyError:
-			return self._missing_key(item)
-
-		# if val == '__x__':
-		# 	raise MissingConfigError(item)
-		return val
-
-	def _missing_key(self, key):
-		obj = self.__class__(parent=self)
-		self.__setitem__(key, obj)
-		return obj
-
-
-	def __contains__(self, item):
-		'''Check if ``item`` is in this config, item can be "deep" (multiple steps'''
-		if isinstance(item, str) and '.' in item:
-			item = item.split('.')
-
-		if isinstance(item, (tuple, list)):
-			if len(item) == 1:
-				item = item[0]
-			else:
-				return item[0] in self and item[1:] in self[item[0]]
-
-		parent = self.get_parent()
-
-		return self.contains_nodefault(item) \
-			or (not super().__contains__(item)
-				and parent is not None
-				and item[0] != '_'
-			    and item in parent)
-
-	def contains_nodefault(self, item):
-		'''Check if ``item`` is contained in this config object without defaulting up the tree if ``item`` is not found'''
-
-		if isinstance(item, str) and '.' in item:
-			item = item.split('.')
-
-		if isinstance(item, (tuple, list)):
-			if len(item) == 1:
-				item = item[0]
-			else:
-				return self.contains_nodefault(item[0]) and self[item[0]].contains_nodefault(item[1:])
-
-		if super().__contains__(item):
-			return self.get_nodefault(item) is not '__x__'
-		return False
-
-	# endregion
-	
-	
 	def sub(self, item):
+		'''
+		Used to get a subbranch of the overall config
+		:param item: address of the branch to return
+		:return: config object at the address
+		'''
 		
 		val = self.get_nodefault(item)
 		
@@ -555,10 +316,34 @@ class ConfigType(hp.Transactionable):
 		
 		return val
 
+	def update(self, other):
+		'''
+		Used to merge two config nodes (and their children) together
+		
+		This method must be implemented by child classes depending on how the contents of the node is stored
+		
+		:param other: config node to overwrite ``self`` with
+		:return: None
+		'''
+		try:
+			return super().update(other)
+		except AttributeError:
+			raise NotImplementedError
 
 	def _record_action(self, action, suffix=None, val=None, silent=False, obj=None,
 	                   defaulted=False, pushed=False):
-
+		'''
+		Internal function to manage printing out messages after various actions have been taken with this config.
+		
+		:param action: name of the action (see code for examples)
+		:param suffix: suffix of the address (aka. last item in the address)
+		:param val: contents at that address
+		:param silent: suppress printing a message for this action
+		:param obj: object created or used in this action (eg. a newly created component)
+		:param defaulted: is a default value being used
+		:param pushed: has this value just been pushed
+		:return: formatted message corresponding to this action
+		'''
 		printer = self._get_printer()
 
 		if action == 'defaulted':
@@ -645,24 +430,44 @@ class ConfigType(hp.Transactionable):
 		'''
 		Top-level function to get parameters from the config object (including automatically creating components)
 
-		:param item: name of the parameter to get
-		:param defaults: defaults to check if ``item`` is not found
-		:param silent: don't print message that this parameter was pulled
-		:param ref: if the parameter is a component that has already been created, get a reference to the created
-		component instead of creating a new instance
-		:param no_parent: don't default to parent node if the ``item`` is not found
-		:param as_iter: return an iterator over the selected value
-		:return: value of the parameter (or default if ``item`` is not found)
+		:param item: address of the parameter to get
+		:param defaults: default values to use if ``item`` is not found
+		:param silent: suppress printing message that this parameter was pulled
+		:param ref: if the parameter is a component that has already been created, get a reference to the created component instead of creating a new instance
+		:param no_parent: don't default to a parent node if the ``item`` is not found here
+		:param as_iter: return an iterator over the selected value (only works if the value is a dict/list)
+		:return: processed value of the parameter (or default if ``item`` is not found, or raises a ``MissingConfigError`` if not found)
 		'''
 		self._swap_prefix()
 		return self._pull(item, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter, _origin=self)
 
-	def pull_self(self, name='', silent=False, ref=False, as_iter=False):
+	def pull_self(self, name='', silent=False, as_iter=False):
+		'''
+		Process self as a value being pulled.
+		
+		:param name: Name given to self for printed message
+		:param silent: suppress printing message
+		:param as_iter: Return self as an iterator (has same effect as calling ``seq()``)
+		:return: the processed value of self
+		'''
 		self._swap_prefix()
-		return self._process_val(name, self, silent=silent, reuse=ref, is_self=True, as_iter=as_iter, _origin=self)
+		return self._process_val(name, self, silent=silent, reuse=False, is_self=True, as_iter=as_iter, _origin=self)
 
 	def _pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False,
 	          _defaulted=False, _origin=None):
+		'''
+		Internal pull method, should generally not be called manually (unless you know what you're doing)
+		
+		:param item: remaining address to find
+		:param defaults: any default values that can be used if address is not found
+		:param silent: suppress messages
+		:param ref: return an instance of the value instead of creating a new instance, if one exists
+		:param no_parent: do not check for the parameter in the parent
+		:param as_iter: return the value as an iterator (only for dicts/lists)
+		:param _defaulted: flag that this value was once a provided default (used for printing)
+		:param _origin: reference to the original config node that was pulled (some pulls require returing to origin)
+		:return: processed value found at ``item`` or a processed default value
+		'''
 		
 		# TODO: change defaults to be a keyword argument providing *1* default, and have item*s* instead,
 		#  which are the keys to be checked in order
@@ -727,7 +532,20 @@ class ConfigType(hp.Transactionable):
 
 	def _process_val(self, item, val, *defaults, silent=False,
 	                 reuse=False, is_self=False, as_iter=False, _origin=None, **record_flags):
-		'''This is used by ``pull()`` to process the recovered value and print the correct message if ``not silent``'''
+		'''
+		This is used by ``pull()`` to process the recovered value and print the correct message if ``not silent``
+		
+		:param item: remaining address where this value was found
+		:param val: value that was found given the original address
+		:param defaults: any additional defaults to use if processing fails with ``val``
+		:param silent: suppress messages
+		:param reuse: if an instance is found (under ``__obj``) then that should be returned instead of creating a new one
+		:param is_self: this config object should be returned after processing
+		:param as_iter: return an iterator of ``val`` (only works if ``val`` is a list/dict)
+		:param _origin: original config node where the pull or push request was intially called
+		:param record_flags: additional flags used for printing.
+		:return: processed value
+		'''
 		
 		if as_iter and isinstance(val, ConfigType):
 			
@@ -735,7 +553,7 @@ class ConfigType(hp.Transactionable):
 			
 			self._record_action(f'iter-{obj_type}', suffix=item, val=val, silent=silent, **record_flags)
 			
-			itr = _Config_Iter(val, val)
+			itr = Config_Iter(val, val)
 			
 			return itr
 		
@@ -760,10 +578,11 @@ class ConfigType(hp.Transactionable):
 					# self._swap_prefix()
 					
 					# if self.in_transaction(): # TODO: make transactionable again
-					if len(item) and not is_self:
-						self[item]['__obj'] = cmpn
-					else:
-						self['__obj'] = cmpn
+					if not self.in_safe_mode() or self.in_transaction():
+						if len(item) and not is_self:
+							self[item]['__obj'] = cmpn
+						else:
+							self['__obj'] = cmpn
 					
 					self._record_action('created', suffix=item, val=val, obj=cmpn, silent=silent, **record_flags)
 					
@@ -775,7 +594,7 @@ class ConfigType(hp.Transactionable):
 				terms = {}
 				for k, v in val.items():  # WARNING: pulls all entries in dict
 					self._record_action('entry', silent=silent, suffix=k)
-					terms[k] = val._process_val('', v, reuse=reuse, silent=silent, _origin=_origin)
+					terms[k] = val._process_val(k, v, reuse=reuse, silent=silent, _origin=_origin)
 				self._record_action('pulled-dict', suffix=item, val=val, obj=terms, silent=silent, **record_flags)
 				val = terms
 
@@ -786,7 +605,7 @@ class ConfigType(hp.Transactionable):
 			terms = []
 			for i, v in enumerate(val):  # WARNING: pulls all entries in list
 				self._record_action('entry', silent=silent, suffix=str(i))
-				terms.append(val._process_val('', v, reuse=reuse, silent=silent, _origin=_origin))
+				terms.append(val._process_val(str(i), v, reuse=reuse, silent=silent, _origin=_origin))
 			self._record_action('pulled-list', suffix=item, val=val, obj=terms, silent=silent, **record_flags)
 			val = terms
 
@@ -911,8 +730,13 @@ class ConfigType(hp.Transactionable):
 		return val
 
 	def export(self, path=None):
-		'''Convert all data to a raw data (using dict/list) and save as yaml file to ``path`` if provided.
-		Also returns data.'''
+		'''
+		Convert all data to raw data (using dict/list) and save as yaml file to ``path`` if provided.
+		Also returns yamlified data.
+		
+		:param path: path to save data in this config (data is not saved to disk if not provided)
+		:return: raw "yamlified" data
+		'''
 
 		data = yamlify(self)
 
@@ -926,40 +750,274 @@ class ConfigType(hp.Transactionable):
 		return data
 	
 	def seq(self):
-		return _Config_Iter(self, self)
+		'''
+		Returns an iterator over the contents of this config object where elements are lazily
+		processed during iteration (see ``Config_Iter`` for details).
+		
+		:return: iterator over all arguments in self
+		'''
+		return Config_Iter(self, self)
+	
+	# region Silencing
+	
+	def _set_silent(self, silent=True):
+		self.__dict__['_printer'].silent = silent
+	
+	# self._silent_config_flag = silent
+	
+	def _get_silent(self):
+		return self.__dict__['_printer'].silent
+	
+	class _Silent_Config:
+		'''Internal context manager to silence a config object'''
+		
+		def __init__(self, config, setting):
+			self.config = config
+			self.setting = setting
+			self.prev = config._get_silent()
+		
+		def __enter__(self):
+			self.config._set_silent(self.setting)
+			return self.config
+		
+		def __exit__(self, exc_type, exc_val, exc_tb):
+			self.config._set_silent(self.prev)
+	
+	def silenced(self, setting=True):
+		return ConfigType._Silent_Config(self, setting=setting)
+	
+	# endregion
+	
+	# region Parents
+	
+	def is_root(self):  # TODO: move to tree space
+		'''Check if this config object has a parent for defaults'''
+		return self.get_parent() is None
+	
+	def set_parent(self, parent):
+		self.__dict__['_parent'] = parent
+	
+	def get_parent(self):
+		'''Get parent (returns None if this is the root)'''
+		return self.__dict__['_parent']
+	
+	def get_root(self):
+		'''Gets the root config object (returns ``self`` if ``self`` is the root)'''
+		parent = self.get_parent()
+		if parent is None:
+			return self
+		return parent.get_root()
+	
+	# endregion
+	
+	# region Addressing
+	
+	def _get_printer(self):
+		return self.__dict__['_printer']
+	
+	def get_prefix(self):
+		return self._prefix
+	
+	def _send_prefix(self, obj=None, new=None):
+		
+		if new is not None:
+			self._append_prefix(new)
+		
+		if obj is not None:
+			obj._swap_prefix(self._prefix)
+	
+	def _receive_prefix(self, obj=None, pop=False):
+		
+		if obj is not None:
+			self._swap_prefix(obj._prefix)
+		
+		if pop:
+			self._pop_prefix()
+	
+	def _swap_prefix(self, prefix=None):
+		if prefix is None:
+			prefix = self._hidden_prefix.copy()
+		self._prefix = prefix
+		return prefix
+	
+	def _store_prefix(self):
+		self._hidden_prefix = self._prefix.copy()
+	
+	def _append_prefix(self, item):
+		self._prefix.append(item)
+	
+	def _pop_prefix(self):
+		self._prefix.pop()
+	
+	# endregion
+	
+	# region Misc
+	
+	def set_safe_mode(self, safe_mode):
+		if self.is_root():
+			self.__dict__['_safe_mode'] = safe_mode
+		else:
+			self.get_root().set_safe_mode(safe_mode)
+	
+	def in_safe_mode(self):
+		if self.is_root():
+			return self.__dict__['_safe_mode']
+		return self.get_root().in_safe_mode()
+	
+	@staticmethod
+	def parse_argv(arg):
+		try:
+			return yaml.safe_load(io.StringIO(arg))
+		except:
+			pass
+		return arg
+	
+	def purge_volatile(self):
+		'''
+		Recursively remove any items where the key starts with "__"
 
+		Must be implemented by the child class
+
+		:return: None
+		'''
+		raise NotImplementedError
+	
+	def __repr__(self):
+		return f'{type(self).__name__}[id={hex(id(self))}]'
+	
+	def __str__(self):
+		return f'<{type(self).__name__}>'
+	
+	# endregion
+	
+	# region Get/Set/Contains
+	
+	def __setitem__(self, key, value):
+		if isinstance(key, str) and '.' in key:
+			key = key.split('.')
+		
+		if isinstance(key, (list, tuple)):
+			if len(key) == 1:
+				return self.__setitem__(key[0], value)
+			child = self.__getitem__(key[0])
+			assert isinstance(child, ConfigType)
+			return child.__setitem__(key[1:], value)
+		# if isinstance(child, ConfigType):
+		# 	return child.__setitem__(key[1:], value)
+		# if not isinstance(child, ConfigType):
+		# 	prt.warning(f'Trying to set {key[1:]} in {child}')
+		# return child.__setitem__(key[1:], value)
+		
+		value = configurize(value)
+		
+		if isinstance(value, ConfigType):
+			value.set_parent(self)
+		return super().__setitem__(key, value)
+	
+	def __getitem__(self, item):
+		
+		if isinstance(item, str) and '.' in item:
+			item = item.split('.')
+		
+		if isinstance(item, (list, tuple)):
+			if len(item) == 1:
+				item = item[0]
+			else:
+				return self.__getitem__(item[0])[item[1:]]
+		
+		parent = self.get_parent()
+		
+		if not self.contains_nodefault(item) \
+				and parent is not None \
+				and item[0] != '_':
+			return parent[item]
+		
+		return self._single_get(item)
+	
+	def get_nodefault(self, item):
+		'''Get ``item`` without defaulting up the tree if not found.'''
+		
+		if isinstance(item, str) and '.' in item:
+			item = item.split('.')
+		
+		if isinstance(item, (list, tuple)):
+			if len(item) == 1:
+				item = item[0]
+			else:
+				return self.get_nodefault(item[0])[item[1:]]
+		
+		return self._single_get(item)
+	
+	def _single_get(self, item):
+		try:
+			val = super().__getitem__(item)
+		except KeyError:
+			return self._missing_key(item)
+		
+		# if val == '__x__':
+		# 	raise MissingConfigError(item)
+		return val
+	
+	def _missing_key(self, key):
+		obj = self.__class__(parent=self)
+		self.__setitem__(key, obj)
+		return obj
+	
+	def __contains__(self, item):
+		'''Check if ``item`` is in this config, item can be "deep" (multiple steps'''
+		if isinstance(item, str) and '.' in item:
+			item = item.split('.')
+		
+		if isinstance(item, (tuple, list)):
+			if len(item) == 1:
+				item = item[0]
+			else:
+				return item[0] in self and item[1:] in self[item[0]]
+		
+		parent = self.get_parent()
+		
+		return self.contains_nodefault(item) \
+		       or (not super().__contains__(item)
+		           and parent is not None
+		           and item[0] != '_'
+		           and item in parent)
+	
+	def contains_nodefault(self, item):
+		'''Check if ``item`` is contained in this config object without defaulting up the tree if ``item`` is not found'''
+		
+		if isinstance(item, str) and '.' in item:
+			item = item.split('.')
+		
+		if isinstance(item, (tuple, list)):
+			if len(item) == 1:
+				item = item[0]
+			else:
+				return self.contains_nodefault(item[0]) and self[item[0]].contains_nodefault(item[1:])
+		
+		if super().__contains__(item):
+			return self.get_nodefault(item) is not '__x__'
+		return False
+
+	# endregion
 
 
 class ConfigDict(ConfigType, hp.tdict):
-# class ConfigDict(ConfigType, OrderedDict):
-	
 	'''
+	Dict like node in the config.
+	
 	Keys should all be valid python attributes (strings with no whitespace, and not starting with a number).
 
 	NOTE: avoid setting keys that start with more than one underscore (especially '__obj')
 	(unless you really know what you are doing)
 	'''
 	
-	# def purge_volatile(self):
-	# 	bad = []
-	# 	for k, v in self.items():
-	# 		if k.startswith('__'):
-	# 			bad.append(k)
-	# 		elif isinstance(v, ConfigType):
-	# 			v.purge_volatile()
-	#
-	# 	for k in bad:
-	# 		del self[k]
-	
 	def update(self, other):
-		# '''Merges ``self`` with ``other`` overwriting any parameters in ``self`` with those in ``other``'''
-		# return super().update(other)
+		'''
+		Merge self with another dict-like object
 		
-		# other = configurize(other)
-		# if not isinstance(other, ConfigDict):
-		# 	print(type(self), type(other))
-		# 	raise TypeError(self, other)
-		
+		:param other: must be dict like
+		:return: None
+		'''
 		assert isinstance(other, dict), f'invalid: {type(other)}'
 		
 		for k, v in other.items():
@@ -976,25 +1034,12 @@ class ConfigDict(ConfigType, hp.tdict):
 			else:
 				self[k] = v
 	
-	def __str__(self):
-		return '[{}]{}{}{}'.format(id(self), '{{', ', '.join(f'{k}' for k in self), '}}')
-	
-	# def __str__(self):
-	# 	return f'[{id(self)}]{super().__repr__()}'
-
-
-class InvalidKeyError(Exception):
-	'''Only raised when a key cannot be converted to an index for ``ConfigList``s'''
-	pass
-
-class ConfigList(ConfigType, hp.tlist):
-# class ConfigList(ConfigType, list):
-
-	def __init__(self, *args, empty_fill_value=None, **kwargs):
-		super().__init__(*args, **kwargs)
-		self._empty_fill_value = empty_fill_value
-
 	def purge_volatile(self):
+		'''
+		Recursively remove any items where the key starts with "__"
+		
+		:return: None
+		'''
 		bad = []
 		for k, v in self.items():
 			if k.startswith('__'):
@@ -1004,16 +1049,42 @@ class ConfigList(ConfigType, hp.tlist):
 		
 		for k in bad:
 			del self[k]
+	
+	def __repr__(self):
+		info = '{{' + ', '.join(f'{k}' for k in self) + '}}'
+		return f'[{hex(id(self))}]{info}'
+	
+	def __str__(self):
+		return '{{' + ', '.join(f'{k}' for k in self) + '}}'
 
+
+
+
+class ConfigList(ConfigType, hp.tlist):
+	'''
+	List like node in the config.
+	'''
+
+	def __init__(self, *args, empty_fill_value=None, **kwargs):
+		super().__init__(*args, **kwargs)
+		self._empty_fill_value = empty_fill_value
+
+	def purge_volatile(self):
+		'''
+		Recursively remove any items where the key starts with "__"
+		
+		:return: None
+		'''
+		for x in self:
+			if isinstance(x, ConfigType):
+				x.purge_volatile()
+		
 	def _str_to_int(self, item):
 		'''Convert the input items to indices of the list'''
 		if isinstance(item, int):
 			return item
 
 		try:
-			# if item[0] == '_':
-			# 	item = item[1:]
-			
 			return int(item)
 		except (TypeError, ValueError):
 			pass
@@ -1041,9 +1112,9 @@ class ConfigList(ConfigType, hp.tlist):
 
 	def push(self, first, *rest, overwrite=True, **kwargs):
 		'''
+		When pushing to a list, if you don't provide an index, the value is automatically pushed to the end of the list
 		
-		:param first: if no additional args are provided in `rest`, then this is used as the value and the key
-		is the end of the list, otherwise this is used as key and the first element in `rest` is the value
+		:param first: if no additional args are provided in `rest`, then this is used as the value and the key is the end of the list, otherwise this is used as key and the first element in `rest` is the value
 		:param rest: optional second argument to specify the key, rather than defaulting to the end of the list
 		:param kwargs: same keyword args as for the ConfigDict
 		:return: same as for ConfigDict
@@ -1085,8 +1156,6 @@ class ConfigList(ConfigType, hp.tlist):
 		if isinstance(item, ConfigType):
 			item.set_parent(self)
 		
-		# self._update_tree(parent_defaults=parent_defaults)  # TODO: make sure manipulating lists works and updates parents
-
 	def extend(self, item):
 		super().extend(item)
 		
@@ -1095,10 +1164,22 @@ class ConfigList(ConfigType, hp.tlist):
 				x.set_parent(self)
 
 @Component('iter')
-class _Config_Iter:
-	'''Iterate through a list of parameters, processing each item only when it is iterated over (with ``next()``)'''
+class Config_Iter:
+	'''
+	Iterate through a list of parameters, processing each item lazily,
+	ie. only when it is iterated over (with ``next()``)
+	'''
 
-	def __init__(self, origin, elements=None): # skips _elements, _type
+	def __init__(self, origin, elements=None):
+		'''
+		Can be used as a component or created manually (by providing the ``elements`` argument explicitly)
+		
+		For dicts, this will behave like ``.items()``, ie. for each entry in the dict it will return
+		a tuple of the key and value.
+		
+		:param origin: config object where the iterator info is
+		:param elements: manually provided elements to iterate over (uses contents of "_elements" in ``origin`` if not provided)
+		'''
 		self._idx = 0
 		# self._name = config._ident
 		# assert '_elements' in config, 'No elements found'
@@ -1111,12 +1192,13 @@ class _Config_Iter:
 					  and self._elms[k] != '__x__'] \
 			if isinstance(self._elms, dict) else None
 		self._prefix = origin.get_prefix().copy()
-		# self._origin = config
 
 	def __len__(self):
+		'''Returns the remaining length of this iterator instance'''
 		return len(self._elms if self._keys is None else self._keys) - self._idx
 
 	def _next_idx(self):
+		'''Find the next index or key'''
 		
 		if self._keys is None:
 			return self._idx
@@ -1151,73 +1233,52 @@ class _Config_Iter:
 		return self
 
 
+def configurize(data):
+	'''
+	Transform data container to use config objects (ConfigDict/ConfigList)
 
-#
-# class ConfigArgDict(ConfigType, hp.TreeSpace):  # TODO: allow adding aliases
-# 	'''
-# 	Keys should all be valid python attributes (strings with no whitespace, and not starting with a number).
-#
-# 	NOTE: avoid setting keys that start with more than one underscore (especially '__obj')
-# 	(unless you really know what you are doing)
-# 	'''
-#
-# 	def purge_volatile(self):
-# 		bad = []
-# 		for k, v in self.items():
-# 			if k.startswith('__'):
-# 				bad.append(k)
-# 			elif isinstance(v, ConfigType):
-# 				v.purge_volatile()
-#
-# 		for k in bad:
-# 			del self[k]
-#
-# 	def _missing_key(self, key):
-# 		obj = super()._missing_key(key)
-# 		obj.set_parent(self)
-# 		return obj
-#
-# 	def update(self, other={}, parent_defaults=True):
-# 		'''Merges ``self`` with ``other`` overwriting any parameters in ``self`` with those in ``other``'''
-# 		# if not isinstance(other, ConfigDict):
-# 		# 	# super().update(other)
-# 		# 	other = configurize(other)
-# 		for k, v in other.items():
-# 			isconfig = isinstance(v, ConfigType)
-# 			if self.contains_nodefault(k) and '_x_' == v:  # reserved for deleting settings in parents
-# 				del self[k]
-#
-# 			elif self.contains_nodefault(k) and isconfig and \
-# 					(isinstance(v, self[k].__class__) or isinstance(self[k], v.__class__)):
-# 				self[k].update(v)
-#
-# 			# elif isinstance(v, str) and v.startswith('++') and self.contains_nodefault(k):
-# 			# 	# values of appendable keys can be appended instead of overwritten,
-# 			# 	# only when the new value starts with "+"
-# 			# 	vs = []
-# 			# 	if :
-# 			# 		prev = self[k]
-# 			# 		if not isinstance(prev, list):
-# 			# 			prev = [prev]
-# 			# 		vs = prev
-# 			# 	vs.append(v[2:])
-# 			# 	self[k] = vs
-#
-# 			else:
-# 				self[k] = v
-#
-# 			if parent_defaults and isconfig:
-# 				v.set_parent(self)
-#
-# 	def __str__(self):
-# 		return f'[{id(self)}]{super().__repr__()}'
+	:param data: dict/list data
+	:return: deep copy of data using ConfigDict/ConfigList
+	'''
+	if isinstance(data, ConfigType):
+		return data
+	if isinstance(data, dict):
+		return ConfigDict(data={k: configurize(v) for k, v in data.items()})
+	if isinstance(data, (list, set)):
+		return ConfigList(data=[configurize(x) for x in data])
+	if isinstance(data, str) and data in nones:
+		return None
+	return data
 
 
-_config_type = ConfigType
-_config_dict = ConfigDict
-_config_list = ConfigList
+def yamlify(data):  # TODO: allow adding yamlify rules for custom objects
+	'''
+	Transform data container into regular dicts/lists to export to yaml file
+
+	:param data: Config object
+	:return: deep copy of data using dict/list
+	'''
+	# if data is None:
+	# 	return '_None'
+	if data is None or isinstance(data, primitives):
+		return data
+	if isinstance(data, dict):
+		return {k: yamlify(v) for k, v in data.items() if not k.startswith('__')}
+	if isinstance(data, (list, tuple, set)):
+		return [yamlify(x) for x in data]
+	
+	raise YamlifyError(data)
+
+
+# _config_type = ConfigType
+# _config_dict = ConfigDict
+# _config_list = ConfigList
 
 def process_raw_argv(arg):
-	return _config_type.parse_argv(arg)
+	'''
+	This is the preferred way to parse arguments for the config
+	(especially arguments specified through the terminal)
+	'''
+	return ConfigType.parse_argv(arg)
 
 

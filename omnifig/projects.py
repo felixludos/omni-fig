@@ -11,34 +11,41 @@ from omnibelt import get_printer, get_now
 prt = get_printer(__name__)
 
 class Project(Customizable_Infomation):
+	'''
+	Projects are used to group code into packets with specific config files that should be
+	loaded all together. A project must contain a yaml file named ``.fig.yml`` in the
+	root directory of the project (aka the "project directory"), and all paths in
+	that yaml file should be relative to the project directory.
+	
+	Generally there are two kinds of projects: "packages" and "loose" projects.
+	Package projects are meant to be installed and used as a library, while loose
+	projects may just be a series of python files.
+	
+	This class may also be subclassed to change the behavior of projects (such as changing the loading),
+	in fact, any subclasses of this class can automatically be registered when providing a name for the
+	project type in the class definition.
+	'''
 
 	# required_attrs = ['name', 'author', 'info_path']
 	# recommended_attrs = ['url', 'version', 'license', 'description']
 	
 	def __init_subclass__(cls, ptype=None):
+		'''Subclasses can automatically be registered if a ``ptype`` for the registry is provided'''
 		cls.ptype = ptype
 		register_project_type(ptype, cls)
 	
-	@classmethod
-	def get_project_type(cls):
-		return getattr(cls, 'ptype', None)
-	
 	def __str__(self):
-		return self.name
+		return self.get_name()
 	
 	def __repr__(self):
-		return f'Project({self.name})'
+		return f'Project({self.get_name()})'
 	
 	def get_name(self):
+		'''Gets the project name'''
 		return self.name
 	def get_info_path(self):
+		'''Gets the project directory'''
 		return self.info_path
-	
-	@staticmethod
-	def check_project_name(raw):
-		if 'name' not in raw:
-			prt.error('No name found in project info')
-		return raw['name'] # must be included
 	
 	@staticmethod
 	def check_project_type(raw):
@@ -113,13 +120,13 @@ class Project(Customizable_Infomation):
 		# region components
 		
 		self.last_update = raw.get('last_update', None)
-		self.conda_env = raw.get('conda', None)
+		self.conda_env = raw.get('conda', None) # TODO
 		
 		self.config_paths = raw.get('configs', [])
 		src = raw.get('src', None)
 		self.src_paths = raw.get('src_paths', [])
 		if src is not None:
-			self.src_paths = [src] + self.src_paths
+			self.src_paths = self.src_paths + [src]
 		self.src_packages = raw.get('src_packages', [])
 		
 		self.scripts = raw.get('scripts', []) # TODO: maybe track contents
@@ -144,26 +151,29 @@ class Project(Customizable_Infomation):
 		super().import_info(raw)
 		
 	def initialize(self):
-		# if 'PYTHONPATH' not in os.environ:
-		# 	os.environ['PYTHONPATH'] = self.root
-		# elif self.root not in os.environ['PYTHONPATH']:
-		# 	rest = os.environ['PYTHONPATH']
-		# 	os.environ['PYTHONPATH'] = f'{rest};{self.root}'
-		# print(sys.path)
+		'''
+		This loads the project, primarily by registering any specified config files,
+		importing specified packages, and finally running any provided source files
+		
+		:return: None
+		'''
 		if self.add_to_path:
 			sys.path.append(self.root)
 		self.load_configs()
 		self.load_src()
 		
 	def load_configs(self):
+		'''Registers all specified config files and directories'''
 		if len(self.config_paths):
 			include_configs(*self.config_paths, project=self)
 			
 	def load_src(self):
-		include_files(*self.src_paths)
+		'''Imports all specified packages and runs the specified python files'''
 		include_package(*self.src_packages)
+		include_files(*self.src_paths)
 	
 	def get_related(self):
+		'''Returns a list of project names of all projects that should be loaded prior to this one'''
 		return self.related
 		
 	def export_info(self, path=None):
@@ -192,21 +202,25 @@ class Project(Customizable_Infomation):
 		prt.debug(f'Finished exporting project info of {self.name} to {self.info_path}')
 
 	def new_script(self, name):
+		'''Adds the specified script name to this project for record keeping'''
 		if name not in self.scripts:
 			self.scripts.append(name)
 		self._updated = True
 
 	def new_config(self, name):
+		'''Adds the specified config file to this project for record keeping'''
 		if name not in self.configs:
 			self.configs.append(name)
 		self._updated = True
 	
 	def new_component(self, name):
+		'''Adds the specified component name to this project for record keeping'''
 		if name not in self.components:
 			self.components.append(name)
 		self._updated = True
 	
 	def new_modifier(self, name):
+		'''Adds the specified modifier name to this project for record keeping'''
 		if name not in self.modifiers:
 			self.modifiers.append(name)
 		self._updated = True

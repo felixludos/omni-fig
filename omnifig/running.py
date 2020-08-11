@@ -11,12 +11,34 @@ from omnibelt import get_printer, resolve_order
 prt = get_printer(__name__)
 
 PRINCEPS_NAME = 'FIG_PRINCEPS_PATH'
+_disable_princeps = False
+
 
 def entry(script_name=None):
+	'''
+	Recommended entry point when running a script from the terminal.
+	This is also the entry point for the ``fig`` command.
+	
+	This collects the command line arguments in ``sys.argv`` and overrides the
+	given script with ``script_name`` if it is provided
+	
+	:param script_name: script to be run (may be set with arguments) (overrides other arguments if provided)
+	:return: the output of the script that is to be run
+	'''
 	argv = sys.argv[1:]
 	return main(*argv, script_name=script_name)
 
 def main(*argv, script_name=None):
+	'''
+	Runs the desired script using the provided ``argv`` which are treated as command line arguments
+	
+	Before running the script, this function initializes ``omni-fig`` using :func:`initialize()`,
+	and then cleans up after running using :func:`cleanup()`.
+	
+	:param argv: raw arguments as if passed in through the terminal
+	:param script_name: name of registered script to be run (may be set with arguments) (overrides other arguments if provided)
+	:return: output of script that is run
+	'''
 	initialize()
 	config = process_argv(argv, script_name=script_name)
 	
@@ -29,6 +51,16 @@ def main(*argv, script_name=None):
 
 
 def process_argv(argv=(), script_name=None):
+	'''
+	Parses the command line arguments to identify the meta arguments, script name
+	(optionally overridden using ``script_name``), and config args
+	
+	From that, this builds the config and meta config object.
+	
+	:param argv: list of all command line arguments to parse in order
+	:param script_name: optional script name to override any script specified in ``argv``
+	:return: config object (containing meta config under ``_meta``)
+	'''
 	
 	# check for meta args and script name
 	
@@ -87,10 +119,24 @@ def process_argv(argv=(), script_name=None):
 
 
 def initialize(**overrides):
+	'''
+	Initializes omni-fig by running the "princeps" file (if one exists),
+	loading the profile, and any active projects. Additionally loads the
+	project in the current working directory (by default).
+	
+	Generally, this function should be run before running any scripts, as it should register all
+	necessary scripts, components, and configs when loading a project. It is automatically called
+	when running the :func:`main()` function (ie. running through the terminal). However, when
+	starting scripts from other environments (such as in a jupyter notebook), this should be called
+	manually after importing ``omnifig``.
+	
+	:param overrides: settings to be checked before defaulting to ``os.environ`` or global settings
+	:return: None
+	'''
 	
 	# princeps script
 	princeps_path = resolve_order(PRINCEPS_NAME, overrides, os.environ)
-	if princeps_path is not None:
+	if not _disable_princeps and princeps_path is not None:
 		try:
 			include_files(princeps_path)
 		except Exception as e:
@@ -104,11 +150,33 @@ def initialize(**overrides):
 	profile.initialize()
 
 def cleanup(**overrides):
+	'''
+	Cleans up the projects and profile, which by default just updates the project/profile info
+	yaml file if new information was added to the project/profile.
+	
+	Generally, this should be run after running any desired scripts.
+	
+	:param overrides: settings to check before defaulting to global settings or ``os.environ``
+	:return: None
+	'''
 	get_profile(**overrides).cleanup()
 
 
 
 def run(script_name=None, config=None, **meta_args):
+	'''
+	This actually runs the script given the ``config`` object.
+	
+	Before starting the script, all meta rules are executed in order of priority (low to high)
+	as they may change the config or script behavior, then the run mode is created, which is
+	then called to execute the script specified in the config object (or manually overridden
+	using ``script_name``)
+	
+	:param script_name: registered script name to run (overrides what is specified in ``config``)
+	:param config: config object (usually created with :func:`get_config()` (see :ref:`config:Config System`)
+	:param meta_args: Any additional meta arguments to include before running
+	:return: script output
+	'''
 	if config is None:
 		config = get_config()
 	
@@ -129,12 +197,17 @@ def run(script_name=None, config=None, **meta_args):
 	return mode.run(config.sub('_meta'), config)
 
 
-def quick_run(script_name, **args):
-	config = get_config()
+def quick_run(script_name, *parents, **args):
+	'''
+	Convenience function to run a simple script without a given config object,
+	instead the config is entirely created using the provided ``parents`` and ``args``.
 	
-	for k, v in args.items():
-		config.push(k, v, silent=True)
-	
+	:param script_name: name of registered script that is to be run
+	:param parents: any names of registered configs to load
+	:param args: any additional arguments to be provided manually
+	:return: script output
+	'''
+	config = get_config(*parents, **args)
 	return run(script_name, config)
 
 

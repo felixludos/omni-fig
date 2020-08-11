@@ -28,7 +28,7 @@ def test_register_load_config():
 	
 def test_raw_param():
 	
-	C = fig.get_config('--b', 'baba', '--a', '''{"r":10, "b":100}''', '--c', '''["asdf", 10, 4e-4]''')
+	C = fig.get_config('--b', 'baba', '--a', '''{"r":10, "b":100}''', '--c', '''["asdf", 10, 4.e-4]''')
 	
 	assert id(C['a'].get_parent()) == id(C)
 	
@@ -42,9 +42,10 @@ def test_raw_param():
 def test_hierarchy():
 	
 	
-	A = fig.get_config('test2')
+	A = fig.get_config('test2', abc=10.0)
 	
 	assert A['a.b'] == 'inside'
+	assert A['abc'] == 10.0
 	assert 'a123' not in A
 	assert A['fruit'][0] == 'apples'
 	assert A['fruit'][1] == 'bananas'
@@ -80,7 +81,7 @@ def test_hierarchy():
 
 def test_deep_hierarchy():
 
-	A = fig.get_config('test3')
+	A = fig.get_config('test3', _history_key='_history')
 	
 	assert A['tree'] == 'nodes'
 	
@@ -93,7 +94,9 @@ def test_deep_hierarchy():
 
 def test_pull_simple():
 	
-	A = fig.get_config('test2')
+	A = fig.get_config('test2', **{'roman.greek': 'linguistics'})
+	
+	assert A.pull('roman.greek') == 'linguistics'
 	
 	assert A.pull('simple') == 'p'
 	

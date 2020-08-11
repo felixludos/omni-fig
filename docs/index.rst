@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to HumPack!
+Welcome to omni-fig!
 ==========================
 
 .. toctree::
@@ -20,17 +20,10 @@ Welcome to HumPack!
    :caption: Documentation
 
    registry
-   scripts
    config
-   containers
-   preload
-   loading
-   profiles
-   projects
-   modes
-   util
+   scripts
+   initialization
    errors
-   debug
 
 
 

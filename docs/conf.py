@@ -55,8 +55,11 @@ extensions = [
     'sphinx.ext.graphviz',  #
     # 'sphinx.ext.autodoc',
     # 'sphinx.ext.doctest',
+    
+    'sphinx.ext.autosectionlabel',
 ]
 
+autosectionlabel_prefix_document = True
 autodoc_inherit_docstrings = False
 
 # Add any paths that contain templates here, relative to this directory.

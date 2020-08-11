@@ -30,6 +30,11 @@ class Profile(Customizable_Infomation):
 	'''
 	
 	def import_info(self, raw):
+		'''
+		Processes the data from a yaml file and saves it to ``self``
+		:param raw: data from a yaml file
+		:return: None
+		'''
 		
 		self.config_paths = raw.get('config_paths', [])
 		self.src_paths = raw.get('src_paths', [])
@@ -53,10 +58,13 @@ class Profile(Customizable_Infomation):
 		self.active_projects = raw.get('active_projects', [])
 		self.autoload_local = raw.get('autoload_local', True)
 		
+		self.save_projects_on_cleanup = raw.get('save_projects_on_cleanup', False)
+		
 		super().import_info(raw)
 		
 	@staticmethod
 	def is_valid_project_path(path):
+		'''Check if a path points to a project directory'''
 		
 		valid = lambda name: name is not None and (_info_code in name or name in _info_names)
 		
@@ -74,6 +82,13 @@ class Profile(Customizable_Infomation):
 			
 	
 	def initialize(self, loc=None):
+		'''
+		Steps to execute during initialization including: updating global settings, loading configs,
+		running any specified source files, loading active projects, and possibly the local project.
+		
+		:param loc: absolute path to current working directory (default comes from :func:`os.getcwd()`)
+		:return: None
+		'''
 		self.update_global_settings()
 		self.load_config()
 		self.load_src()
@@ -83,30 +98,51 @@ class Profile(Customizable_Infomation):
 		
 	
 	def update_global_settings(self):
+		'''Updates global settings with items in :attr:`self.global_settings`'''
 		for item in self.global_settings.items():
 			set_global_setting(*item)
 	
 	def load_src(self):
+		'''Run python source files in :attr:`self.src_paths`'''
 		include_files(*self.src_paths)
 		
 	def load_config(self):
+		'''Register config files and directories in :attr:`self.config_paths`'''
 		include_configs(*self.config_paths)
 		
 	def load_active_projects(self, load_related=True):
-		for proj in self.active_projects:
-			self.load_project(proj, load_related=load_related)
+		'''
+		Load active projects in :attr:`self.active_projects` in order,
+		and potentially all related projects as well
 		
-	def get_project(self, ident):
+		:param load_related: load directly related projects
+		:param all_related: recursively load all related projects
+		:return: None
+		'''
+		for proj in self.active_projects:
+			self.load_project(proj, load_related=load_related, all_related=False)
+		
+	def get_project(self, ident, load_related=True, all_related=False):
+		'''
+		Gets project if already loaded, otherwise tries to find the project path,
+		and then loads the missing project
+		
+		:param ident: project name or path
+		:param load_related: also load related projects (before this one) (dont recursively load related)
+		:param all_related: recursively load all related projects (trumps ``load_related``)
+		:return: project object
+		'''
 		
 		if ident in self._loaded_projects:
 			return self._loaded_projects[ident]
 		
 		path = self.resolve_project_path(ident)
 		if path not in self._loaded_projects:
-			self.load_project(path)
+			self.load_project(path, load_related=load_related, all_related=all_related)
 		return self._loaded_projects[path]
 		
 	def get_project_type(self, name):
+		'''Gets the project type registered with the given name'''
 		return get_project_type(name)
 	
 	def load_project(self, ident, load_related=True, all_related=False):
@@ -155,9 +191,10 @@ class Profile(Customizable_Infomation):
 		
 	def resolve_project_path(self, ident):
 		'''
+		Map/complete/fix given identifier to the project path
 		
 		:param ident: name or path to project
-		:return:
+		:return: correct project path or None
 		'''
 		
 		if not isinstance(ident, str):
@@ -171,12 +208,17 @@ class Profile(Customizable_Infomation):
 		return self.is_valid_project_path(ident)
 	
 	def clear_loaded_projects(self):
+		'''
+		Clear all loaded projects from memory
+		(this does not affect registered components or configs)
+		'''
 		self._loaded_projects.clear()
 	
 	def contains_project(self, ident): # loaded project
 		return ident in self._loaded_projects or self.resolve_project_path(ident) in self._loaded_projects
 	
 	def track_project_info(self, name, path):
+		'''Add project info to projects table :attr:`self.projects`'''
 		if name in self.projects:
 			prt.warning(f'Projects already contains {name}, now overwriting')
 		else:
@@ -186,28 +228,36 @@ class Profile(Customizable_Infomation):
 		self._updated = True
 	
 	def track_project(self, project):
+		'''Add project to projects table :attr:`self.projects`'''
 		return self.track_project_info(project.get_name(), project.get_info_path())
 	
 	def is_tracked(self, project):
+		'''Check if a project is contained in projects table :attr:`self.projects`'''
 		return project.get_name() in self.projects
 	
 	def include_project(self, project, track=True):
+		'''
+		Include a project instance in loaded projects table managed by this project
+		and optionally track a project persistently.
+		'''
 		if track:
 			self.track_project(project)
 			
 		self._loaded_projects[project.get_info_path()] = project
 	
 	def add_active_project(self, project):
+		'''Add a project to the list of active projects'''
 		name = project.get_name()
 		self.active_projects.append(name)
 		prt.info(f'Added active project set to {name}')
 		self._updated = True
 	
 	def get_active_projects(self):
+		'''Get a list of all projects specified as "active"'''
 		return self.active_projects.copy()
 	
 	def set_current_project(self, project):
-		
+		'''Set the current project'''
 		if isinstance(project, str):
 			project = self.get_project(project)
 		
@@ -216,10 +266,16 @@ class Profile(Customizable_Infomation):
 		prt.info(f'Current project set to {None if project is None else project.get_name()}')
 	
 	def get_current_project(self):
+		'''Get the current project (usually loaded last and local),'''
 		return self._current_project
-	
-	def get_config_paths(self):
-		return self.config_paths
 
-
+	def cleanup(self):
+		'''
+		Saves project data if some has changed, and possibly also
+		updates the project files of all loaded projects if they have changed.
+		'''
+		if self.save_projects_on_cleanup:
+			for project in self._loaded_projects.values():
+				project.cleanup()
+		super().cleanup()
 	

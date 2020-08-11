@@ -44,6 +44,14 @@ _script_sel = '''Script: {script}
 
 @Meta_Rule('help', priority=99, code='h', description='Display this help message')
 def help_message(meta, config):
+	'''
+	When activated, this rule prints out help message for the ``fig`` command, which includes
+	a list of all registered scripts, meta rules, and configs that have been loaded.
+	
+	:param meta: meta config object
+	:param config: config object
+	:return: [system exit, with code 0]
+	'''
 	
 	show_help = meta.pull('help', False, silent=True)
 	

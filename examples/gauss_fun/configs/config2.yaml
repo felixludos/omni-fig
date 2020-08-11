@@ -1,0 +1,7 @@
+
+always_log: True  # as this argument is in a parent dict of "logger" it will still be found within "logger".
+logger:
+  _type: mylogger
+  print_stream:
+    _type: file
+    path: 'log_file.txt'    # "." is treated like a sub-dict

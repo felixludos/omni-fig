@@ -9,12 +9,17 @@ prt = get_printer(__name__)
 
 @Component('run_mode/default')
 class Run_Mode:
+	'''
+	Run modes are used to actually execute the script specified by the user in the run command.
+	
+	It is recommended to register all run_modes with a ``run_mode/`` prefix, but not required.
+	'''
 	def __init__(self, A):
 		self.silent = A.pull('silent', True, silent=True)
 	
-	
 	@staticmethod
 	def get_script_info(script_name):
+		'''Given the name of the registered script, this returns the corresponding entry in the registry'''
 		return get_script(script_name)
 	
 	

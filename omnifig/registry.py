@@ -20,9 +20,18 @@ class _Script_Registry(Entry_Registry, components=['fn', 'use_config', 'descript
 _script_registry = _Script_Registry()
 
 def register_script(name, fn, use_config=False, description=None):
-	prt.debug(f'Registering script {name}')
-	if name in _script_registry:
-		prt.warning(f'A script with name {name} has already been registered, now overwriting')
+	'''
+	Function to register a script
+	
+	:param name: name of script
+	:param fn: script function (usually a callable that expects the config object)
+	:param use_config: :code:`True` if the config should be passed as only arg when calling the script function, otherise it will automatically pull all arguments in the script function signature
+	:param description: a short description of what the script does
+	:return:
+	'''
+	# prt.debug(f'Registering script {name}')
+	# if name in _script_registry:
+	# 	prt.warning(f'A script with name {name} has already been registered, now overwriting')
 	
 	project = get_current_project()
 	_script_registry.new(name, fn=fn, use_config=use_config, description=description, project=project)
@@ -31,12 +40,19 @@ def register_script(name, fn, use_config=False, description=None):
 		project.new_script(name)
 	
 def get_script(name):
+	'''Returns the entry for registered with the given name, or :code:`None` if not found'''
 	return _script_registry.get(name, None)
 	
-def view_script_registry():
-	return _script_registry.copy()
 
 def Script(name, use_config=True, description=None):
+	'''
+	Decorator to register a script
+	
+	:param name: name of script
+	:param use_config: :code:`True` if the config should be passed as only arg when calling the script function, otherise it will automatically pull all arguments in the script function signature
+	:param description: a short description of what the script does
+	:return: decorator function expecting a callable
+	'''
 	def _reg_script(fn):
 		nonlocal name, use_config
 		register_script(name, fn, use_config=use_config, description=description)
@@ -45,6 +61,14 @@ def Script(name, use_config=True, description=None):
 	return _reg_script
 
 def AutoScript(name, description=None):
+	'''
+	Convienence decorator to register scripts that automatically extract
+	relevant arguments from the config object
+	
+	:param name: name of the script
+	:param description: a short description of what the script does
+	:return: decorator function expecting a callable that does not expect the config as argument (otherwise use :func:`Script`)
+	'''
 	return Script(name, use_config=False, description=description)
 
 # endregion
@@ -65,9 +89,9 @@ def register_component(name, create_fn):
 	:param create_fn: callable accepting one arg (a Config object) (these should usually be classes)
 	'''
 	# assert name not in _reserved_names, '{} is reserved'.format(name)
-	prt.debug(f'Registering component {name}')
-	if name in _component_registry:
-		prt.warning(f'A component with name {name} has already been registered, now overwriting')
+	# prt.debug(f'Registering component {name}')
+	# if name in _component_registry:
+	# 	prt.warning(f'A component with name {name} has already been registered, now overwriting')
 	
 	project = get_current_project()
 	_component_registry.new(name, create_fn=create_fn, project=project)
@@ -75,10 +99,6 @@ def register_component(name, create_fn):
 	if project is not None:
 		project.new_component(name)
 	
-	
-def view_component_registry():
-	return _component_registry.copy()
-
 
 def Component(name=None):
 	'''
@@ -161,13 +181,12 @@ def register_modifier(name, mod_fn, expects_config=False):
 	appended when merging configs
 
 	:param name: str (should be unique to this component, may not start with "+")
-	:param mod_fn: callable accepting one arg (the "create_fn" of a registered component)
-	(these should usually be classes)
+	:param mod_fn: callable accepting one arg (the "create_fn" of a registered component) (these should usually be classes)
 	'''
 	# assert name not in _reserved_names, '{} is reserved'.format(name)
-	prt.debug(f'Registering modifier {name}')
-	if name in _mod_registry:
-		prt.warning(f'A modifier with name {name} has already been registered, now overwriting')
+	# prt.debug(f'Registering modifier {name}')
+	# if name in _mod_registry:
+	# 	prt.warning(f'A modifier with name {name} has already been registered, now overwriting')
 	
 	project = get_current_project()
 	_mod_registry.new(name, fn=mod_fn, expects_config=expects_config, project=project)
@@ -175,14 +194,12 @@ def register_modifier(name, mod_fn, expects_config=False):
 	if project is not None:
 		project.new_modifier(name)
 	
-def view_modifier_registry():
-	return _mod_registry.copy()
-
 def Modifier(name=None, expects_config=False):
 	'''
 	Decorator to register a modifier
 
-	NOTE: modifiers are usually not types/classes, but functions
+	NOTE: a :class:`Modifier` is usually not a type/class, but rather a function
+	(except :class:`AutoModifiers`, see below)
 
 	:param name: if not provided, will use the __name__ attribute.
 	:param expects_config: True iff this modifier expects to be given the config as second arg
@@ -205,15 +222,13 @@ def AutoModifier(name=None):
 	the modifier types can specify defaults for the modifications without calling pull() multiple times
 	on the same arg.
 
-	(eg. see `Cropped` in .datasets.transforms)
-
 	Note: in a way, this converts components to modifiers (but think before using). This turns the modified
 	component into a child class of this modifier and its previous type.
 
 	In short, Modifiers are used for wrapping of components, AutoModifiers are used for subclassing components
 
 	:param name: if not provided, will use the __name__ attribute.
-	:return: decorator to decorate a function
+	:return: decorator to decorate a class
 	'''
 
 	def _auto_mod(mod_type):
@@ -235,11 +250,13 @@ def _make_post_mod(mod):
 
 def Modification(name=None):
 	'''
-	A specific kind of Modifier that modifies the component after it is created
+	A specific kind of Modifier that modifies the component after it is created,
+	and then returns the modified component
 	
 	expects a callable with input (component, config)
 	
 	:param name: name to register
+	:return: a decorator expecting the modification function
 	'''
 	
 	def _reg_modification(mod):
@@ -257,16 +274,16 @@ def create_component(info):
 	Creates the component specified in info (checks component registry using info.pull('_type'),
 	and modifier registry for info.pull('_mod'))
 
-	_mod can be a list, inwhich case they will be applied in the given order, eg:
+	_mod can be a list, in which case they will be applied in the given order, eg:
 
 	let mods = [A, B, C]
 
 	component <- C(B(A(component)))
 
-	NOTE: generally, start with more specific modifications, and become more general
+	NOTE: generally, start with more specific modifiers, and become more general
 
-	:param info: should be a Config object with attribute "_type" (and optionally "_mod")
-	:return: component(info)
+	:param info: should be a config object with attribute "_type" (and optionally "_mod")
+	:return: component created using the provided config (``info``)
 	'''
 
 	name = info.pull('_type', silent=True)
@@ -295,3 +312,14 @@ def create_component(info):
 
 
 
+def view_script_registry():
+	'''Returns a copy of the full script registry'''
+	return _script_registry.copy()
+
+def view_component_registry():
+	'''Returns a copy of the full component registry'''
+	return _component_registry.copy()
+
+def view_modifier_registry():
+	'''Returns a copy of the full modifier registry'''
+	return _mod_registry.copy()

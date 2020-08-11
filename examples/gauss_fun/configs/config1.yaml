@@ -1,0 +1,6 @@
+num_events: 5
+
+logger:
+  _type: mylogger
+  credits: [Gauss, Hamilton, Fourier]
+  print_stream._type: stdout    # "." is treated like a sub-dict

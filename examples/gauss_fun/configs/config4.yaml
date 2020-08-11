@@ -1,0 +1,8 @@
+
+
+parents: [config2, config3]
+
+remove_names: [Fourier]
+
+logger._mod: [multi, remove-credits]
+
