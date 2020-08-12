@@ -214,6 +214,8 @@ class Config_Printing:
 			if term == '':
 				skip = True
 				addr.append('')
+			elif term is None:
+				pass
 			elif not skip:
 				addr.append(term)
 			else:
@@ -309,9 +311,7 @@ class ConfigType(hp.Transactionable):
 			item = '.'.join(item)
 		
 		if isinstance(val, ConfigType):
-			self._swap_prefix()
-			val._send_prefix(self)
-			val._append_prefix(item)
+			val._set_prefix(self.get_prefix() + [item])
 			val._store_prefix()
 		
 		return val
@@ -331,7 +331,7 @@ class ConfigType(hp.Transactionable):
 			raise NotImplementedError
 
 	def _record_action(self, action, suffix=None, val=None, silent=False, obj=None,
-	                   defaulted=False, pushed=False):
+	                   defaulted=False, pushed=False, _entry=False):
 		'''
 		Internal function to manage printing out messages after various actions have been taken with this config.
 		
@@ -342,6 +342,7 @@ class ConfigType(hp.Transactionable):
 		:param obj: object created or used in this action (eg. a newly created component)
 		:param defaulted: is a default value being used
 		:param pushed: has this value just been pushed
+		:param _entry: internal flag used for printing messages
 		:return: formatted message corresponding to this action
 		'''
 		printer = self._get_printer()
@@ -383,7 +384,8 @@ class ConfigType(hp.Transactionable):
 				assert obj is not None, 'no object provided'
 				end = f': id={hex(id(obj))}'
 			
-			head = '' if suffix is None else f' {name}'
+			# head = '' if suffix is None else f' {name}'
+			head = f' {name}'
 			out = printer.log_record(f'{action.upper()}{head} '
 			                                               f'(type={cmpn_type}){mod_info}{origins}{end}',
 			                       silent=silent)
@@ -422,6 +424,8 @@ class ConfigType(hp.Transactionable):
 		
 		if action == 'pulled':
 			head = '' if suffix is None else f'{name}: '
+			if _entry:
+				head = ''
 			return printer.log_record(f'{head}{pval}{origins}', silent=silent)
 		
 		raise UnknownActionError(action)
@@ -438,10 +442,10 @@ class ConfigType(hp.Transactionable):
 		:param as_iter: return an iterator over the selected value (only works if the value is a dict/list)
 		:return: processed value of the parameter (or default if ``item`` is not found, or raises a ``MissingConfigError`` if not found)
 		'''
-		self._swap_prefix()
+		self._reset_prefix()
 		return self._pull(item, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter, _origin=self)
 
-	def pull_self(self, name='', silent=False, as_iter=False):
+	def pull_self(self, name=None, silent=False, as_iter=False):
 		'''
 		Process self as a value being pulled.
 		
@@ -450,7 +454,7 @@ class ConfigType(hp.Transactionable):
 		:param as_iter: Return self as an iterator (has same effect as calling ``seq()``)
 		:return: the processed value of self
 		'''
-		self._swap_prefix()
+		self._reset_prefix()
 		return self._process_val(name, self, silent=silent, reuse=False, is_self=True, as_iter=as_iter, _origin=self)
 
 	def _pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False,
@@ -499,7 +503,7 @@ class ConfigType(hp.Transactionable):
 
 		if defaulted: # try again with new value
 
-			_origin._swap_prefix()
+			_origin._reset_prefix()
 			
 			val = _origin._process_val(item, val, *defaults, silent=silent, defaulted=defaulted or _defaulted,
 			                        as_iter=as_iter, reuse=ref, _origin=_origin)
@@ -508,7 +512,7 @@ class ConfigType(hp.Transactionable):
 			if not isinstance(val, ConfigType):
 				prt.warning(f'Pulling through a non-config object: {val}')
 			
-			self._send_prefix(val, item)
+			val._set_prefix(self.get_prefix() + [item])
 			out = val._pull(line, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
 			               _defaulted=_defaulted, _origin=_origin)
 			
@@ -517,7 +521,7 @@ class ConfigType(hp.Transactionable):
 		elif byparent: # parent pull
 			parent = self.get_parent()
 
-			self._send_prefix(parent, '')
+			parent._set_prefix(self.get_prefix() + [''])
 			val = parent._pull((item, *line), *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
 			                   _origin=_origin)
 			
@@ -570,19 +574,21 @@ class ConfigType(hp.Transactionable):
 
 					self._record_action('creating', suffix=item, val=val, silent=silent, **record_flags)
 					
-					self._swap_prefix()
+					hidden = val._get_hidden_prefix()
+					val.get_prefix().clear()
+					val._store_prefix()
 					
 					with self.silenced(silent or self._get_silent()):
 						cmpn = create_component(val)
 					
-					# self._swap_prefix()
-					
-					# if self.in_transaction(): # TODO: make transactionable again
 					if not self.in_safe_mode() or self.in_transaction():
-						if len(item) and not is_self:
+						if item is not None and len(item) and not is_self:
 							self[item]['__obj'] = cmpn
 						else:
 							self['__obj'] = cmpn
+					
+					val._set_prefix(hidden)
+					val._store_prefix()
 					
 					self._record_action('created', suffix=item, val=val, obj=cmpn, silent=silent, **record_flags)
 					
@@ -594,7 +600,7 @@ class ConfigType(hp.Transactionable):
 				terms = {}
 				for k, v in val.items():  # WARNING: pulls all entries in dict
 					self._record_action('entry', silent=silent, suffix=k)
-					terms[k] = val._process_val(k, v, reuse=reuse, silent=silent, _origin=_origin)
+					terms[k] = val._process_val(k, v, reuse=reuse, silent=silent, _origin=_origin, _entry=True)
 				self._record_action('pulled-dict', suffix=item, val=val, obj=terms, silent=silent, **record_flags)
 				val = terms
 
@@ -605,7 +611,7 @@ class ConfigType(hp.Transactionable):
 			terms = []
 			for i, v in enumerate(val):  # WARNING: pulls all entries in list
 				self._record_action('entry', silent=silent, suffix=str(i))
-				terms.append(val._process_val(str(i), v, reuse=reuse, silent=silent, _origin=_origin))
+				terms.append(val._process_val(str(i), v, reuse=reuse, silent=silent, _origin=_origin, _entry=True))
 			self._record_action('pulled-list', suffix=item, val=val, obj=terms, silent=silent, **record_flags)
 			val = terms
 
@@ -614,18 +620,14 @@ class ConfigType(hp.Transactionable):
 			
 			self._record_action('local-alias', suffix=item, val=alias, silent=silent, **record_flags)
 			
-			# self._send_prefix(_origin)
-			# val = _origin._pull(alias, *defaults, silent=silent, _origin=_origin)
-		
 			val = self._pull(alias, *defaults, silent=silent, _origin=_origin)
-			# self._receive_prefix(_origin)
 			
 		elif isinstance(val, str) and val.startswith('<o>'): # origin alias (returns to origin to find alias)
 			alias = val[3:]
 			
 			self._record_action('origin-alias', suffix=item, val=alias, silent=silent, **record_flags)
 			
-			_origin._swap_prefix()
+			_origin._reset_prefix()
 			val = _origin._pull(alias, *defaults, silent=silent, _origin=_origin)
 			
 		else:
@@ -648,7 +650,7 @@ class ConfigType(hp.Transactionable):
 		:param force_root: Push key to the root config object
 		:return: current val of key (updated if written)
 		'''
-		self._swap_prefix()
+		self._reset_prefix()
 		return self._push(key, val, silent=silent, overwrite=overwrite, no_parent=no_parent, force_root=force_root)
 	
 	def _push(self, key, val, silent=False, overwrite=True, no_parent=True, force_root=False, _origin=None):
@@ -687,17 +689,17 @@ class ConfigType(hp.Transactionable):
 		
 		if exists and len(line): # push me
 			child = self.get_nodefault(key)
-
-			self._send_prefix(child, key)
-
-			out = child.push(line, val, silent=silent, overwrite=overwrite, no_parent=True)
+			
+			child._set_prefix(self.get_prefix() + [key])
+			
+			out = child._push(line, val, silent=silent, overwrite=overwrite, no_parent=True)
 			
 			return out
 		elif parent is not None and key in parent: # push parent
 
-			self._send_prefix(parent, '')
+			parent._set_prefix(self.get_prefix() + [''])
 			
-			out = parent.push((key, *line), val, silent=silent, overwrite=overwrite, no_parent=no_parent)
+			out = parent._push((key, *line), val, silent=silent, overwrite=overwrite, no_parent=no_parent)
 			
 			return out
 			
@@ -705,9 +707,9 @@ class ConfigType(hp.Transactionable):
 			
 			child = self.get_nodefault(key)
 			
-			self._send_prefix(child, key)
+			child._set_prefix(self.get_prefix() + [key])
 			
-			out = child.push(line, val, silent=silent, overwrite=overwrite, no_parent=True)
+			out = child._push(line, val, silent=silent, overwrite=overwrite, no_parent=True)
 		
 			return out
 		
@@ -816,38 +818,19 @@ class ConfigType(hp.Transactionable):
 		return self.__dict__['_printer']
 	
 	def get_prefix(self):
-		return self._prefix
+		return self.__dict__['_prefix']
 	
-	def _send_prefix(self, obj=None, new=None):
-		
-		if new is not None:
-			self._append_prefix(new)
-		
-		if obj is not None:
-			obj._swap_prefix(self._prefix)
+	def _set_prefix(self, prefix):
+		self.__dict__['_prefix'] = prefix
 	
-	def _receive_prefix(self, obj=None, pop=False):
-		
-		if obj is not None:
-			self._swap_prefix(obj._prefix)
-		
-		if pop:
-			self._pop_prefix()
+	def _reset_prefix(self):
+		self._set_prefix(self._get_hidden_prefix())
 	
-	def _swap_prefix(self, prefix=None):
-		if prefix is None:
-			prefix = self._hidden_prefix.copy()
-		self._prefix = prefix
-		return prefix
+	def _get_hidden_prefix(self):
+		return self.__dict__['_hidden_prefix']
 	
 	def _store_prefix(self):
-		self._hidden_prefix = self._prefix.copy()
-	
-	def _append_prefix(self, item):
-		self._prefix.append(item)
-	
-	def _pop_prefix(self):
-		self._prefix.pop()
+		self.__dict__['_hidden_prefix'] = self.get_prefix().copy()
 	
 	# endregion
 	
@@ -902,11 +885,6 @@ class ConfigType(hp.Transactionable):
 			child = self.__getitem__(key[0])
 			assert isinstance(child, ConfigType)
 			return child.__setitem__(key[1:], value)
-		# if isinstance(child, ConfigType):
-		# 	return child.__setitem__(key[1:], value)
-		# if not isinstance(child, ConfigType):
-		# 	prt.warning(f'Trying to set {key[1:]} in {child}')
-		# return child.__setitem__(key[1:], value)
 		
 		value = configurize(value)
 		
@@ -954,8 +932,6 @@ class ConfigType(hp.Transactionable):
 		except KeyError:
 			return self._missing_key(item)
 		
-		# if val == '__x__':
-		# 	raise MissingConfigError(item)
 		return val
 	
 	def _missing_key(self, key):
@@ -1201,7 +1177,7 @@ class Config_Iter:
 		'''Find the next index or key'''
 		
 		if self._keys is None:
-			return self._idx
+			return str(self._idx)
 		
 		while self._idx < len(self._elms):
 			idx = self._keys[self._idx]
@@ -1212,6 +1188,12 @@ class Config_Iter:
 		
 		raise StopIteration
 		
+	def view(self):
+		'''Returns the next object without processing the item, may throw a StopIteration exception'''
+		obj = self._elms[self._next_idx()]
+		if isinstance(obj, ConfigType):
+			return self._elms.sub(self._next_idx())
+		return obj
 
 	def __next__(self):
 
@@ -1222,7 +1204,7 @@ class Config_Iter:
 
 		self._elms._prefix = self._prefix
 		
-		obj = self._elms._pull(str(idx))
+		obj = self._elms._pull(idx)
 		
 		self._idx += 1
 		if self._keys is None:
