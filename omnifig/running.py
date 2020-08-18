@@ -118,7 +118,7 @@ def process_argv(argv=(), script_name=None):
 	return config
 
 
-def initialize(**overrides):
+def initialize(*projects, **overrides):
 	'''
 	Initializes omni-fig by running the "princeps" file (if one exists),
 	loading the profile, and any active projects. Additionally loads the
@@ -130,6 +130,7 @@ def initialize(**overrides):
 	starting scripts from other environments (such as in a jupyter notebook), this should be called
 	manually after importing ``omnifig``.
 	
+	:param projects: additional projects that should be initialized
 	:param overrides: settings to be checked before defaulting to ``os.environ`` or global settings
 	:return: None
 	'''
@@ -148,6 +149,10 @@ def initialize(**overrides):
 	
 	# load project/s
 	profile.initialize()
+	
+	for proj in projects:
+		profile.load_project(proj)
+	
 
 def cleanup(**overrides):
 	'''

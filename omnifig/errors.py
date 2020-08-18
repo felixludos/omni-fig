@@ -16,6 +16,10 @@ class UnknownActionError(Exception):
 	'''Raised when trying to record an unrecognized action with the config object'''
 	pass
 	
+class ScriptNotFoundError(Exception):
+	'''Raised when trying to run a script that has not been registered'''
+	pass
+	
 class ConfigNotFoundError(Exception):
 	'''Raised when a config parameter is not found and no viable defaults are provided'''
 	def __init__(self, ident):

@@ -99,7 +99,7 @@ def get_config(*contents, **manual):  # Top level function
 	:return: config object
 	'''
 	root = ConfigDict()
-	if len(contents) == 0:
+	if len(contents) + len(manual) == 0:
 		return root
 
 	reg = []
@@ -172,6 +172,8 @@ def get_config(*contents, **manual):  # Top level function
 	if include_history is not None:
 		root.push(include_history, pnames, silent=True)
 	
+	root.push('parents', '_x_', silent=True)
+	
 	return root
 
 
@@ -186,14 +188,14 @@ class Config_Printing:
 		global _printing_instance
 		if _printing_instance is None:
 			_printing_instance = super().__new__(cls)
+			
+			_printing_instance.level = 0
+			_printing_instance.is_new_line = True
+			_printing_instance.unit = ' > '
+			_printing_instance.style = '| '
+			_printing_instance.silent = False
+			
 		return _printing_instance
-	def __init__(self):
-		self.level = 0
-		self.is_new_line = True
-		self.unit = ' > '
-		self.style = '| '
-		self.silent = False
-	
 	def __repr__(self):
 		return f'ConfigPrinting[{hex(id(self))}]'
 	def __str__(self):
@@ -227,7 +229,8 @@ class Config_Printing:
 		addr = '.'.join(addr[::-1])
 		return addr
 	
-	def log_record(self, raw, end='\n', silent=False):
+	def log_record(self, raw, end='\n',
+	               silent=False):
 		indent = self.level * self.unit
 		style = self.style
 		prefix = style + indent
@@ -236,7 +239,8 @@ class Config_Printing:
 		if not self.is_new_line:
 			prefix = ''
 		msg = f'{prefix}{msg}{end}'
-		if not (silent or self.silent):
+		base = self.silent
+		if not (silent or base):
 			print(msg, end='')
 			self.is_new_line = (len(msg) == 0 and self.is_new_line) or msg[-1] == '\n'
 		return msg
@@ -291,7 +295,7 @@ class ConfigType(hp.Transactionable):
 		self.__dict__['_safe_mode'] = safe_mode
 		
 		self.set_parent(parent)
-		self._set_silent(silent)
+		# self._set_silent(silent)
 
 		super().__init__()
 		
@@ -578,7 +582,8 @@ class ConfigType(hp.Transactionable):
 					val.get_prefix().clear()
 					val._store_prefix()
 					
-					with self.silenced(silent or self._get_silent()):
+					past = self._get_silent()
+					with self.silenced(silent or past):
 						cmpn = create_component(val)
 					
 					if not self.in_safe_mode() or self.in_transaction():

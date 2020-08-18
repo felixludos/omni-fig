@@ -1,0 +1,7 @@
+
+
+use_gpu: True
+
+dataroot: /path/to/datasets
+
+

@@ -94,8 +94,10 @@ class Profile(Customizable_Infomation):
 		self.load_src()
 		self.load_active_projects()
 		if self.autoload_local:
-			self.load_project(os.getcwd() if loc is None else loc)
-		
+			try:
+				self.load_project(os.getcwd() if loc is None else loc)
+			except NoValidProjectError:
+				pass
 	
 	def update_global_settings(self):
 		'''Updates global settings with items in :attr:`self.global_settings`'''

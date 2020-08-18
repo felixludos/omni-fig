@@ -236,7 +236,7 @@ def AutoModifier(name=None):
 		def _the_mod(cmpn_type):
 			# awesome python feature -> dynamic type declaration!
 			return type('{}_{}'.format(mod_type.__name__, cmpn_type.__name__), (mod_type, cmpn_type), {})
-		Modifier(name=name)(_the_mod)
+		Modifier(name=mod_type.__name__ if name is None else name)(_the_mod)
 		return mod_type
 
 	return _auto_mod
@@ -250,10 +250,13 @@ def _make_post_mod(mod):
 
 def Modification(name=None):
 	'''
-	A specific kind of Modifier that modifies the component after it is created,
+	A kind of Modifier that modifies the component after it is created,
 	and then returns the modified component
 	
 	expects a callable with input (component, config)
+	
+	Modifications should almost always be applied after all other modifiers,
+	so they should appear at the end of _mod list
 	
 	:param name: name to register
 	:return: a decorator expecting the modification function
@@ -280,7 +283,10 @@ def create_component(info):
 
 	component <- C(B(A(component)))
 
-	NOTE: generally, start with more specific modifiers, and become more general
+	_mod can also be a dict, in which case the keys should be the mod names and the values the order (low to high).
+	So for the same behavior as above, a _mod could also be {A:0, B:1, C:2}
+
+	NOTE: generally, modifiers should be ordered from more specific to more general
 
 	:param info: should be a config object with attribute "_type" (and optionally "_mod")
 	:return: component created using the provided config (``info``)
@@ -292,12 +298,11 @@ def create_component(info):
 
 	component = _component_registry[name].create_fn
 
-	try:
-		mod_names = info.pull('_mod', silent=True)
-	except MissingConfigError:
-		mod_names = None
-
+	mod_names = info.pull('_mod', None, silent=True)
 	if mod_names is not None:
+
+		if isinstance(mod_names, dict):
+			mod_names = sorted(mod_names.keys(), key=lambda k:mod_names[k])
 
 		if not isinstance(mod_names, (list, tuple)):
 			mod_names = mod_names,

@@ -1,4 +1,5 @@
 
+from .errors import ScriptNotFoundError
 from .registry import Component, get_script
 from .util import autofill_args
 
@@ -34,6 +35,9 @@ class Run_Mode:
 		
 		script_name = meta.pull('script_name', silent=self.silent)
 		script_info = self.get_script_info(script_name)
+		
+		if script_info is None:
+			raise ScriptNotFoundError(script_name)
 		
 		script_fn = script_info.fn
 		

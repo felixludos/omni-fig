@@ -170,7 +170,7 @@ class Project(Customizable_Infomation):
 	def load_src(self):
 		'''Imports all specified packages and runs the specified python files'''
 		include_package(*self.src_packages)
-		include_files(*self.src_paths)
+		include_files(*[os.path.join(self.root, src) for src in self.src_paths])
 	
 	def get_related(self):
 		'''Returns a list of project names of all projects that should be loaded prior to this one'''

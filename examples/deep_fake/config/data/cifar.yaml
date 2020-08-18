@@ -1,0 +1,15 @@
+
+dataset:
+  _type: cifar
+  _mod:
+    even: True
+
+  num_categories: 10 # the CIFAR dataset is available with 10 or 100 classes
+
+  input_shape: [3, 32, 32]
+  output_size: <>num_categories
+
+  in_color: True
+
+
+
