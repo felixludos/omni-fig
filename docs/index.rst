@@ -13,7 +13,6 @@ Welcome to omni-fig!
    installation
    quickstart
    philosophy
-   organization
 
 .. toctree::
    :maxdepth: 3
