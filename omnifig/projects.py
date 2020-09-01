@@ -159,8 +159,14 @@ class Project(Customizable_Infomation):
 		'''
 		if self.add_to_path:
 			sys.path.append(self.root)
+			
+		origin = os.getcwd()
+		os.chdir(self.root)
+		
 		self.load_configs()
 		self.load_src()
+		
+		os.chdir(origin)
 		
 	def load_configs(self):
 		'''Registers all specified config files and directories'''

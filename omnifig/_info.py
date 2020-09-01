@@ -3,7 +3,7 @@
 name = 'omnifig'
 long_name = 'omni-fig'
 
-version = '0.5'
+version = '0.5.1'
 
 url = 'https://github.com/felixludos/omni-fig'
 
@@ -13,7 +13,7 @@ description = 'Universal configuration system for common execution environments'
 author = 'Felix Leeb'
 author_email = 'felixludos.info@gmail.com'
 
-license = 'GPL3'
+license = 'MIT'
 
 readme = 'README.rst'
 

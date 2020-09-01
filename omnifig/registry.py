@@ -44,13 +44,13 @@ def get_script(name):
 	return _script_registry.get(name, None)
 	
 
-def Script(name, use_config=True, description=None):
+def Script(name, description=None, use_config=True):
 	'''
 	Decorator to register a script
 	
 	:param name: name of script
-	:param use_config: :code:`True` if the config should be passed as only arg when calling the script function, otherise it will automatically pull all arguments in the script function signature
 	:param description: a short description of what the script does
+	:param use_config: :code:`True` if the config should be passed as only arg when calling the script function, otherise it will automatically pull all arguments in the script function signature
 	:return: decorator function expecting a callable
 	'''
 	def _reg_script(fn):
