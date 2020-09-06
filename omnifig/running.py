@@ -102,7 +102,7 @@ def process_argv(argv=(), script_name=None):
 					break
 					
 		elif arg == '_' or script_name is not None:
-			remaining = argv[i:]
+			remaining = argv[i+1:]
 			break
 			
 		else:
