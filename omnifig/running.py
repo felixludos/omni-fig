@@ -23,10 +23,10 @@ def entry(script_name=None):
 	given script with ``script_name`` if it is provided
 	
 	:param script_name: script to be run (may be set with arguments) (overrides other arguments if provided)
-	:return: the output of the script that is to be run
+	:return: Nothing
 	'''
 	argv = sys.argv[1:]
-	return main(*argv, script_name=script_name)
+	main(*argv, script_name=script_name)
 
 def main(*argv, script_name=None):
 	'''
@@ -102,7 +102,7 @@ def process_argv(argv=(), script_name=None):
 					break
 					
 		elif arg == '_' or script_name is not None:
-			remaining = argv[i+1:]
+			remaining = argv[i+int(script_name is None):]
 			break
 			
 		else:
