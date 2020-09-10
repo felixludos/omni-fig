@@ -121,7 +121,7 @@ class Profile(Customizable_Infomation):
 		:param all_related: recursively load all related projects
 		:return: None
 		'''
-		for proj in self.active_projects:
+		for proj in self.get_active_projects():
 			self.load_project(proj, load_related=load_related, all_related=False)
 		
 	def get_project(self, ident, load_related=True, all_related=False):

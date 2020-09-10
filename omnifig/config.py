@@ -1050,6 +1050,13 @@ class ConfigList(ConfigType, hp.tlist):
 		super().__init__(*args, **kwargs)
 		self._empty_fill_value = empty_fill_value
 
+	def __repr__(self):
+		info = '[[' + ', '.join(f'{k}' for k in self) + ']]'
+		return f'[{hex(id(self))}]{info}'
+
+	def __str__(self):
+		return '[[' + ', '.join(f'{k}' for k in self) + ']]'
+
 	def purge_volatile(self):
 		'''
 		Recursively remove any items where the key starts with "__"
