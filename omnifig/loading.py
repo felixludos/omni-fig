@@ -64,7 +64,7 @@ def get_project(ident=None):
 	'''Checks the profile to return (and possibly load) a project given the name or path ``ident``'''
 	profile = get_profile()
 	if profile is not None:
-		return profile.get_project(ident=None)
+		return profile.get_project(ident=ident)
 
 
 class set_current_project:
