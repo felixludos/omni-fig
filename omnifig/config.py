@@ -565,7 +565,7 @@ class ConfigType(hp.Transactionable):
 			
 			return itr
 		
-		if isinstance(val, dict):
+		if isinstance(val, ConfigDict):
 			if '_type' in val:
 				
 				# val.push('__origin_key', item, silent=True)
@@ -610,7 +610,7 @@ class ConfigType(hp.Transactionable):
 				val = terms
 
 
-		elif isinstance(val, list):
+		elif isinstance(val, ConfigList):
 			
 			self._record_action('pull-list', suffix=item, val=val, silent=silent, **record_flags)
 			terms = []
