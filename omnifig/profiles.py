@@ -121,10 +121,10 @@ class Profile(Customizable_Infomation):
 		:param all_related: recursively load all related projects
 		:return: None
 		'''
-		for proj in self.active_projects:
+		for proj in self.get_active_projects():
 			self.load_project(proj, load_related=load_related, all_related=False)
 		
-	def get_project(self, ident, load_related=True, all_related=False):
+	def get_project(self, ident=None, load_related=True, all_related=False):
 		'''
 		Gets project if already loaded, otherwise tries to find the project path,
 		and then loads the missing project
@@ -134,7 +134,10 @@ class Profile(Customizable_Infomation):
 		:param all_related: recursively load all related projects (trumps ``load_related``)
 		:return: project object
 		'''
-		
+
+		if ident is None:
+			ident = os.getcwd()
+
 		if ident in self._loaded_projects:
 			return self._loaded_projects[ident]
 		

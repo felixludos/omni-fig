@@ -25,6 +25,7 @@ def include_files(*paths):
 		if os.path.isfile(path):
 			apath = os.path.abspath(path)
 			if apath not in _loaded_files:
+				sys.path.append(os.path.dirname(apath))
 				prt.debug(f'Loading {apath}')
 				spec = importlib.util.spec_from_file_location(f"load{_load_counter}", apath)
 				mod = importlib.util.module_from_spec(spec)
@@ -32,6 +33,7 @@ def include_files(*paths):
 				# mod.MyClass()
 				_loaded_files[apath] = mod
 				_load_counter += 1
+				sys.path.pop()
 
 def include_package(*packages):
 	'''
