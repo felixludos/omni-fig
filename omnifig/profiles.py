@@ -135,9 +135,9 @@ class Profile(Customizable_Infomation):
 		:return: project object
 		'''
 
-		if ident is not None:
+		if ident is None:
 			ident = os.getcwd()
-		
+
 		if ident in self._loaded_projects:
 			return self._loaded_projects[ident]
 		
