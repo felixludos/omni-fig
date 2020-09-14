@@ -60,11 +60,11 @@ def get_profile(**overrides):
 		load_profile(**overrides)
 	return _profile
 
-def get_project(ident):
+def get_project(ident=None):
 	'''Checks the profile to return (and possibly load) a project given the name or path ``ident``'''
 	profile = get_profile()
 	if profile is not None:
-		return profile.get_project(ident)
+		return profile.get_project(ident=None)
 
 
 class set_current_project:
