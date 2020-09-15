@@ -721,9 +721,10 @@ class ConfigType(hp.Transactionable):
 		if exists and not overwrite:
 			return self._pull(key, silent=True)
 		
-		if exists and isinstance(val, str) and val == '_x_':
-			self._record_action('removing', suffix=key, val=val, silent=silent)
-			del self[key]
+		if isinstance(val, str) and val == '_x_':
+			if exists:
+				self._record_action('removing', suffix=key, val=val, silent=silent)
+				del self[key]
 			return
 		
 		val = configurize(val)
