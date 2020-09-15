@@ -34,7 +34,7 @@ def debug_rule(meta, config):
 		try:
 			debug = get_config(DEBUG_NAME)
 		except ConfigNotFoundError:
-			if not meta.pull('silent', silent=True):
+			if not meta.pull('silent', False, silent=True):
 				prt.warning('No config "debug" was found')
 		else:
 			config.update(debug)
