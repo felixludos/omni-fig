@@ -496,6 +496,7 @@ class ConfigType(hp.Transactionable):
 			if len(defaults) == 0:
 				raise MissingConfigError(item)
 			val, *defaults = defaults
+			line = []
 		else:
 			val = self[item]
 
@@ -1173,7 +1174,7 @@ class Config_Iter:
 		# self._name = config._ident
 		# assert '_elements' in config, 'No elements found'
 		if elements is None:
-			elements = origin._elements
+			elements = origin['_elements']
 		self._elms = elements
 		
 		self._keys = [k for k in self._elms.keys()
@@ -1190,6 +1191,8 @@ class Config_Iter:
 		'''Find the next index or key'''
 		
 		if self._keys is None:
+			if not self._elms.contains_nodefault(self._idx):
+				raise StopIteration
 			return str(self._idx)
 		
 		while self._idx < len(self._elms):
@@ -1203,9 +1206,10 @@ class Config_Iter:
 		
 	def view(self):
 		'''Returns the next object without processing the item, may throw a StopIteration exception'''
-		obj = self._elms[self._next_idx()]
+		idx = self._next_idx()
+		obj = self._elms[idx]
 		if isinstance(obj, ConfigType):
-			return self._elms.sub(self._next_idx())
+			return self._elms.sub(idx)
 		return obj
 
 	def __next__(self):
