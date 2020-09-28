@@ -52,7 +52,7 @@ def include_package(*packages):
 
 class _Config_Registry(Entry_Registry, components=['path', 'project']):
 	pass
-_config_registry = _Config_Registry()
+config_registry = _Config_Registry()
 
 
 def register_config(name, path, project=None):
@@ -67,10 +67,10 @@ def register_config(name, path, project=None):
 	assert os.path.isfile(path), 'Cant find config file: {}'.format(path)
 	
 	prt.debug(f'Registering config {name}')
-	if name in _config_registry:
+	if name in config_registry:
 		prt.warning(f'A config with name {name} has already been registered, now overwriting')
 	
-	_config_registry.new(name, path=path, project=project)
+	config_registry.new(name, path=path, project=project)
 	
 	if project is not None:
 		project.new_config(name)
@@ -133,7 +133,7 @@ def include_configs(*paths, project=None):
 
 def view_config_registry(): # TODO: clean this up - return view not copy of the full registry
 	'''Return a copy of the full config registry'''
-	return _config_registry.copy()
+	return config_registry.copy()
 
 
 def find_config_path(name):
@@ -147,7 +147,7 @@ def find_config_path(name):
 	if os.path.isfile(name):
 		return name
 
-	reg = _config_registry
+	reg = config_registry
 
 	if name in reg:
 		return reg[name].path
