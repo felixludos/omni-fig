@@ -315,10 +315,10 @@ def create_component(info):
 			mod = _mod_registry.get(mod_name,None)
 			if mod is None:
 				if allow_missing_mods:
-					prt.error(f'Could not find mod "{mod}" for component "{name}"')
+					prt.error(f'Could not find mod "{mod_name}" for component "{name}"')
 					continue
 				else:
-					raise MissingModError(mod, name)
+					raise MissingModError(mod_name, name)
 			component = mod.fn(component, info) if mod.expects_config else mod.fn(component)
 
 	return component(info)
