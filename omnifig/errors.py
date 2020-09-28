@@ -30,6 +30,12 @@ class MissingConfigError(Exception):
 	def __init__(self, key):
 		super().__init__(key)
 
+class MissingModError(Exception):
+	'''Raised when a modifier specified in the config for a component is not found (it has not been registered)'''
+	def __init__(self, mod, cmpn):
+		super().__init__(f'Could not find mod "{mod}" for component "{cmpn}"')
+		self.mod, self.cmpn = mod, cmpn
+
 class InvalidKeyError(Exception):
 	'''Only raised when a key cannot be converted to an index for a :class:`ConfigList`'''
 	pass

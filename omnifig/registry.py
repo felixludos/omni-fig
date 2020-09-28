@@ -4,7 +4,7 @@ import inspect
 from collections import namedtuple
 import importlib.util
 
-from .errors import MissingConfigError
+from .errors import MissingConfigError, MissingModError
 from .loading import get_current_project
 from .util import autofill_args
 
@@ -298,6 +298,8 @@ def create_component(info):
 
 	component = _component_registry[name].create_fn
 
+	allow_missing_mods = info.pull('allow-missing-mods', False, silent=True)
+
 	mod_names = info.pull('_mod', None, silent=True)
 	if mod_names is not None:
 
@@ -310,7 +312,13 @@ def create_component(info):
 		for mod_name in mod_names: # WARNING: apply modifications in reverse order
 			if mod_name[0] == '+': # filter out initial + if found
 				mod_name = mod_name[1:]
-			mod = _mod_registry[mod_name]
+			mod = _mod_registry.get(mod_name,None)
+			if mod is None:
+				if allow_missing_mods:
+					prt.error(f'Could not find mod "{mod}" for component "{name}"')
+					continue
+				else:
+					raise MissingModError(mod, name)
 			component = mod.fn(component, info) if mod.expects_config else mod.fn(component)
 
 	return component(info)
