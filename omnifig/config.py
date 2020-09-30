@@ -1191,9 +1191,12 @@ class Config_Iter:
 		'''Find the next index or key'''
 		
 		if self._keys is None:
-			if not self._elms.contains_nodefault(self._idx):
+			if len(self._elms) <= self._idx:
 				raise StopIteration
 			return str(self._idx)
+			# if not self._elms.contains_nodefault(self._idx):
+			# 	raise StopIteration
+			# return str(self._idx)
 		
 		while self._idx < len(self._elms):
 			idx = self._keys[self._idx]
