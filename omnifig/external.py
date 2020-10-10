@@ -136,12 +136,13 @@ def view_config_registry(): # TODO: clean this up - return view not copy of the 
 	return config_registry.copy()
 
 
-def find_config_path(name):
+def find_config_path(name, project=None):
 	'''
 	Given a name or path, find the associated config file
 	by checking the registry in possible
 	
 	:param name: path or name of config to find
+	:param project: project to look for the config
 	:return: full absolute path of config (raising :class:`ConfigNotFoundError` if nothing is found)
 	'''
 	if os.path.isfile(name):
