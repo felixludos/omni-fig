@@ -5,11 +5,14 @@ import traceback
 from omnibelt import get_printer
 
 from .errors import ConfigNotFoundError
-from .external import find_config_path
-from .config import get_config
+
+from .top import get_config, find_config
+from .decorators import Component
+
 from .modes import Run_Mode
 from .rules import Meta_Rule
-from .registry import Component
+
+
 
 DEBUG_CODE = 'd'
 DEBUG_NAME = 'debug'
@@ -33,7 +36,7 @@ def debug_rule(meta, config):
 		print('Switched to debug run mode')
 		
 		try:
-			find_config_path(DEBUG_NAME)
+			find_config(DEBUG_NAME)
 		except ConfigNotFoundError:
 			if not meta.pull('silent', False, silent=True):
 				prt.warning('No config "debug" was found')

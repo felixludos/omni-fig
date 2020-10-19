@@ -1,15 +1,19 @@
 
-import sys, os
+import sys, os, io
 import inspect
+import yaml
 import time
 
 from omnibelt import primitives, get_printer, \
 	get_global_settings, set_global_setting, get_global_setting, get_now, resolve_order, \
 	spawn_path_options
-from omnibelt.logging import global_settings
+from omnibelt.logging import global_settings as belt_global_settings
+
+from .errors import YamlifyError
 
 LIB_PATH = os.path.dirname(__file__)
 
+global_settings = belt_global_settings.copy()
 global_settings.update({
 	
 	# naming settings
@@ -17,6 +21,9 @@ global_settings.update({
 	'profile_env_var': 'FIG_PROFILE',
 	'profile_src_env_var': 'FIG_PROFILE_SRC',
 	'init_env_var': 'FIG_INIT',
+	
+	'disable_princeps': False,
+	'princeps_path': 'FIG_PRINCEPS',
 	
 	# default infos
 	'default_profile': None,
@@ -31,12 +38,75 @@ global_settings.update({
 	#      'related-projects', # any projects related to the active project
 	#      'init' # scripts loaded through init (no project)
 	#      ],
+	
+	'arg_parse_language': 'yaml',
+	
 })
 
 prt = get_printer(__name__)
 
 
-def autofill_args(fn, config, aliases=None, run=True):
+def configurize(data):
+	'''
+	Transform data container to use config objects (ConfigDict/ConfigList)
+
+	:param data: dict/list data
+	:return: deep copy of data using ConfigDict/ConfigList
+	'''
+	if isinstance(data, global_settings['config_type']):
+		return data
+	for typ, convert in global_settings.get('config_converters', {}).items():
+		if isinstance(data, typ):
+			return convert(data, configurize)
+	return data
+
+
+def yamlify(data):  # TODO: allow adding yamlify rules for custom objects
+	'''
+	Transform data container into regular dicts/lists to export to yaml file
+
+	:param data: Config object
+	:return: deep copy of data using dict/list
+	'''
+	# if data is None:
+	# 	return '_None'
+	if data is None or isinstance(data, primitives):
+		return data
+	if isinstance(data, dict):
+		return {k: yamlify(v) for k, v in data.items() if not k.startswith('__')}
+	if isinstance(data, (list, tuple, set)):
+		return [yamlify(x) for x in data]
+	
+	raise YamlifyError(data)
+
+# parse args
+
+def parse_arg(arg, mode=None):
+	
+	if mode is None:
+		mode = global_settings['arg_parse_language']
+	
+	if mode == 'python':
+		raise NotImplementedError
+	
+	try:
+		if isinstance(mode, str):
+			if mode == 'yaml':
+				return yaml.safe_load(io.StringIO(arg))
+			elif mode == 'python':
+				return eval(arg, {}, {})
+			else:
+				pass
+		else:
+			return mode(arg)
+	except:
+		pass
+	return arg
+
+
+# autofill
+
+def autofill_args(fn, config, aliases=None, run=True): # TODO: move to omnibelt (?)
 
 	params = inspect.signature(fn).parameters
 

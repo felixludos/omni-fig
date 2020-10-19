@@ -2,8 +2,6 @@
 import sys, os
 from tabulate import tabulate
 
-from .external import view_config_registry
-from .registry import get_script, view_script_registry
 from .rules import Meta_Rule, view_meta_rules
 
 
