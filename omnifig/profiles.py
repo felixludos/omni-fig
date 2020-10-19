@@ -33,6 +33,8 @@ class Profile(Workspace
 	
 	def __init__(self, **kwargs):
 		super().__init__(**kwargs)
+		
+		self.set_current_project()
 	
 	def _process(self, raw):
 		'''
@@ -261,7 +263,7 @@ class Profile(Workspace
 		'''Get a list of all projects specified as "active"'''
 		return self.active_projects.copy()
 	
-	def set_current_project(self, project):
+	def set_current_project(self, project=None):
 		'''Set the current project'''
 		if isinstance(project, str):
 			project = self.get_project(project)
