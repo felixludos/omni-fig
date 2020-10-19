@@ -80,7 +80,7 @@ def quick_run(script_name, *parents, **args):
 	:param args: any additional arguments to be provided manually
 	:return: script output
 	'''
-	config = create_config(*parents, **args)
+	config = get_config(*parents, **args)
 	return run(script_name, config)
 
 
@@ -118,8 +118,6 @@ def initialize(*projects, **overrides):
 	
 	for proj in projects:
 		profile.load_project(proj)
-	
-	profile.get_project()
 
 
 def cleanup(**overrides):
@@ -179,21 +177,29 @@ def has_script(name):
 	return get_current_project().has_script(name)
 def find_script(name):
 	return get_current_project().find_script(name)
+def view_scripts():
+	return get_current_project().view_scripts()
 
 def has_component(name):
 	return get_current_project().has_component(name)
 def find_component(name):
 	return get_current_project().find_component(name)
+def view_components():
+	return get_current_project().view_components()
 
 def has_modifier(name):
 	return get_current_project().has_modifier(name)
 def find_modifier(name):
 	return get_current_project().find_modifier(name)
+def view_modifiers():
+	return get_current_project().view_modifiers()
 
 def has_config(name):
 	return get_current_project().has_config(name)
 def find_config(name):
 	return get_current_project().find_config(name)
+def view_configs():
+	return get_current_project().view_configs()
 
 
 

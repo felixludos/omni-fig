@@ -3,6 +3,7 @@ import sys, os
 from tabulate import tabulate
 
 from .rules import Meta_Rule, view_meta_rules
+from .top import view_scripts, view_configs, find_script
 
 
 _default_help_msg = '''
@@ -65,9 +66,9 @@ def help_message(meta, config):
 	minfo = tabulate(metas, headers=['Code', 'Name', 'Description'], ) # tablefmt="plain"
 	
 	scripts = [(s.name, '-' if s.description is None else s.description)
-	           for s in view_script_registry().values()]#[:num]
+	           for s in view_scripts().values()]#[:num]
 	
-	configs = [c.name for c in view_config_registry().values()]
+	configs = [c.name for c in view_configs().values()]
 	
 	end = ''
 	if len(configs) > num:
@@ -88,7 +89,7 @@ def help_message(meta, config):
 	
 	else:
 		
-		info = get_script(name)
+		info = (name)
 		doc = info.fn.__doc__
 	
 		if doc is None or len(doc) == 0:

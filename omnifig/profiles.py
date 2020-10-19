@@ -81,6 +81,8 @@ class Profile(Workspace
 			for name in os.listdir(path):
 				if valid(name):
 					return os.path.join(path, name)
+				
+		raise NoValidProjectError(path)
 			
 	
 	def initialize(self, loc=None):
@@ -132,7 +134,7 @@ class Profile(Workspace
 
 		if ident is None:
 			ident = os.getcwd()
-
+			
 		if ident in self._loaded_projects:
 			return self._loaded_projects[ident]
 		
@@ -196,6 +198,9 @@ class Profile(Workspace
 		:param ident: name or path to project
 		:return: correct project path or None
 		'''
+		
+		if ident is None:
+			return
 		
 		if not isinstance(ident, str):
 			ident = ident.get_info_path()

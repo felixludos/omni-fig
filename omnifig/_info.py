@@ -28,4 +28,4 @@ except:
 	install_requires = ['pyyaml', 'C3Linearize', 'humpack', 'omnibelt']
 del os
 
-entry_points = {'console_scripts': 'fig = omnifig.running:entry'}
+entry_points = {'console_scripts': 'fig = omnifig.top:entry'}

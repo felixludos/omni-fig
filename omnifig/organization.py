@@ -208,29 +208,23 @@ class Workspace(Container):
 	
 	def has_script(self, name):
 		return self.has_artifact('script', name)
-	
 	def find_script(self, name):
 		return self.find_artifact('script', name)
-	
-	def view_script(self):
+	def view_scripts(self):
 		return self.scripts.copy()
 	
 	def has_component(self, name):
 		return self.has_artifact('component', name)
-	
 	def find_component(self, name):
 		return self.find_artifact('component', name)
-	
-	def view_component(self):
+	def view_components(self):
 		return self.components.copy()
 	
 	def has_modifier(self, name):
 		return self.has_artifact('modifier', name)
-	
 	def find_modifier(self, name):
 		return self.find_artifact('modifier', name)
-	
-	def view_modifier(self):
+	def view_modifiers(self):
 		return self.modifiers.copy()
 	
 	def has_config(self, name):
@@ -238,7 +232,6 @@ class Workspace(Container):
 			return True
 		path = Path(name)
 		return path.suffix in {'.yaml', '.yml'} and path.is_file()
-	
 	def find_config(self, name):
 		try:
 			entry = self.find_artifact('config', name)
@@ -248,8 +241,7 @@ class Workspace(Container):
 				return str(path)
 			raise
 		return entry.path
-	
-	def view_config(self):
+	def view_configs(self):
 		return self.configs.copy()
 	
 	# endregion
