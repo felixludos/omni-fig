@@ -7,174 +7,12 @@ from c3linearize import linearize
 
 from omnibelt import load_yaml, get_printer
 
-from .util import primitives
-from .errors import YamlifyError, MissingConfigError, UnknownActionError, InvalidKeyError
-from .external import find_config_path
-from .registry import create_component, _appendable_keys, Component
+from .util import primitives, global_settings, configurize, yamlify, ConfigurizeFailed
+from .errors import YamlifyError, MissingParameterError, UnknownActionError, InvalidKeyError
+# from .registry import create_component, _appendable_keys, Component
 
-nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
 
 prt = get_printer(__name__)
-
-def load_config_from_path(path, process=True):
-	'''
-	Load the yaml file and transform data to a config object
-	
-	Generally, ``get_config`` should be used instead of this method
-	
-	:param path: must be the full path to a yaml file
-	:param process: if False, the loaded yaml data is passed without converting to a config object
-	:return: loaded data from path (usually as a config object)
-	'''
-	# path = find_config_path(path)
-	data = load_yaml(path)
-	
-	if data is None:
-		data = {}
-	
-	if process:
-		return configurize(data)
-	return data
-
-def process_single_config(data, process=True, parents=None):  # data can either be an existing config or a path to a config
-	'''
-	This loads the data (if a path or name is provided) and then checks for parents and loads those as well
-	
-	Generally, ``get_config`` should be used instead of this method
-	
-	:param data: config name or path or raw data (dict/list) or config object
-	:param process: configurize loaded data
-	:param parents: if None, no parents are loaded, otherwise it must be a dict where the keys are the absolute paths to the config (yaml) file and values are the loaded data
-	:return: loaded data (as a config object or raw)
-	'''
-	
-	if isinstance(data, str):
-		data = find_config_path(data)
-		data = load_config_from_path(data, process=process)
-	
-	if parents is not None and 'parents' in data:
-		todo = []
-		for parent in data['parents']:  # prep new parents
-			# ppath = _config_registry[parent] if parent in _config_registry else parent
-			ppath = find_config_path(parent)
-			if ppath not in parents:
-				todo.append(ppath)
-				parents[ppath] = None
-		for ppath in todo:  # load parents
-			parents[ppath] = process_single_config(ppath, parents=parents)
-	
-	return data
-
-def merge_configs(configs, parent_defaults=True):
-	'''
-	configs should be ordered from oldest to newest (ie. parents first, children last)
-	
-	This is an internal method used by ``get_config()`` and should generally not be called manually.
-	'''
-	
-	if not len(configs):
-		return ConfigDict()
-	
-	child = configs.pop()
-	merged = merge_configs(configs, parent_defaults=parent_defaults)
-	
-	# load = child.load if 'load' in child else None
-	merged.update(child)
-	
-	return merged
-
-
-def get_config(*contents, **manual):  # Top level function
-	'''
-	Top level function for users. This is the best way to load/create a config object.
-
-	All parent config (registered names or paths) that should be loaded
-	must precede any manual entries, and will be loaded in reverse order (like python class inheritance).
-	
-	If the key ``_history_key`` is specified and not :code:`None`, a flattened list of all parents of
-	this config is pushed to the given key.
-	
-	:param contents: registered configs or paths or manual entries (like in terminal)
-	:param manual: specify parameters manually as key value pairs
-	:return: config object
-	'''
-	root = ConfigDict()
-	if len(contents) + len(manual) == 0:
-		return root
-
-	reg = []
-	terms = {**manual}
-	allow_reg = True
-	waiting_key = None
-	
-	for term in contents:
-		
-		if term.startswith('--'):
-			allow_reg = False
-			if waiting_key is not None:
-				terms[waiting_key] = True
-			waiting_key = term[2:]
-		
-		elif waiting_key is not None:
-			terms[waiting_key] = process_raw_argv(term)
-			waiting_key = None
-			
-		elif allow_reg:
-			reg.append(term)
-		
-		else:
-			raise Exception(f'Parsing error: {term} in {contents}')
-		
-	if waiting_key is not None:
-		terms[waiting_key] = True
-		
-	root.update(configurize(terms))
-	
-	if len(reg) == 0:
-		return root
-
-	root['parents'] = ConfigList(data=reg + (list(root['parents']) if 'parents' in root else []))
-
-	parents = {}
-	
-	root = process_single_config(root, parents=parents)
-
-	pnames = []
-	if len(parents):  # topo sort parents
-		
-		# TODO: maybe clean up?
-		
-		root_id = ' root'
-		src = defaultdict(list)
-		
-		names = {find_config_path(p): p for p in root['parents']} if 'parents' in root else {}
-		src[root_id] = list(names.keys())
-		
-		for n, data in parents.items():
-			connections = {find_config_path(p): p for p in data['parents']} if 'parents' in data else {}
-			names.update(connections)
-			src[n] = list(connections.keys())
-		
-		order = linearize(src, heads=[root_id], order=True)[root_id]
-		
-		pnames = [names[p] for p in order[1:]]
-		order = [root] + [parents[p] for p in order[1:]]
-		
-		# for analysis, record the history of all loaded parents
-		order = list(reversed(order))
-	
-	else:  # TODO: clean up
-		order = [root]
-	
-	root = merge_configs(order,)
-	
-	include_history = root.pull('_history_key', None, silent=True)
-	if include_history is not None:
-		root.push(include_history, pnames, silent=True)
-	
-	root.push('parents', '_x_', silent=True)
-	
-	return root
 
 
 
@@ -271,7 +109,8 @@ class ConfigType(hp.Transactionable):
 	
 	'''
 
-	def __init__(self, parent=None, silent=False, printer=None, prefix=None, safe_mode=False,
+	def __init__(self, parent=None, silent=False, printer=None,
+	             prefix=None, safe_mode=False, project=None,
 	             data=None):
 		'''
 		Generally it should not be necessary to create a ConfigType manually, instead use ``get_config()``.
@@ -280,6 +119,7 @@ class ConfigType(hp.Transactionable):
 		:param silent: don't print ``pull``s and ``push``es
 		:param printer: printer object to handle printing messages
 		:param prefix: initial prefix used for printing
+		:param project: project this config responds to
 		:param safe_mode: don't save created component instances, unless during a transaction
 		:param data: raw parameters to immediately add to this config
 		'''
@@ -294,13 +134,22 @@ class ConfigType(hp.Transactionable):
 		self.__dict__['_hidden_prefix'] = prefix.copy()
 		self.__dict__['_safe_mode'] = safe_mode
 		
+		self.__dict__['_project'] = None
+		
 		self.set_parent(parent)
 		# self._set_silent(silent)
+
+		if project is not None:
+			self.set_project(project)
 
 		super().__init__()
 		
 		if data is not None:
 			self.update(data)
+		
+	@classmethod
+	def convert(cls, data, recurse):
+		return cls(data=[recurse(x) for x in data])
 		
 	def sub(self, item):
 		'''
@@ -494,7 +343,7 @@ class ConfigType(hp.Transactionable):
 			defaulted = True
 		if defaulted:
 			if len(defaults) == 0:
-				raise MissingConfigError(item)
+				raise MissingParameterError(item)
 			val, *defaults = defaults
 			line = []
 		else:
@@ -503,7 +352,7 @@ class ConfigType(hp.Transactionable):
 		if len(line) and not isinstance(val, ConfigType):
 			defaulted = True
 			if len(defaults) == 0:
-				raise MissingConfigError(item)
+				raise MissingParameterError(item)
 			val, *defaults = defaults
 
 		if defaulted: # try again with new value
@@ -562,7 +411,7 @@ class ConfigType(hp.Transactionable):
 			
 			self._record_action(f'iter-{obj_type}', suffix=item, val=val, silent=silent, **record_flags)
 			
-			itr = Config_Iter(val, val)
+			itr = ConfigIter(val, val)
 			
 			return itr
 		
@@ -585,7 +434,7 @@ class ConfigType(hp.Transactionable):
 					
 					past = self._get_silent()
 					with self.silenced(silent or past):
-						cmpn = create_component(val)
+						cmpn = self.get_project().create_component(val)
 					
 					if not self.in_safe_mode() or self.in_transaction():
 						if item is not None and len(item) and not is_self:
@@ -765,7 +614,7 @@ class ConfigType(hp.Transactionable):
 		
 		:return: iterator over all arguments in self
 		'''
-		return Config_Iter(self, self)
+		return ConfigIter(self, self)
 	
 	# region Silencing
 	
@@ -843,6 +692,12 @@ class ConfigType(hp.Transactionable):
 	
 	# region Misc
 	
+	def set_project(self, project):
+		self.get_root().__dict__['_project'] = project
+	
+	def get_project(self):
+		return self.get_root().__dict__['_project']
+	
 	def set_safe_mode(self, safe_mode):
 		if self.is_root():
 			self.__dict__['_safe_mode'] = safe_mode
@@ -853,14 +708,6 @@ class ConfigType(hp.Transactionable):
 		if self.is_root():
 			return self.__dict__['_safe_mode']
 		return self.get_root().in_safe_mode()
-	
-	@staticmethod
-	def parse_argv(arg):
-		try:
-			return yaml.safe_load(io.StringIO(arg))
-		except:
-			pass
-		return arg
 	
 	def purge_volatile(self):
 		'''
@@ -876,6 +723,7 @@ class ConfigType(hp.Transactionable):
 		return f'{type(self).__name__}[id={hex(id(self))}]'
 	
 	def __str__(self):
+		return repr(self)
 		return f'<{type(self).__name__}>'
 	
 	# endregion
@@ -889,7 +737,7 @@ class ConfigType(hp.Transactionable):
 		if isinstance(key, (list, tuple)):
 			if len(key) == 1:
 				return self.__setitem__(key[0], value)
-			child = self.__getitem__(key[0])
+			child = self.get_nodefault(key[0])
 			assert isinstance(child, ConfigType)
 			return child.__setitem__(key[1:], value)
 		
@@ -897,6 +745,7 @@ class ConfigType(hp.Transactionable):
 		
 		if isinstance(value, ConfigType):
 			value.set_parent(self)
+			# value.set_project(self.get_project())
 		return super().__setitem__(key, value)
 	
 	def __getitem__(self, item):
@@ -994,6 +843,10 @@ class ConfigDict(ConfigType, hp.tdict):
 	(unless you really know what you are doing)
 	'''
 	
+	@classmethod
+	def convert(cls, data, recurse):
+		return cls(data={k:recurse(v) for k,v in data.items()})
+	
 	def update(self, other):
 		'''
 		Merge self with another dict-like object
@@ -1038,6 +891,7 @@ class ConfigDict(ConfigType, hp.tdict):
 		return f'[{hex(id(self))}]{info}'
 	
 	def __str__(self):
+		return repr(self)
 		return '{{' + ', '.join(f'{k}' for k in self) + '}}'
 
 
@@ -1145,6 +999,7 @@ class ConfigList(ConfigType, hp.tlist):
 		super().append(item)
 		if isinstance(item, ConfigType):
 			item.set_parent(self)
+			# item.set_project(self.get_project())
 		
 	def extend(self, item):
 		super().extend(item)
@@ -1152,21 +1007,22 @@ class ConfigList(ConfigType, hp.tlist):
 		for x in item:
 			if isinstance(x, ConfigType):
 				x.set_parent(self)
+				# x.set_project(self.get_project())
 
-@Component('iter')
-class Config_Iter:
+
+class ConfigIter:
 	'''
 	Iterate through a list of parameters, processing each item lazily,
 	ie. only when it is iterated over (with ``next()``)
 	'''
-
+	
 	def __init__(self, origin, elements=None):
 		'''
 		Can be used as a component or created manually (by providing the ``elements`` argument explicitly)
-		
+
 		For dicts, this will behave like ``.items()``, ie. for each entry in the dict it will return
 		a tuple of the key and value.
-		
+
 		:param origin: config object where the iterator info is
 		:param elements: manually provided elements to iterate over (uses contents of "_elements" in ``origin`` if not provided)
 		'''
@@ -1179,14 +1035,14 @@ class Config_Iter:
 		
 		self._keys = [k for k in self._elms.keys()
 		              if k not in {'_elements', '_mod', '_type', '__obj'}
-					  and self._elms[k] != '__x__'] \
+		              and self._elms[k] != '__x__'] \
 			if isinstance(self._elms, dict) else None
 		self._prefix = origin.get_prefix().copy()
-
+	
 	def __len__(self):
 		'''Returns the remaining length of this iterator instance'''
 		return len(self._elms if self._keys is None else self._keys) - self._idx
-
+	
 	def _next_idx(self):
 		'''Find the next index or key'''
 		
@@ -1206,22 +1062,22 @@ class Config_Iter:
 			self._idx += 1
 		
 		raise StopIteration
-		
+	
 	def view(self):
 		'''Returns the next object without processing the item, may throw a StopIteration exception'''
 		idx = self._next_idx()
 		obj = self._elms[idx]
-		if isinstance(obj, ConfigType):
+		if isinstance(obj, global_settings['config_type']):
 			return self._elms.sub(idx)
 		return obj
-
+	
 	def __next__(self):
-
+		
 		if len(self._elms) == self._idx:
 			raise StopIteration
 		
 		idx = self._next_idx()
-
+		
 		self._elms._prefix = self._prefix
 		
 		obj = self._elms._pull(idx)
@@ -1230,57 +1086,26 @@ class Config_Iter:
 		if self._keys is None:
 			return obj
 		return idx, obj
-
+	
 	def __iter__(self):
 		return self
 
+nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
 
-def configurize(data):
-	'''
-	Transform data container to use config objects (ConfigDict/ConfigList)
-
-	:param data: dict/list data
-	:return: deep copy of data using ConfigDict/ConfigList
-	'''
-	if isinstance(data, ConfigType):
-		return data
-	if isinstance(data, dict):
-		return ConfigDict(data={k: configurize(v) for k, v in data.items()})
-	if isinstance(data, (list, set)):
-		return ConfigList(data=[configurize(x) for x in data])
-	if isinstance(data, str) and data in nones:
+def configurize_nones(s, recurse):
+	if s in nones:
 		return None
-	return data
+	raise ConfigurizeFailed
 
-
-def yamlify(data):  # TODO: allow adding yamlify rules for custom objects
-	'''
-	Transform data container into regular dicts/lists to export to yaml file
-
-	:param data: Config object
-	:return: deep copy of data using dict/list
-	'''
-	# if data is None:
-	# 	return '_None'
-	if data is None or isinstance(data, primitives):
-		return data
-	if isinstance(data, dict):
-		return {k: yamlify(v) for k, v in data.items() if not k.startswith('__')}
-	if isinstance(data, (list, tuple, set)):
-		return [yamlify(x) for x in data]
-	
-	raise YamlifyError(data)
-
-
-# _config_type = ConfigType
-# _config_dict = ConfigDict
-# _config_list = ConfigList
-
-def process_raw_argv(arg):
-	'''
-	This is the preferred way to parse arguments for the config
-	(especially arguments specified through the terminal)
-	'''
-	return ConfigType.parse_argv(arg)
+global_settings.update({
+	'config_type': ConfigType,
+	'config_converters': OrderedDict([
+		(str, configurize_nones),
+		(dict, ConfigDict.convert),
+		(list, ConfigList.convert),
+		(tuple, ConfigList.convert),
+		(set, ConfigList.convert),
+	]),
+})
 
 

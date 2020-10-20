@@ -1,6 +1,8 @@
 
-from .errors import ScriptNotFoundError
-from .registry import Component, get_script
+from .errors import MissingScriptError
+# from .registry import Component, get_script
+from .top import get_current_project
+from .decorators import Component
 from .util import autofill_args
 
 from omnibelt import get_printer
@@ -21,7 +23,7 @@ class Run_Mode:
 	@staticmethod
 	def get_script_info(script_name):
 		'''Given the name of the registered script, this returns the corresponding entry in the registry'''
-		return get_script(script_name)
+		return get_current_project().find_script(script_name)
 	
 	
 	def run(self, meta, config):
@@ -37,7 +39,7 @@ class Run_Mode:
 		script_info = self.get_script_info(script_name)
 		
 		if script_info is None:
-			raise ScriptNotFoundError(script_name)
+			raise MissingScriptError(script_name)
 		
 		script_fn = script_info.fn
 		

@@ -3,24 +3,28 @@ import sys, os
 import yaml
 from collections import namedtuple, OrderedDict
 
-from omnibelt import get_printer, get_now
+from pathlib import Path
+
+from omnibelt import get_printer, get_now, save_yaml
+
+
 
 prt = get_printer(__name__)
 
 
 class WrongInfoContainerType(Exception):
-	def __init__(self, mtype, mtype_src=None):
-		super().__init__(f'Reload manager using custom subclass: {mtype}')
-		self.mtype = mtype
-		self.mtype_src = mtype_src
+	def __init__(self, ctype, ctype_src=None):
+		super().__init__(f'Reload container using custom subclass: {ctype}')
+		self.ctype = ctype
+		self.ctype_src = ctype_src
 	
-	def get_mtype(self):
-		return self.mtype
+	def get_ctype(self):
+		return self.ctype
 	
 	def get_mtype_src(self):
-		return self.mtype_src
+		return self.ctype_src
 
-class Customizable_Infomation:
+class Container:
 	'''
 	Keeps track of some data extracted from a yaml.
 	Consequently a manager is entirely defined by a path to the yaml file
@@ -33,39 +37,23 @@ class Customizable_Infomation:
 	however attributes that start with "_" are skipped
 	
 	'''
-	register = None
-	mtype = None
-	
 	required_attrs = []
 	recommended_attrs = []
 	
-	def __init_subclass__(cls, mtype=None):
-		cls.mtype = mtype
-		if cls.register is not None:
-			cls.register.new(mtype, cls)
-	
-	# @classmethod
-	# def get_mtype(cls):
-	# 	return cls.mtype
-	
-	def __init__(self, name=None, raw=None, path=None):
+	def __init__(self, name=None, path=None, raw=None):
 		self._updated = False
 		
-		if raw is None and path is not None:
+		self.name = name
+		
+		if path is not None:
 			raw = self.load_raw_info(path)
-		
-		if raw is None:
-			raw = {}
-		
-		self.import_info(raw)
 			
-		if name is not None:
-		# 	prt.warning(f'No name provided for the profile')
-		# else:
-			self.name = name
+		if raw is not None:
+			self.process(raw)
+		
 	
 	@staticmethod
-	def find_manager_type(raw):
+	def find_container_type(raw):
 		'''
 		Based on the raw info, confirm that this is the right type to use as the manager.
 		This enables using custom subclasses of Manager
@@ -74,11 +62,11 @@ class Customizable_Infomation:
 		:return: must throw a WrongManager exception if a different one should be used
 		'''
 		
-		mtype = raw.get('type', None)
+		ctype = raw.get('type', None)
 		
-		if mtype is not None:
-			mtype_src = raw.get('type_src', None)
-			raise WrongInfoContainerType(mtype, mtype_src)
+		if ctype is not None:
+			ctype_src = raw.get('type_src', None)
+			raise WrongInfoContainerType(ctype, ctype_src)
 		
 	@staticmethod
 	def load_raw_info(path):
@@ -88,20 +76,34 @@ class Customizable_Infomation:
 		raw['info_dir'] = os.path.dirname(path)
 		return raw
 	
+	# region Getters
+	
 	def get_name(self):
+		'''Gets the container name'''
 		return self.name
+	def get_info_path(self):
+		'''Gets the path to the info file'''
+		return getattr(self, 'info_path', None)
+	
+	# endregion
 	
 	def __str__(self):
 		return f'{self.get_name()}'
 	
 	def __repr__(self):
-		return f'{self.get_mtype()}:{self.get_name()}'
+		return f'{self.__class__.__name__}({self.get_name()})'
 	
-	def get_info_path(self):
-		return getattr(self, 'info_path', None)
 	
-	def import_info(self, raw={}):
-		self.find_manager_type(raw)
+	def _process(self, raw):
+		pass
+	
+	def process(self, raw=None):
+		if raw is None:
+			raw = {}
+		
+		self.find_container_type(raw)
+		
+		self._process(raw)
 		
 		for key in raw:
 			if key not in self.__dict__:
@@ -115,7 +117,9 @@ class Customizable_Infomation:
 			if getattr(self, key) is None:
 				prt.warning(f'{key} not found in {self.__class__.__name__} {self}')
 	
-	def export_info(self, path=None):
+	
+	
+	def export(self, path=None):
 		'''
 		Saves info to yaml (by default where it was loaded from)
 
@@ -139,13 +143,12 @@ class Customizable_Infomation:
 			prt.warning('No export path found, so there is nowhere to save the info')
 			return
 		
-		with open(path, 'w') as f:
-			yaml.dump(data, f)
+		save_yaml(data, path)
 		
 		prt.debug(f'Exported {repr(self)} to {path}')
 		return path
 	
 	def cleanup(self):
 		if self._updated:
-			self.export_info()
+			self.export()
 	

@@ -1,12 +1,13 @@
 
 import sys, os
 
-from .errors import NoValidProjectError
-from .util import get_global_setting, resolve_order, spawn_path_options, set_global_setting
-from .containers import Customizable_Infomation
-from .external import include_files, include_configs, get_project_type
+from pathlib import Path
 
-from .projects import Project
+from .errors import NoValidProjectError, UnknownArtifactError, MissingConfigError
+from .util import get_global_setting, resolve_order, spawn_path_options, set_global_setting
+from .organization import Workspace
+from .rules import view_meta_rules, meta_rule_fns
+from .external import include_files, get_project_type
 
 from omnibelt import get_printer, Registry
 
@@ -24,20 +25,23 @@ _info_code = '.fig.yml'
 _default_project_type = 'default'
 
 
-class Profile(Customizable_Infomation):
+class Profile(Workspace
+              ):
 	'''
 	Generally all paths that the Profile deals with should be absolute paths as the profile operates system wide
 	'''
 	
-	def import_info(self, raw):
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
+		
+		self.set_current_project()
+	
+	def _process(self, raw):
 		'''
 		Processes the data from a yaml file and saves it to ``self``
 		:param raw: data from a yaml file
 		:return: None
 		'''
-		
-		self.config_paths = raw.get('config_paths', [])
-		self.src_paths = raw.get('src_paths', [])
 		
 		self.projects = {}
 		self._project_paths = {}
@@ -60,7 +64,7 @@ class Profile(Customizable_Infomation):
 		
 		self.save_projects_on_cleanup = raw.get('save_projects_on_cleanup', False)
 		
-		super().import_info(raw)
+		super()._process(raw)
 		
 	@staticmethod
 	def is_valid_project_path(path):
@@ -79,6 +83,8 @@ class Profile(Customizable_Infomation):
 			for name in os.listdir(path):
 				if valid(name):
 					return os.path.join(path, name)
+				
+		raise NoValidProjectError(path)
 			
 	
 	def initialize(self, loc=None):
@@ -90,8 +96,9 @@ class Profile(Customizable_Infomation):
 		:return: None
 		'''
 		self.update_global_settings()
-		self.load_config()
-		self.load_src()
+		
+		super().initialize()
+		
 		self.load_active_projects()
 		if self.autoload_local:
 			try:
@@ -104,14 +111,6 @@ class Profile(Customizable_Infomation):
 		for item in self.global_settings.items():
 			set_global_setting(*item)
 	
-	def load_src(self):
-		'''Run python source files in :attr:`self.src_paths`'''
-		include_files(*self.src_paths)
-		
-	def load_config(self):
-		'''Register config files and directories in :attr:`self.config_paths`'''
-		include_configs(*self.config_paths)
-		
 	def load_active_projects(self, load_related=True):
 		'''
 		Load active projects in :attr:`self.active_projects` in order,
@@ -137,7 +136,7 @@ class Profile(Customizable_Infomation):
 
 		if ident is None:
 			ident = os.getcwd()
-
+			
 		if ident in self._loaded_projects:
 			return self._loaded_projects[ident]
 		
@@ -182,7 +181,7 @@ class Profile(Customizable_Infomation):
 		
 		proj_cls = self.get_project_type(ptype)
 		
-		project = proj_cls(raw=info)
+		project = proj_cls(raw=info, profile=self)
 		self._loaded_projects[path] = project
 		
 		if load_related or all_related:
@@ -201,6 +200,9 @@ class Profile(Customizable_Infomation):
 		:param ident: name or path to project
 		:return: correct project path or None
 		'''
+		
+		if ident is None:
+			return
 		
 		if not isinstance(ident, str):
 			ident = ident.get_info_path()
@@ -261,7 +263,7 @@ class Profile(Customizable_Infomation):
 		'''Get a list of all projects specified as "active"'''
 		return self.active_projects.copy()
 	
-	def set_current_project(self, project):
+	def set_current_project(self, project=None):
 		'''Set the current project'''
 		if isinstance(project, str):
 			project = self.get_project(project)
@@ -272,6 +274,12 @@ class Profile(Customizable_Infomation):
 	
 	def get_current_project(self):
 		'''Get the current project (usually loaded last and local),'''
+		
+		current = self._current_project
+		
+		if current is None:
+			return self
+		
 		return self._current_project
 
 	def cleanup(self):
@@ -284,3 +292,7 @@ class Profile(Customizable_Infomation):
 				project.cleanup()
 		super().cleanup()
 	
+	
+	
+
+

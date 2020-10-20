@@ -3,11 +3,12 @@ from heapq import heapify, heappop
 
 from omnibelt import get_printer, Entry_Registry
 
+from .registry import Rules_Registry
+
 prt = get_printer(__name__)
 
-class _Rules_Registry(Entry_Registry, components=['fn', 'priority', 'code', 'num_args', 'description']):
-	pass
-_rules_registry = _Rules_Registry()
+
+_rules_registry = Rules_Registry()
 
 
 def Meta_Rule(name: str, priority: int = 0, code: str = None,

@@ -1,19 +1,27 @@
 
-from .registry import AutoScript, Script, Component, AutoComponent, Modifier, AutoModifier, Modification, \
-	create_component, register_component, register_modifier, \
-	view_component_registry, view_modifier_registry, view_script_registry
-from .config import get_config, MissingConfigError
-from .external import register_config, register_config_dir
-from .running import entry, main, run, quick_run, initialize, cleanup
-from .loading import get_project, get_profile
+from .loading import get_profile
+
+from .decorators import AutoScript, Script, Component, AutoComponent, Modifier, AutoModifier, Modification
+
+from .config import ConfigIter
+Component('iter')(ConfigIter)
+del ConfigIter
+
+from .top import get_project, get_current_project, \
+	entry, main, run, quick_run, initialize, cleanup, \
+	get_config, create_component, quick_create, \
+	register_script, register_config, register_component, \
+	register_config_dir, register_modifier, resolve_order
+
+from . import projects
 from .modes import Run_Mode
 from .rules import Meta_Rule
-from .debug import Debug_Mode
-from .help import help_message
+from . import debug
+from . import help
+
 
 from humpack import AbortTransaction
 
-#
 
 import os
 __info__ = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py')}
