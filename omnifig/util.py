@@ -45,6 +45,8 @@ global_settings.update({
 
 prt = get_printer(__name__)
 
+class ConfigurizeFailed(Exception):
+	pass
 
 def configurize(data):
 	'''
@@ -56,8 +58,11 @@ def configurize(data):
 	if isinstance(data, global_settings['config_type']):
 		return data
 	for typ, convert in global_settings.get('config_converters', {}).items():
-		if isinstance(data, typ):
-			return convert(data, configurize)
+		try:
+			if isinstance(data, typ):
+				return convert(data, configurize)
+		except ConfigurizeFailed:
+			pass
 	return data
 
 

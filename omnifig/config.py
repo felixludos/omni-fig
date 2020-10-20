@@ -7,11 +7,10 @@ from c3linearize import linearize
 
 from omnibelt import load_yaml, get_printer
 
-from .util import primitives, global_settings, configurize, yamlify
+from .util import primitives, global_settings, configurize, yamlify, ConfigurizeFailed
 from .errors import YamlifyError, MissingParameterError, UnknownActionError, InvalidKeyError
 # from .registry import create_component, _appendable_keys, Component
 
-nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
 
 prt = get_printer(__name__)
 
@@ -724,6 +723,7 @@ class ConfigType(hp.Transactionable):
 		return f'{type(self).__name__}[id={hex(id(self))}]'
 	
 	def __str__(self):
+		return repr(self)
 		return f'<{type(self).__name__}>'
 	
 	# endregion
@@ -737,7 +737,7 @@ class ConfigType(hp.Transactionable):
 		if isinstance(key, (list, tuple)):
 			if len(key) == 1:
 				return self.__setitem__(key[0], value)
-			child = self.__getitem__(key[0])
+			child = self.get_nodefault(key[0])
 			assert isinstance(child, ConfigType)
 			return child.__setitem__(key[1:], value)
 		
@@ -891,6 +891,7 @@ class ConfigDict(ConfigType, hp.tdict):
 		return f'[{hex(id(self))}]{info}'
 	
 	def __str__(self):
+		return repr(self)
 		return '{{' + ', '.join(f'{k}' for k in self) + '}}'
 
 
@@ -1086,10 +1087,17 @@ class ConfigIter:
 	def __iter__(self):
 		return self
 
+nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
+
+def configurize_nones(s, recurse):
+	if s in nones:
+		return None
+	raise ConfigurizeFailed
 
 global_settings.update({
 	'config_type': ConfigType,
 	'config_converters': OrderedDict([
+		(str, configurize_nones),
 		(dict, ConfigDict.convert),
 		(list, ConfigList.convert),
 		(tuple, ConfigList.convert),
