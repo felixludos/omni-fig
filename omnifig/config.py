@@ -225,7 +225,7 @@ class ConfigType(hp.Transactionable):
 			mods = val.pull('_mod', None, silent=True)
 			
 			mod_info = ''
-			if mods is not None:
+			if mods is not None and len(mods):
 				if not isinstance(mods, (list, tuple)):
 					mods = mods,
 				
