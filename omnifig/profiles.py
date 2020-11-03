@@ -182,6 +182,8 @@ class Profile(Workspace
 		proj_cls = self.get_project_type(ptype)
 		
 		project = proj_cls(raw=info, profile=self)
+
+		self.projects[project.get_name()] = path
 		self._loaded_projects[path] = project
 		
 		if load_related or all_related:
@@ -281,6 +283,24 @@ class Profile(Workspace
 			return self
 		
 		return self._current_project
+
+	def find_artifact(self, atype, name):
+		if ':' in name:
+			pname, *idents = name.split(':')
+			name = ':'.join(idents)
+			proj = self.get_project(pname)
+			return proj.find_artifact(atype, name)
+
+		return super().find_artifact(atype, name)
+
+	def has_artifact(self, atype, name):
+		if ':' in name:
+			pname, *idents = name.split(':')
+			name = ':'.join(idents)
+			proj = self.get_project(pname)
+			return proj.has_artifact(atype, name)
+
+		return super().has_artifact(atype, name)
 
 	def cleanup(self):
 		'''
