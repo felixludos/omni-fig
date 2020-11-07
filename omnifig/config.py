@@ -1,5 +1,6 @@
 
 import sys, os
+from copy import deepcopy, copy
 import humpack as hp
 import io, yaml, json
 from collections import defaultdict, OrderedDict
@@ -146,7 +147,16 @@ class ConfigType(hp.Transactionable):
 		
 		if data is not None:
 			self.update(data)
-		
+
+	def __deepcopy__(self, memodict={}):
+		raise NotImplementedError
+
+	def __copy__(self):
+		raise NotImplementedError
+
+	def copy(self):
+		return copy(self)
+
 	@classmethod
 	def convert(cls, data, recurse):
 		return cls(data=[recurse(x) for x in data])
@@ -311,7 +321,7 @@ class ConfigType(hp.Transactionable):
 		return self._process_val(name, self, silent=silent, reuse=False, is_self=True, as_iter=as_iter, _origin=self)
 
 	def _pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False,
-	          _defaulted=False, _origin=None):
+	          _defaulted=False, _origin=None, _raw=False):
 		'''
 		Internal pull method, should generally not be called manually (unless you know what you're doing)
 		
@@ -323,6 +333,7 @@ class ConfigType(hp.Transactionable):
 		:param as_iter: return the value as an iterator (only for dicts/lists)
 		:param _defaulted: flag that this value was once a provided default (used for printing)
 		:param _origin: reference to the original config node that was pulled (some pulls require returing to origin)
+		:param _raw: return unprocessed value
 		:return: processed value found at ``item`` or a processed default value
 		'''
 		
@@ -360,7 +371,7 @@ class ConfigType(hp.Transactionable):
 			_origin._reset_prefix()
 			
 			val = _origin._process_val(item, val, *defaults, silent=silent, defaulted=defaulted or _defaulted,
-			                        as_iter=as_iter, reuse=ref, _origin=_origin)
+			                        as_iter=as_iter, reuse=ref, _origin=_origin, _raw=_raw)
 
 		elif len(line): # child pull
 			if not isinstance(val, ConfigType):
@@ -368,7 +379,7 @@ class ConfigType(hp.Transactionable):
 			
 			val._set_prefix(self.get_prefix() + [item])
 			out = val._pull(line, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
-			               _defaulted=_defaulted, _origin=_origin)
+			               _defaulted=_defaulted, _origin=_origin, _raw=_raw)
 			
 			val = out
 			
@@ -377,11 +388,11 @@ class ConfigType(hp.Transactionable):
 
 			parent._set_prefix(self.get_prefix() + [''])
 			val = parent._pull((item, *line), *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
-			                   _origin=_origin)
+			                   _origin=_origin, _raw=_raw)
 			
 		else: # process val from me/defaults
 			val = self._process_val(item, val, *defaults, silent=silent, defaulted=defaulted or _defaulted,
-			                        as_iter=as_iter, reuse=ref, _origin=_origin)
+			                        as_iter=as_iter, reuse=ref, _origin=_origin, _raw=_raw)
 			
 			if type(val) in {list, set}: # TODO: a little heavy handed
 				val = tuple(val)
@@ -389,7 +400,8 @@ class ConfigType(hp.Transactionable):
 		return val
 
 	def _process_val(self, item, val, *defaults, silent=False,
-	                 reuse=False, is_self=False, as_iter=False, _origin=None, **record_flags):
+	                 reuse=False, is_self=False, as_iter=False, _origin=None, _raw=False,
+	                 **record_flags):
 		'''
 		This is used by ``pull()`` to process the recovered value and print the correct message if ``not silent``
 		
@@ -408,14 +420,21 @@ class ConfigType(hp.Transactionable):
 		if as_iter and isinstance(val, ConfigType):
 			
 			obj_type = 'list' if isinstance(val, list) else 'dict'
-			
+
+			# TODO: doesn't work if val would create an iter like component
+			# if obj_type == 'dict':
+			# 	ty = val.pull('_type', None, silent=True)
+
 			self._record_action(f'iter-{obj_type}', suffix=item, val=val, silent=silent, **record_flags)
-			
+
+			if _raw:
+				return val
+
 			itr = ConfigIter(val, val)
 			
 			return itr
 		
-		if isinstance(val, ConfigDict):
+		if isinstance(val, ConfigDict) and not _raw:
 			if '_type' in val:
 				
 				# val.push('__origin_key', item, silent=True)
@@ -460,7 +479,7 @@ class ConfigType(hp.Transactionable):
 				val = terms
 
 
-		elif isinstance(val, ConfigList):
+		elif isinstance(val, ConfigList) and not _raw:
 			
 			self._record_action('pull-list', suffix=item, val=val, silent=silent, **record_flags)
 			terms = []
@@ -475,7 +494,7 @@ class ConfigType(hp.Transactionable):
 			
 			self._record_action('local-alias', suffix=item, val=alias, silent=silent, **record_flags)
 			
-			val = self._pull(alias, *defaults, silent=silent, _origin=_origin)
+			val = self._pull(alias, *defaults, silent=silent, _origin=_origin, as_iter=as_iter)
 			
 		elif isinstance(val, str) and val.startswith('<o>'): # origin alias (returns to origin to find alias)
 			alias = val[3:]
@@ -483,8 +502,21 @@ class ConfigType(hp.Transactionable):
 			self._record_action('origin-alias', suffix=item, val=alias, silent=silent, **record_flags)
 			
 			_origin._reset_prefix()
-			val = _origin._pull(alias, *defaults, silent=silent, _origin=_origin)
-			
+			val = _origin._pull(alias, *defaults, silent=silent, _origin=_origin, as_iter=as_iter)
+
+		elif isinstance(val, str) and val.startswith('<!>'): # copy alias (only for local aliases)
+			alias = val[3:]
+
+			self._record_action('copy-alias', suffix=item, val=alias, silent=silent, **record_flags)
+
+			val = self._pull(alias, *defaults, silent=silent, _origin=_origin, as_iter=as_iter, _raw=True)
+
+			# self[item] = deepcopy(val)
+			self[item] = val
+
+			return self._process_val(item, val, silent=silent, _origin=_origin, as_iter=as_iter)
+
+
 		else:
 			self._record_action('pulled', suffix=item, val=val, silent=silent, **record_flags)
 
@@ -842,7 +874,21 @@ class ConfigDict(ConfigType, hp.tdict):
 	NOTE: avoid setting keys that start with more than one underscore (especially '__obj')
 	(unless you really know what you are doing)
 	'''
-	
+
+	def __deepcopy__(self, memodict={}):
+		new = self.__class__(data={k:deepcopy(v) for k,v in self.items() if not k.startswith('__')})
+		new.__dict__.update(self.__dict__)
+		return new
+
+	def __copy__(self):
+		new = self.__class__(data={k:v for k,v in self.items()})
+		new.__dict__.update(self.__dict__)
+		return new
+
+	def copy(self):
+		return copy(self)
+
+
 	@classmethod
 	def convert(cls, data, recurse):
 		return cls(data={k:recurse(v) for k,v in data.items()})
@@ -902,9 +948,21 @@ class ConfigList(ConfigType, hp.tlist):
 	List like node in the config.
 	'''
 
+
+
 	def __init__(self, *args, empty_fill_value=None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self._empty_fill_value = empty_fill_value
+
+	def __deepcopy__(self, memodict={}):
+		new = self.__class__(data=[deepcopy(x) for x in self])
+		new.__dict__.update(self.__dict__)
+		return new
+
+	def __copy__(self):
+		new = self.__class__(data=[x for x in self])
+		new.__dict__.update(self.__dict__)
+		return new
 
 	def __repr__(self):
 		info = '[[' + ', '.join(f'{k}' for k in self) + ']]'
@@ -1016,7 +1074,7 @@ class ConfigIter:
 	ie. only when it is iterated over (with ``next()``)
 	'''
 	
-	def __init__(self, origin, elements=None):
+	def __init__(self, origin, elements=None, auto_pull=True):
 		'''
 		Can be used as a component or created manually (by providing the ``elements`` argument explicitly)
 
@@ -1038,6 +1096,8 @@ class ConfigIter:
 		              and self._elms[k] != '__x__'] \
 			if isinstance(self._elms, dict) else None
 		self._prefix = origin.get_prefix().copy()
+
+		self.set_auto_pull(auto_pull)
 	
 	def __len__(self):
 		'''Returns the remaining length of this iterator instance'''
@@ -1067,26 +1127,31 @@ class ConfigIter:
 		'''Returns the next object without processing the item, may throw a StopIteration exception'''
 		idx = self._next_idx()
 		obj = self._elms[idx]
+		if isinstance(obj, ConfigType):
+			obj.push('_iter_key', idx, silent=True)
 		if isinstance(obj, global_settings['config_type']):
 			return self._elms.sub(idx)
 		return obj
-	
+
+	def step(self):
+		obj = self.view()
+		self._idx += 1
+		return obj
+
+	def set_auto_pull(self, auto=True):
+		self._auto_pull = auto
+
+	def has_next(self):
+		return len(self._elms) > self._idx
+
 	def __next__(self):
 		
-		if len(self._elms) == self._idx:
+		if not self.has_next():
 			raise StopIteration
-		
-		idx = self._next_idx()
-		
-		self._elms._prefix = self._prefix
-		
-		obj = self._elms._pull(idx)
-		
-		self._idx += 1
-		if self._keys is None:
-			return obj
-		return idx, obj
-	
+
+		obj = self.step()
+		return obj.pull_self() if isinstance(obj, ConfigType) and self._auto_pull else obj
+
 	def __iter__(self):
 		return self
 
