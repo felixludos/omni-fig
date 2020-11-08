@@ -194,7 +194,7 @@ class ConfigType(hp.Transactionable):
 			raise NotImplementedError
 
 	def _record_action(self, action, suffix=None, val=None, silent=False, obj=None,
-	                   defaulted=False, pushed=False, _entry=False):
+	                   defaulted=False, pushed=False, _entry=False, _raw=False):
 		'''
 		Internal function to manage printing out messages after various actions have been taken with this config.
 		
@@ -278,7 +278,7 @@ class ConfigType(hp.Transactionable):
 			return ''
 			return printer.log_record(f'=> id={hex(id(obj))}', silent=silent)
 
-		pval = None if val is None else repr(val)
+		pval = None if val is None else (f'[{type(val)}]' if _raw else repr(val))
 		
 		if action == 'entry': # when pulling dict/list
 			assert suffix is not None, 'no suffix provided'
@@ -293,7 +293,7 @@ class ConfigType(hp.Transactionable):
 		
 		raise UnknownActionError(action)
 		
-	def pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False):
+	def pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False, raw=False):
 		'''
 		Top-level function to get parameters from the config object (including automatically creating components)
 
@@ -306,9 +306,10 @@ class ConfigType(hp.Transactionable):
 		:return: processed value of the parameter (or default if ``item`` is not found, or raises a ``MissingConfigError`` if not found)
 		'''
 		self._reset_prefix()
-		return self._pull(item, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter, _origin=self)
+		return self._pull(item, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
+		                  _origin=self, _raw=raw)
 
-	def pull_self(self, name=None, silent=False, as_iter=False):
+	def pull_self(self, name=None, silent=False, as_iter=False, raw=False):
 		'''
 		Process self as a value being pulled.
 		
@@ -318,7 +319,8 @@ class ConfigType(hp.Transactionable):
 		:return: the processed value of self
 		'''
 		self._reset_prefix()
-		return self._process_val(name, self, silent=silent, reuse=False, is_self=True, as_iter=as_iter, _origin=self)
+		return self._process_val(name, self, silent=silent, reuse=False, is_self=True, as_iter=as_iter,
+		                         _origin=self, _raw=raw)
 
 	def _pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False,
 	          _defaulted=False, _origin=None, _raw=False):
@@ -518,7 +520,7 @@ class ConfigType(hp.Transactionable):
 
 
 		else:
-			self._record_action('pulled', suffix=item, val=val, silent=silent, **record_flags)
+			self._record_action('pulled', suffix=item, val=val, silent=silent, _raw=_raw, **record_flags)
 
 		return val
 	
