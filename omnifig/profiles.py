@@ -286,11 +286,17 @@ class Profile(Workspace
 
 	def find_artifact(self, atype, name):
 		if ':' in name:
-			pname, *idents = name.split(':')
-			name = ':'.join(idents)
-			proj = self.get_project(pname)
-			return proj.find_artifact(atype, name)
 
+			pname, *idents = name.split(':')
+			
+			if len(pname) == 1:
+				prt.warning('Running on Windows: Assuming project names are longer than one letter')
+			
+			if os.name != 'nt' or len(pname) > 1:
+				name = ':'.join(idents)
+				proj = self.get_project(pname)
+				return proj.find_artifact(atype, name)
+			
 		return super().find_artifact(atype, name)
 
 	def has_artifact(self, atype, name):
