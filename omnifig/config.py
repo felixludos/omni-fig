@@ -355,6 +355,18 @@ class ConfigType(hp.Transactionable):
 		if no_parent and byparent:
 			defaulted = True
 		if defaulted:
+			# try:
+			# 	if '__origin_key' in self:
+			# 		origin = self['__origin_key']
+			# 		parent = self.get_parent()
+			# 		if parent is not None:
+			# 			grandparent = parent.get_parent()
+			# 			if grandparent is not None:
+			# 				return grandparent._pull((origin, item), silent=silent, _defaulted=defaulted or _defaulted,
+			# 			                        as_iter=as_iter, ref=ref, _origin=_origin, _raw=_raw)
+			# except MissingParameterError:
+			# 	pass
+			
 			if len(defaults) == 0:
 				raise MissingParameterError(item)
 			val, *defaults = defaults
@@ -439,7 +451,7 @@ class ConfigType(hp.Transactionable):
 		if isinstance(val, ConfigDict) and not _raw:
 			if '_type' in val:
 				
-				# val.push('__origin_key', item, silent=True)
+				val.push('__origin_key', item, silent=True)
 				
 				if reuse and '__obj' in val:
 					# print('WARNING: would usually reuse {} now, but instead creating a new one!!')
@@ -1076,7 +1088,7 @@ class ConfigIter:
 	ie. only when it is iterated over (with ``next()``)
 	'''
 	
-	def __init__(self, origin, elements=None, auto_pull=True):
+	def __init__(self, origin, elements=None, auto_pull=True, include_key=None):
 		'''
 		Can be used as a component or created manually (by providing the ``elements`` argument explicitly)
 
@@ -1094,9 +1106,10 @@ class ConfigIter:
 		self._elms = elements
 		
 		self._keys = [k for k in self._elms.keys()
-		              if k not in {'_elements', '_mod', '_type', '__obj'}
+		              if k not in {'_elements', '_mod', '_type', '__obj', '__origin_key'}
 		              and self._elms[k] != '__x__'] \
 			if isinstance(self._elms, dict) else None
+		self._include_key = include_key if include_key is not None else self._keys is not None
 		self._prefix = origin.get_prefix().copy()
 
 		self.set_auto_pull(auto_pull)
@@ -1131,9 +1144,10 @@ class ConfigIter:
 		obj = self._elms[idx]
 		if isinstance(obj, ConfigType):
 			obj.push('_iter_key', idx, silent=True)
+			
 		if isinstance(obj, global_settings['config_type']):
-			return self._elms.sub(idx)
-		return obj
+			obj = self._elms.sub(idx)
+		return (idx, obj) if self._include_key else obj
 
 	def step(self):
 		obj = self.view()
@@ -1152,8 +1166,11 @@ class ConfigIter:
 			raise StopIteration
 
 		obj = self.step()
-		return obj.pull_self() if isinstance(obj, ConfigType) and self._auto_pull else obj
-
+		key, val = obj if self._include_key else (None,obj)
+		if isinstance(val, global_settings['config_type']):
+			val = val.pull_self()
+		return (key,val) if self._include_key else val
+	
 	def __iter__(self):
 		return self
 

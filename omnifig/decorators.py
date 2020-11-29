@@ -50,7 +50,7 @@ def Component(name=None):
 	return _cmp
 
 
-def AutoComponent(name=None, aliases=None):
+def AutoComponent(name=None, aliases=None, auto_name=True):
 	'''
 	Instead of directly passing the config to an AutoComponent, the necessary args are auto filled and passed in.
 	This means AutoComponents are somewhat limited in that they cannot modify the config object and they cannot be
@@ -70,7 +70,7 @@ def AutoComponent(name=None, aliases=None):
 		
 		if type(cmp) == type:  # to allow AutoModifiers
 			
-			cls = type('Auto_{}'.format(cmp.__name__), (cmp,), {})
+			cls = type(f'Auto_{cmp.__name__}' if auto_name else cmp.__name__, (cmp,), {})
 			
 			def cmp_init(self, info):
 				args, kwargs = autofill_args(cmp, info, aliases=aliases, run=False)

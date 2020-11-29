@@ -486,6 +486,7 @@ class Workspace(Container):
 		'''
 		root = configurize({})
 		if len(contents) + len(parameters) == 0:
+			root.set_project(self)
 			return root
 		
 		reg = []
