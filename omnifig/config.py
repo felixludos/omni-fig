@@ -1167,7 +1167,7 @@ class ConfigIter:
 
 		obj = self.step()
 		key, val = obj if self._include_key else (None,obj)
-		if isinstance(val, global_settings['config_type']):
+		if self._auto_pull and isinstance(val, global_settings['config_type']):
 			val = val.pull_self()
 		return (key,val) if self._include_key else val
 	
