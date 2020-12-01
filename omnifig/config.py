@@ -432,21 +432,19 @@ class ConfigType(hp.Transactionable):
 		'''
 		
 		if as_iter and isinstance(val, ConfigType):
-			
+
 			obj_type = 'list' if isinstance(val, list) else 'dict'
 
-			# TODO: doesn't work if val would create an iter like component
-			# if obj_type == 'dict':
-			# 	ty = val.pull('_type', None, silent=True)
+			if obj_type == 'list' or '_type' not in val or not val.pull('_type', silent=True).startswith('iter'):
 
-			self._record_action(f'iter-{obj_type}', suffix=item, val=val, silent=silent, **record_flags)
+				self._record_action(f'iter-{obj_type}', suffix=item, val=val, silent=silent, **record_flags)
 
-			if _raw:
-				return val
+				if _raw:
+					return val
 
-			itr = ConfigIter(val, val)
-			
-			return itr
+				itr = ConfigIter(val, val)
+
+				return itr
 		
 		if isinstance(val, ConfigDict) and not _raw:
 			if '_type' in val:
@@ -661,7 +659,10 @@ class ConfigType(hp.Transactionable):
 		:return: iterator over all arguments in self
 		'''
 		return ConfigIter(self, self)
-	
+
+	def replace_vals(self, replacements):
+		raise NotImplementedError
+
 	# region Silencing
 	
 	def _set_silent(self, silent=True):
@@ -902,6 +903,12 @@ class ConfigDict(ConfigType, hp.tdict):
 	def copy(self):
 		return copy(self)
 
+	def replace_vals(self, replacements):
+		for k,v in self.items():
+			if isinstance(v, primitives) and v in replacements:
+				self[k] = replacements[v]
+			elif isinstance(v, ConfigType):
+				v.replace_vals(replacements)
 
 	@classmethod
 	def convert(cls, data, recurse):
@@ -984,6 +991,14 @@ class ConfigList(ConfigType, hp.tlist):
 
 	def __str__(self):
 		return '[[' + ', '.join(f'{k}' for k in self) + ']]'
+
+	def replace_vals(self, replacements):
+		for i, x in enumerate(self):
+			if isinstance(x, primitives) and x in replacements:
+				self[i] = replacements[x]
+			elif isinstance(x, ConfigType):
+				x.replace_vals(replacements)
+
 
 	def purge_volatile(self):
 		'''
