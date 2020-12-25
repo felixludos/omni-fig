@@ -310,7 +310,7 @@ class Workspace(Container):
 		allow_missing_mods = info.pull('allow-missing-mods', False, silent=True)
 		
 		mod_names = info.pull('_mod', None, silent=True)
-		if mod_names is not None:
+		if mod_names is not None and len(mod_names):
 			
 			if isinstance(mod_names, dict):
 				mod_names = sorted(mod_names.keys(), key=lambda k: mod_names[k])

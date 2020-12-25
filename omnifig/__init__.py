@@ -18,7 +18,7 @@ from .modes import Run_Mode
 from .rules import Meta_Rule
 from . import debug
 from . import help
-
+from .common import Configurable
 
 from humpack import AbortTransaction
 

@@ -1,12 +1,13 @@
 
 import sys, os
+from pathlib import Path
 from copy import deepcopy, copy
 import humpack as hp
 import io, yaml, json
 from collections import defaultdict, OrderedDict
 from c3linearize import linearize
 
-from omnibelt import load_yaml, get_printer
+from omnibelt import save_yaml, load_yaml, get_printer
 
 from .util import primitives, global_settings, configurize, yamlify, ConfigurizeFailed
 from .errors import YamlifyError, MissingParameterError, UnknownActionError, InvalidKeyError
@@ -309,7 +310,7 @@ class ConfigType(hp.Transactionable):
 		return self._pull(item, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
 		                  _origin=self, _raw=raw)
 
-	def pull_self(self, name=None, silent=False, as_iter=False, raw=False):
+	def pull_self(self, name=None, silent=False, as_iter=False, raw=False, ref=False):
 		'''
 		Process self as a value being pulled.
 		
@@ -319,7 +320,7 @@ class ConfigType(hp.Transactionable):
 		:return: the processed value of self
 		'''
 		self._reset_prefix()
-		return self._process_val(name, self, silent=silent, reuse=False, is_self=True, as_iter=as_iter,
+		return self._process_val(name, self, silent=silent, reuse=ref, is_self=True, as_iter=as_iter,
 		                         _origin=self, _raw=raw)
 
 	def _pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False,
@@ -469,7 +470,7 @@ class ConfigType(hp.Transactionable):
 					
 					if not self.in_safe_mode() or self.in_transaction():
 						if item is not None and len(item) and not is_self:
-							self[item]['__obj'] = cmpn
+							val['__obj'] = cmpn
 						else:
 							self['__obj'] = cmpn
 					
@@ -643,10 +644,10 @@ class ConfigType(hp.Transactionable):
 		data = yamlify(self)
 
 		if path is not None:
-			if os.path.isdir(path):
-				path = os.path.join(path, 'config.yaml')
-			with open(path, 'w') as f:
-				yaml.dump(data, f)
+			path = Path(path)
+			if path.is_dir():
+				path = path / 'config.yaml'
+			save_yaml(data, path)
 			return path
 
 		return data
@@ -1200,9 +1201,10 @@ global_settings.update({
 	'config_type': ConfigType,
 	'config_converters': OrderedDict([
 		(str, configurize_nones),
-		(dict, ConfigDict.convert),
+		(dict, (False, ConfigDict.convert)),
+		(OrderedDict, (False, ConfigDict.convert)),
 		(list, ConfigList.convert),
-		(tuple, ConfigList.convert),
+		# (tuple, ConfigList.convert),
 		(set, ConfigList.convert),
 	]),
 })

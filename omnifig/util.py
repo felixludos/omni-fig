@@ -58,8 +58,11 @@ def configurize(data):
 	if isinstance(data, global_settings['config_type']):
 		return data
 	for typ, convert in global_settings.get('config_converters', {}).items():
+		allow_subtypes = True
+		if isinstance(convert, tuple):
+			allow_subtypes, convert = convert
 		try:
-			if isinstance(data, typ):
+			if (allow_subtypes and isinstance(data, typ)) or type(data) == typ:
 				return convert(data, configurize)
 		except ConfigurizeFailed:
 			pass
