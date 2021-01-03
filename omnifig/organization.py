@@ -239,6 +239,22 @@ class Workspace(Container):
 			path = Path(name)
 			if path.suffix in {'.yaml', '.yml'} and path.is_file():
 				return str(path)
+			
+			if not path.is_dir():
+				root = os.environ.get('FOUNDATION_SAVE_DIR', None)
+				if root is not None:
+					npath = root / path
+					if npath.is_dir():
+						path = npath
+			
+			if path.is_dir():
+				cpath = path / 'config.yaml'
+				if cpath.is_file():
+					return str(cpath)
+				cpath = path / 'config.yml'
+				if cpath.is_file():
+					return str(cpath)
+			
 			raise
 		return entry.path
 	def view_configs(self):
