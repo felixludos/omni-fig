@@ -29,7 +29,8 @@ Visit the project page_.
 
 .. _page: https://www.notion.so/felixleeb/omni-fig-c5223f0ca9e54eb4b8d9749aade4a9d3
 
-This package helps you keep your code organized, allows you to use your code in a variety of execution environments (from the terminal, in a jupyter notebook, through an IDE debugger, etc.), and provides a powerful config system for you to provide arguments/information to your scripts (as python objects, separate yaml files, or from the terminal directly).
+This package contains a powerful config system for you to provide arguments/information to your scripts (as python objects, separate yaml files, or from the terminal directly) and enables your code to be run in a variety of execution environments (from the terminal, in a jupyter notebook, through an IDE debugger, etc.).
+
 
 The primary way to use this package is to create *projects* containing python source files and yaml (info and config) files (an example of which is discussed below). Each project uses ``Component``, ``Modifier``, and ``Script`` to register any
 
