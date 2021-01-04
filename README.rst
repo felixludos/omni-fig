@@ -41,7 +41,7 @@ Install
 
 .. install-marker-do-not-remove
 
-Everything is tested with Python 3.7 on Ubuntu 18.04 and Windows 10, but in principle it should work on any system than can handle the dependencies.
+Everything is tested with Python 3.7 on Ubuntu 18.04 and Windows 10, but in principle it should work on any system that can handle the dependencies.
 
 You can install this package through pip:
 

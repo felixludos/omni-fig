@@ -250,8 +250,7 @@ class ConfigType(hp.Transactionable):
 			
 			# head = '' if suffix is None else f' {name}'
 			head = f' {name}'
-			out = printer.log_record(f'{action.upper()}{head} '
-			                                               f'(type={cmpn_type}){mod_info}{origins}{end}',
+			out = printer.log_record(f'{action.upper()}{head} (type={cmpn_type}){mod_info}{origins}{end}',
 			                       silent=silent)
 			if action == 'creating':
 				printer.inc_indent()
@@ -356,17 +355,17 @@ class ConfigType(hp.Transactionable):
 		if no_parent and byparent:
 			defaulted = True
 		if defaulted:
-			# try:
-			# 	if '__origin_key' in self:
-			# 		origin = self['__origin_key']
-			# 		parent = self.get_parent()
-			# 		if parent is not None:
-			# 			grandparent = parent.get_parent()
-			# 			if grandparent is not None:
-			# 				return grandparent._pull((origin, item), silent=silent, _defaulted=defaulted or _defaulted,
-			# 			                        as_iter=as_iter, ref=ref, _origin=_origin, _raw=_raw)
-			# except MissingParameterError:
-			# 	pass
+			try:
+				if '__origin_key' in self: # cousins
+					origin = self['__origin_key']
+					parent = self.get_parent()
+					if parent is not None:
+						grandparent = parent.get_parent()
+						if grandparent is not None:
+							return grandparent._pull((origin, item), silent=silent, _defaulted=defaulted or _defaulted,
+						                        as_iter=as_iter, ref=ref, _origin=_origin, _raw=_raw)
+			except MissingParameterError:
+				pass
 			
 			if len(defaults) == 0:
 				raise MissingParameterError(item)
@@ -381,7 +380,7 @@ class ConfigType(hp.Transactionable):
 				raise MissingParameterError(item)
 			val, *defaults = defaults
 
-		if defaulted: # try again with new value
+		if defaulted and _origin is not None: # try again with new value
 
 			_origin._reset_prefix()
 			
@@ -398,7 +397,7 @@ class ConfigType(hp.Transactionable):
 			
 			val = out
 			
-		elif byparent: # parent pull
+		elif byparent and not item.startswith('_'): # parent pull
 			parent = self.get_parent()
 
 			parent._set_prefix(self.get_prefix() + [''])
@@ -448,9 +447,10 @@ class ConfigType(hp.Transactionable):
 				return itr
 		
 		if isinstance(val, ConfigDict) and not _raw:
-			if '_type' in val:
-				
-				val.push('__origin_key', item, silent=True)
+			
+			val.push('__origin_key', item, silent=True)
+			typ = val._pull('_type', None, silent=True)
+			if typ is not None:
 				
 				if reuse and '__obj' in val:
 					# print('WARNING: would usually reuse {} now, but instead creating a new one!!')
@@ -482,6 +482,8 @@ class ConfigType(hp.Transactionable):
 				val = cmpn
 
 			else:
+				
+				val.push('__origin_key', '_x_', silent=True)
 				
 				self._record_action('pull-dict', suffix=item, val=val, silent=silent, **record_flags)
 				terms = {}
