@@ -45,7 +45,7 @@ class Profile(Workspace
 		
 		self.projects = {}
 		self._project_paths = {}
-		for name, path in raw.get('projects', {}).items():
+		for name, path in raw .get('projects', {}).items():
 			fixed = self.resolve_project_path(path)
 			if fixed is not None:
 				self.projects[name] = fixed
