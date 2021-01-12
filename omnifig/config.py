@@ -358,12 +358,13 @@ class ConfigType(hp.Transactionable):
 			try:
 				if '__origin_key' in self: # cousins
 					origin = self['__origin_key']
-					parent = self.get_parent()
-					if parent is not None:
-						grandparent = parent.get_parent()
-						if grandparent is not None:
-							return grandparent._pull((origin, item), silent=silent, _defaulted=defaulted or _defaulted,
-						                        as_iter=as_iter, ref=ref, _origin=_origin, _raw=_raw)
+					if origin is not None:
+						parent = self.get_parent()
+						if parent is not None:
+							grandparent = parent.get_parent()
+							if grandparent is not None:
+								return grandparent._pull((origin, item), silent=silent, _defaulted=defaulted or _defaulted,
+							                        as_iter=as_iter, ref=ref, _origin=_origin, _raw=_raw)
 			except MissingParameterError:
 				pass
 			
@@ -1106,7 +1107,7 @@ class ConfigIter:
 	ie. only when it is iterated over (with ``next()``)
 	'''
 	
-	def __init__(self, origin, elements=None, auto_pull=True, include_key=None):
+	def __init__(self, origin, elements=None, auto_pull=True, include_key=None, reversed=False):
 		'''
 		Can be used as a component or created manually (by providing the ``elements`` argument explicitly)
 
@@ -1116,7 +1117,6 @@ class ConfigIter:
 		:param origin: config object where the iterator info is
 		:param elements: manually provided elements to iterate over (uses contents of "_elements" in ``origin`` if not provided)
 		'''
-		self._idx = 0
 		# self._name = config._ident
 		# assert '_elements' in config, 'No elements found'
 		if elements is None:
@@ -1129,7 +1129,10 @@ class ConfigIter:
 			if isinstance(self._elms, dict) else None
 		self._include_key = include_key if include_key is not None else self._keys is not None
 		self._prefix = origin.get_prefix().copy()
-
+		
+		self._reversed = False
+		self._idx = 0
+		self.set_reversed(reversed)
 		self.set_auto_pull(auto_pull)
 	
 	def __len__(self):
@@ -1140,19 +1143,19 @@ class ConfigIter:
 		'''Find the next index or key'''
 		
 		if self._keys is None:
-			if len(self._elms) <= self._idx:
+			if 0 > self._idx >= len(self._elms):
 				raise StopIteration
 			return str(self._idx)
 			# if not self._elms.contains_nodefault(self._idx):
 			# 	raise StopIteration
 			# return str(self._idx)
 		
-		while self._idx < len(self._elms):
+		while 0 <= self._idx < len(self._elms):
 			idx = self._keys[self._idx]
 			
 			if self._elms.contains_nodefault(idx):
 				return idx
-			self._idx += 1
+			self._idx += (-1)**self._reversed
 		
 		raise StopIteration
 	
@@ -1169,14 +1172,19 @@ class ConfigIter:
 
 	def step(self):
 		obj = self.view()
-		self._idx += 1
+		self._idx += (-1)**self._reversed
 		return obj
 
 	def set_auto_pull(self, auto=True):
 		self._auto_pull = auto
 
+	def set_reversed(self, reversed=True):
+		self._reversed = reversed
+		if reversed:
+			self._idx = len(self)-1
+
 	def has_next(self):
-		return len(self._elms) > self._idx
+		return (self._reversed and self._idx >= 0) or (not self._reversed and self._idx < len(self._elms))
 
 	def __next__(self):
 		
