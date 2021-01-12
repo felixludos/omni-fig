@@ -530,7 +530,7 @@ class ConfigType(hp.Transactionable):
 			# self[item] = deepcopy(val)
 			self[item] = val
 
-			return self._process_val(item, val, silent=silent, _origin=_origin, as_iter=as_iter)
+			return self._process_val(item, val, silent=silent, _origin=_origin, as_iter=as_iter, _raw=_raw)
 
 
 		else:
