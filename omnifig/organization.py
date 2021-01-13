@@ -353,7 +353,7 @@ class Workspace(Container):
 					else:
 						raise
 				component = mod.fn(component, info) if mod.expects_config else mod.fn(component)
-		
+
 		return component(info)
 	
 	# endregion

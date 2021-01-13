@@ -468,7 +468,7 @@ class ConfigType(hp.Transactionable):
 					past = self._get_silent()
 					with self.silenced(silent or past):
 						cmpn = self.get_project().create_component(val)
-					
+
 					if not self.in_safe_mode() or self.in_transaction():
 						if item is not None and len(item) and not is_self:
 							val['__obj'] = cmpn
