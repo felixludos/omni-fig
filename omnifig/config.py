@@ -1162,7 +1162,8 @@ class ConfigIter:
 	def view(self):
 		'''Returns the next object without processing the item, may throw a StopIteration exception'''
 		idx = self._next_idx()
-		obj = self._elms[idx]
+		obj = self._elms.pull(idx, raw=True, silent=True)
+		# obj = self._elms[idx]
 		if isinstance(obj, ConfigType):
 			obj.push('_iter_key', idx, silent=True)
 			
@@ -1193,8 +1194,8 @@ class ConfigIter:
 
 		obj = self.step()
 		key, val = obj if self._include_key else (None,obj)
-		if self._auto_pull and isinstance(val, global_settings['config_type']):
-			val = val.pull_self()
+		if isinstance(val, global_settings['config_type']):
+			val = val.pull_self(raw=not self._auto_pull)
 		return (key,val) if self._include_key else val
 	
 	def __iter__(self):
