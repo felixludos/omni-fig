@@ -205,27 +205,35 @@ class Workspace(Container):
 			raise artifact_errors[atype](name)
 		
 		return artifact
-	
+
+	def view_artifacts(self, atype):
+
+		registry = self._registries.get(atype, None)
+		if registry is None:
+			raise UnknownArtifactError(atype)
+
+		return registry.copy()
+
 	def has_script(self, name):
 		return self.has_artifact('script', name)
 	def find_script(self, name):
 		return self.find_artifact('script', name)
 	def view_scripts(self):
-		return self.scripts.copy()
+		return self.view_artifacts('script')
 	
 	def has_component(self, name):
 		return self.has_artifact('component', name)
 	def find_component(self, name):
 		return self.find_artifact('component', name)
 	def view_components(self):
-		return self.components.copy()
+		return self.view_artifacts('component')
 	
 	def has_modifier(self, name):
 		return self.has_artifact('modifier', name)
 	def find_modifier(self, name):
 		return self.find_artifact('modifier', name)
 	def view_modifiers(self):
-		return self.modifiers.copy()
+		return self.view_artifacts('modifier')
 	
 	def has_config(self, name):
 		if self.has_artifact('config', name):
@@ -258,7 +266,7 @@ class Workspace(Container):
 			raise
 		return entry.path
 	def view_configs(self):
-		return self.configs.copy()
+		return self.view_artifacts('config')
 	
 	# endregion
 	

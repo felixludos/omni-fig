@@ -211,7 +211,12 @@ class Project(Workspace):
 			raise
 		else:
 			return path
-	
+
+	def view_artifacts(self, atype):
+		glob = self.get_profile().view_artifacts(atype)
+		glob.update(super().view_artifacts(atype))
+		return glob
+
 	# endregion
 	
 

@@ -89,7 +89,7 @@ def help_message(meta, config):
 	
 	else:
 		
-		info = (name)
+		info = find_script(name)
 		doc = info.fn.__doc__
 	
 		if doc is None or len(doc) == 0:
