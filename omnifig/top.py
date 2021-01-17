@@ -1,7 +1,7 @@
 
 import sys, os
 
-from omnibelt import get_printer, resolve_order
+from omnibelt import get_printer, resolve_order, monkey_patch
 
 from .external import include_files
 
@@ -155,6 +155,7 @@ def quick_create(_type, *parents, **parameters):
 # region Registration
 
 def register_script(name, fn, description=None, use_config=False):
+	monkey_patch(fn)
 	return get_current_project().register_script(name, fn, description=description, use_config=use_config)
 
 def register_component(name, fn, description=None):

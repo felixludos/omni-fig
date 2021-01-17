@@ -19,6 +19,7 @@ from .rules import Meta_Rule
 from . import debug
 from . import help
 from .common import Configurable
+from .farming import Farmer, Worker
 
 from humpack import AbortTransaction
 

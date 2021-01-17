@@ -27,11 +27,19 @@ def include_files(*paths):
 			if apath not in _loaded_files:
 				sys.path.append(os.path.dirname(apath))
 				prt.debug(f'Loading {apath}')
-				spec = importlib.util.spec_from_file_location(f"load{_load_counter}", apath)
-				mod = importlib.util.module_from_spec(spec)
-				spec.loader.exec_module(mod)
-				# mod.MyClass()
-				_loaded_files[apath] = mod
+				code_block = compile(open(apath).read(), apath, 'exec')
+				globs = {'__file__':apath}
+				exec(code_block, globs)
+				# print("blob %s" % blob['toto'])
+				_loaded_files[apath] = globs
+				
+				# _loaded_files[apath] = exec(open(apath).read())
+				
+				# spec = importlib.util.spec_from_file_location(f"load{_load_counter}", apath)
+				# mod = importlib.util.module_from_spec(spec)
+				# spec.loader.exec_module(mod)
+				# # mod.MyClass()
+				# _loaded_files[apath] = mod
 				_load_counter += 1
 				sys.path.pop()
 

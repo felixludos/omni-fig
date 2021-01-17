@@ -1,4 +1,6 @@
 
+from omnibelt import monkey_patch
+
 from .top import register_script, register_component, register_modifier
 from .util import autofill_args
 
@@ -11,12 +13,13 @@ def Script(name, description=None, use_config=True):
 	:param use_config: :code:`True` if the config should be passed as only arg when calling the script function, otherise it will automatically pull all arguments in the script function signature
 	:return: decorator function expecting a callable
 	'''
-	def _reg_script(fn):
+	def _reg_script_decorator(fn):
 		nonlocal name, use_config
 		register_script(name, fn, use_config=use_config, description=description)
 		return fn
+	monkey_patch(_reg_script_decorator)
 	
-	return _reg_script
+	return _reg_script_decorator
 
 def AutoScript(name, description=None):
 	'''
@@ -40,14 +43,15 @@ def Component(name=None):
 	:return: decorator function
 	'''
 	
-	def _cmp(cmp):
+	def _register_cmp_decorator(cmp):
 		nonlocal name
 		if name is None:
 			name = cmp.__name__
 		register_component(name, cmp)
 		return cmp
+	monkey_patch(_register_cmp_decorator)
 	
-	return _cmp
+	return _register_cmp_decorator
 
 
 def AutoComponent(name=None, aliases=None, auto_name=True):
@@ -65,31 +69,36 @@ def AutoComponent(name=None, aliases=None, auto_name=True):
 	:return: decorator function
 	'''
 	
-	def _auto_cmp(cmp):
+	def _auto_cmp_decorator(cmp):
 		nonlocal name, aliases
 		
 		if type(cmp) == type:  # to allow AutoModifiers
 			
 			cls = type(f'Auto_{cmp.__name__}' if auto_name else cmp.__name__, (cmp,), {})
+			monkey_patch(cls)
 			
-			def cmp_init(self, info):
+			def _cmp_init_fn(self, info):
 				args, kwargs = autofill_args(cmp, info, aliases=aliases, run=False)
 				super(cls, self).__init__(*args, **kwargs)
+			monkey_patch(_cmp_init_fn)
 			
-			cls.__init__ = cmp_init
+			cls.__init__ = _cmp_init_fn
 			
-			_create = cls
+			_auto_create_fn = cls
 		
 		else:
-			def _create(config):
+			def _auto_create_fn(config):
 				nonlocal cmp, aliases
 				return autofill_args(cmp, config, aliases)
-		
-		Component(name)(_create)
+			
+			monkey_patch(_auto_create_fn)
+		Component(name)(_auto_create_fn)
 		
 		return cmp
 	
-	return _auto_cmp
+	monkey_patch(_auto_cmp_decorator)
+	
+	return _auto_cmp_decorator
 
 
 def Modifier(name=None, expects_config=False):
@@ -104,14 +113,15 @@ def Modifier(name=None, expects_config=False):
 	:return: decorator function
 	'''
 	
-	def _mod(mod):
+	def _mod_decorator_fn(mod):
 		nonlocal name, expects_config
 		if name is None:
 			name = mod.__name__
 		register_modifier(name, mod, expects_config=expects_config)
 		return mod
+	monkey_patch(_mod_decorator_fn)
 	
-	return _mod
+	return _mod_decorator_fn
 
 
 def AutoModifier(name=None):
@@ -132,27 +142,31 @@ def AutoModifier(name=None):
 	:return: decorator to decorate a class
 	'''
 	
-	def _auto_mod(mod_type):
+	def _auto_mod_decorator(mod_type):
 		nonlocal name
 		
-		def _the_mod(cmpn_type):
+		def _the_mod_creation_fn(cmpn_type):
 			# awesome python feature -> dynamic type declaration!
-			return type('{}_{}'.format(mod_type.__name__, cmpn_type.__name__), (mod_type, cmpn_type), {})
+			cls = type('{}_{}'.format(mod_type.__name__, cmpn_type.__name__), (mod_type, cmpn_type), {})
+			monkey_patch(cls)
+			return cls
+		monkey_patch(_the_mod_creation_fn)
 		
-		Modifier(name=mod_type.__name__ if name is None else name)(_the_mod)
+		Modifier(name=mod_type.__name__ if name is None else name)(_the_mod_creation_fn)
 		return mod_type
+	monkey_patch(_auto_mod_decorator)
 	
-	return _auto_mod
+	return _auto_mod_decorator
 
 
 def _make_post_mod(mod):
-	def _make_cmpn(cmpn):
-		def _make_mod(info):
+	def _make_cmpn_decorator(cmpn):
+		def _modification_fn(info):
 			return mod(cmpn(info), info)
-		
-		return _make_mod
-	
-	return _make_cmpn
+		monkey_patch(_modification_fn)
+		return _modification_fn
+	monkey_patch(_make_cmpn_decorator)
+	return _make_post_mod
 
 
 def Modification(name=None):
@@ -173,6 +187,7 @@ def Modification(name=None):
 		nonlocal name
 		Modifier(name)(_make_post_mod(mod))
 		return mod
+	monkey_patch(_reg_modification)
 	
 	return _reg_modification
 

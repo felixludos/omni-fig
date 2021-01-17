@@ -66,7 +66,7 @@ def help_message(meta, config):
 	minfo = tabulate(metas, headers=['Code', 'Name', 'Description'], ) # tablefmt="plain"
 	
 	scripts = [(s.name, '-' if s.description is None else s.description)
-	           for s in view_scripts().values()]#[:num]
+	           for s in view_scripts().values() if not s.name.startswith('_')]#[:num]
 	
 	configs = [c.name for c in view_configs().values()]
 	

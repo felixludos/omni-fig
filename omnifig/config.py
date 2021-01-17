@@ -9,8 +9,8 @@ from c3linearize import linearize
 
 from omnibelt import save_yaml, load_yaml, get_printer
 
-from .util import primitives, global_settings, configurize, yamlify, ConfigurizeFailed
-from .errors import YamlifyError, MissingParameterError, UnknownActionError, InvalidKeyError
+from .util import primitives, global_settings, configurize, pythonize, ConfigurizeFailed
+from .errors import PythonizeError, MissingParameterError, UnknownActionError, InvalidKeyError
 # from .registry import create_component, _appendable_keys, Component
 
 
@@ -34,12 +34,16 @@ class Config_Printing:
 			_printing_instance.unit = ' > '
 			_printing_instance.style = '| '
 			_printing_instance.silent = False
-			
+			_printing_instance.src = None
+		
 		return _printing_instance
 	def __repr__(self):
 		return f'ConfigPrinting[{hex(id(self))}]'
 	def __str__(self):
 		return f'ConfigPrinting'
+	
+	# def set_src(self, src):
+	# 	self.src = src
 	
 	def inc_indent(self):
 		self.level += 1
@@ -73,7 +77,8 @@ class Config_Printing:
 	               silent=False):
 		indent = self.level * self.unit
 		style = self.style
-		prefix = style + indent
+		src = '' if self.src is None else f'({self.src}) '
+		prefix = style + src + indent
 		
 		msg = raw.replace('\n', '\n' + prefix)
 		if not self.is_new_line:
@@ -644,7 +649,7 @@ class ConfigType(hp.Transactionable):
 		:return: raw "yamlified" data
 		'''
 
-		data = yamlify(self)
+		data = pythonize(self)
 
 		if path is not None:
 			path = Path(path)
@@ -709,6 +714,9 @@ class ConfigType(hp.Transactionable):
 	def get_parent(self):
 		'''Get parent (returns None if this is the root)'''
 		return self.__dict__['_parent']
+	
+	def set_process_id(self, name=None):
+		self._get_printer().src = name
 	
 	def get_root(self):
 		'''Gets the root config object (returns ``self`` if ``self`` is the root)'''

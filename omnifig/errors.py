@@ -71,7 +71,7 @@ class UnknownActionError(Exception):
 # region Misc
 
 
-class YamlifyError(Exception):
+class PythonizeError(Exception):
 	'''Raised when an object is unable to be turned into a yaml object (primitives, dicts, lists)'''
 	def __init__(self, obj):
 		super().__init__('Unable to yamlify: {} (type={})'.format(obj, type(obj)))

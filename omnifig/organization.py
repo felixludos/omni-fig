@@ -294,7 +294,7 @@ class Workspace(Container):
 		if script_name is not None:
 			config.push('_meta.script_name', script_name, overwrite=True, silent=True)
 		for k, v in meta_args.items():
-			config.push(f'_meta.{k}', v, overwrite=True, silent=True)
+			config.push(('_meta', k), v, overwrite=True, silent=True)
 		# config._meta.update(meta_args)
 		
 		for rule in self.meta_rules_fns():

@@ -9,7 +9,7 @@ from omnibelt import primitives, get_printer, \
 	spawn_path_options
 from omnibelt.logging import global_settings as belt_global_settings
 
-from .errors import YamlifyError
+from .errors import PythonizeError
 
 LIB_PATH = os.path.dirname(__file__)
 
@@ -69,7 +69,7 @@ def configurize(data):
 	return data
 
 
-def yamlify(data):  # TODO: allow adding yamlify rules for custom objects
+def pythonize(data):  # TODO: allow adding yamlify rules for custom objects
 	'''
 	Transform data container into regular dicts/lists to export to yaml file
 
@@ -81,11 +81,11 @@ def yamlify(data):  # TODO: allow adding yamlify rules for custom objects
 	if data is None or isinstance(data, primitives):
 		return data
 	if isinstance(data, dict):
-		return {k: yamlify(v) for k, v in data.items() if not k.startswith('__')}
+		return {k: pythonize(v) for k, v in data.items() if not k.startswith('__')}
 	if isinstance(data, (list, tuple, set)):
-		return [yamlify(x) for x in data]
+		return [pythonize(x) for x in data]
 	
-	raise YamlifyError(data)
+	raise PythonizeError(data)
 
 # parse args
 
