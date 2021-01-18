@@ -3,7 +3,7 @@ from .loading import get_profile
 
 from .decorators import AutoScript, Script, Component, AutoComponent, Modifier, AutoModifier, Modification
 
-from .config import ConfigIter
+from .config import ConfigIter, EmptyElement
 Component('iter')(ConfigIter)
 del ConfigIter
 

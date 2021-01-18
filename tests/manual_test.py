@@ -1,6 +1,7 @@
 
 import sys, os
 import omnifig as fig
+from omnifig.config import EmptyElement
 
 import _test_util as tu
 
@@ -32,8 +33,8 @@ assert A.pull('fruit.2') == 'blueberry'
 
 a = A.push('fruit.10', 'veggies')
 assert a == 'veggies'
-assert A.pull('fruit.3') is None
-assert A.pull('fruit.7') is None
+assert A.pull('fruit.3') is EmptyElement
+assert A.pull('fruit.7') is EmptyElement
 assert A.pull('fruit.10') == 'veggies'
 assert A.pull('fruit.11', 'nope') == 'nope'
 assert A.pull('fruit.20', 'no way') == 'no way'

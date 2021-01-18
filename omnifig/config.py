@@ -805,7 +805,7 @@ class ConfigType(hp.Transactionable):
 		if isinstance(value, ConfigType):
 			value.set_parent(self)
 			# value.set_project(self.get_project())
-		return super().__setitem__(key, value)
+		return self._single_set(key, value)
 	
 	def __getitem__(self, item, *future):
 		
@@ -840,6 +840,9 @@ class ConfigType(hp.Transactionable):
 				return self.get_nodefault(*item)[item[1:]]
 		
 		return self._single_get(item, *future)
+	
+	def _single_set(self, key, val):
+		return super().__setitem__(key, val)
 	
 	def _single_get(self, item, *context):
 		try:
@@ -1069,6 +1072,15 @@ class ConfigList(ConfigType, hp.tlist):
 				self[i].update(x)
 			elif x is not EmptyElement:
 				self[i] = x
+	
+
+	def _single_set(self, key, val):
+		if key == '_':  # append to end of the list
+			key = len(self)
+		key = self._str_to_int(key)
+		if key >= len(self):
+			self.extend([self._empty_fill_value] * (key - len(self) + 1))
+		return super()._single_set(key, val)
 	
 	def _single_get(self, item, *context):
 		
