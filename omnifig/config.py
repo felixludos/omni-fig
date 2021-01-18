@@ -796,7 +796,7 @@ class ConfigType(hp.Transactionable):
 		if isinstance(key, (list, tuple)):
 			if len(key) == 1:
 				return self.__setitem__(key[0], value)
-			child = self.get_nodefault(key[0])
+			child = self.get_nodefault(*key)
 			assert isinstance(child, ConfigType)
 			return child.__setitem__(key[1:], value)
 		
@@ -807,7 +807,7 @@ class ConfigType(hp.Transactionable):
 			# value.set_project(self.get_project())
 		return super().__setitem__(key, value)
 	
-	def __getitem__(self, item):
+	def __getitem__(self, item, *future):
 		
 		if isinstance(item, str) and '.' in item:
 			item = item.split('.')
@@ -816,7 +816,7 @@ class ConfigType(hp.Transactionable):
 			if len(item) == 1:
 				item = item[0]
 			else:
-				return self.__getitem__(item[0])[item[1:]]
+				return self.__getitem__(*item)[item[1:]]
 		
 		parent = self.get_parent()
 		
@@ -825,9 +825,9 @@ class ConfigType(hp.Transactionable):
 				and item[0] != '_':
 			return parent[item]
 		
-		return self._single_get(item)
+		return self._single_get(item, *future)
 	
-	def get_nodefault(self, item):
+	def get_nodefault(self, item, *future):
 		'''Get ``item`` without defaulting up the tree if not found.'''
 		
 		if isinstance(item, str) and '.' in item:
@@ -837,20 +837,34 @@ class ConfigType(hp.Transactionable):
 			if len(item) == 1:
 				item = item[0]
 			else:
-				return self.get_nodefault(item[0])[item[1:]]
+				return self.get_nodefault(*item)[item[1:]]
 		
-		return self._single_get(item)
+		return self._single_get(item, *future)
 	
-	def _single_get(self, item):
+	def _single_get(self, item, *context):
 		try:
 			val = super().__getitem__(item)
+			if val is EmptyElement and len(context):
+				raise KeyError(item)
 		except KeyError:
-			return self._missing_key(item)
+			return self._missing_key(item, *context)
 		
 		return val
 	
-	def _missing_key(self, key):
-		obj = self.__class__(parent=self)
+	def _missing_key(self, key, *context):
+		
+		cls = ConfigDict
+		
+		if len(context):
+			nxt = context[0]
+			try:
+				int(nxt)
+			except ValueError:
+				pass
+			else:
+				cls = ConfigList
+		
+		obj = cls(parent=self)
 		self.__setitem__(key, obj)
 		return obj
 	
@@ -924,7 +938,18 @@ class ConfigDict(ConfigType, hp.tdict):
 
 	@classmethod
 	def convert(cls, data, recurse):
-		return cls(data={k:recurse(v) for k,v in data.items()})
+		return cls(data={k: recurse(v) for k, v in data.items()})
+		# try:
+		# 	inds = [int(k) for k in data]
+		# 	if not len(inds):
+		# 		raise ValueError
+		# except ValueError:
+		# 	return cls(data={k:recurse(v) for k,v in data.items()})
+		# else:
+		# 	ls = [EmptyElement]*max(inds)
+		# 	for i, v in zip(inds, data.values()):
+		# 		ls[i] = recurse(v)
+		# 	return ConfigList(ls)
 	
 	def update(self, other):
 		'''
@@ -940,7 +965,6 @@ class ConfigDict(ConfigType, hp.tdict):
 			exists = self.contains_nodefault(k)
 			if exists and '_x_' == v:  # reserved for deleting settings in parents
 				del self[k]
-			
 			elif exists and isconfig and \
 					(isinstance(v, self[k].__class__)
 					 or isinstance(self[k], v.__class__)):
@@ -974,7 +998,8 @@ class ConfigDict(ConfigType, hp.tdict):
 		return '{{' + ', '.join(f'{k}' for k in self) + '}}'
 
 
-
+class EmptyElement:
+	pass
 
 class ConfigList(ConfigType, hp.tlist):
 	'''
@@ -983,7 +1008,7 @@ class ConfigList(ConfigType, hp.tlist):
 
 
 
-	def __init__(self, *args, empty_fill_value=None, **kwargs):
+	def __init__(self, *args, empty_fill_value=EmptyElement, **kwargs):
 		super().__init__(*args, **kwargs)
 		self._empty_fill_value = empty_fill_value
 
@@ -1042,16 +1067,23 @@ class ConfigList(ConfigType, hp.tlist):
 				self.append(x)
 			elif isconfig and (isinstance(x, self[i].__class__) or isinstance(self[i], x.__class__)):
 				self[i].update(x)
-			else:
+			elif x is not EmptyElement:
 				self[i] = x
 	
-	def _single_get(self, item):
-		try:
-			idx = self._str_to_int(item)
-		except InvalidKeyError:
-			idx = None
+	def _single_get(self, item, *context):
 		
-		return super()._single_get(item if idx is None else idx)
+		if isinstance(item, slice):
+			return super(ConfigType, self).__getitem__(item)
+		
+		if item == '_':  # append to end of the list
+			item = len(self)
+		
+		item = self._str_to_int(item)
+		
+		if item >= len(self):
+			self.extend([self._empty_fill_value] * (item - len(self) + 1))
+			
+		return super()._single_get(item, *context)
 
 	def push(self, first, *rest, overwrite=True, **kwargs):
 		'''
@@ -1072,16 +1104,23 @@ class ConfigList(ConfigType, hp.tlist):
 		self.append(None)
 		return super().push(key, val, *rest, overwrite=True, **kwargs) # note that *rest will have no effect
 		
-	def __setitem__(self, key, value):
-
-		if key == '_': # append to end of the list
-			return self.__setitem__(len(self), value)
-
-		idx = self._str_to_int(key)
-		
-		if idx >= len(self):
-			self.extend([self._empty_fill_value]*(idx-len(self)+1))
-		return super().__setitem__(idx, value)
+	# def __setitem__(self, item, value):
+	#
+	# 	if isinstance(item, str) and '.' in item:
+	# 		item = item.split('.')
+	#
+	# 	if isinstance(item, (tuple, list)):
+	# 		key = item[0]
+	# 	else:
+	# 		key = item
+	#
+	#
+	# 	if isinstance(item, (tuple,list)) and len(item) > 1:
+	# 		item[0] = key
+	# 	else:
+	# 		item = key
+	#
+	# 	return super().__setitem__(item, value)
 		
 		
 	def contains_nodefault(self, item):
