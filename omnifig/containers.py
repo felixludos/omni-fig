@@ -48,8 +48,7 @@ class Container:
 		if path is not None:
 			raw = self.load_raw_info(path)
 			
-		if raw is not None:
-			self.process(raw)
+		self.process(raw)
 		
 	
 	@staticmethod

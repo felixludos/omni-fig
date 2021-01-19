@@ -25,8 +25,7 @@ _info_code = '.fig.yml'
 _default_project_type = 'default'
 
 
-class Profile(Workspace
-              ):
+class Profile(Workspace):
 	'''
 	Generally all paths that the Profile deals with should be absolute paths as the profile operates system wide
 	'''
