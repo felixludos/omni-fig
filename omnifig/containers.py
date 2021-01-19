@@ -71,6 +71,8 @@ class Container:
 	def load_raw_info(path):
 		with open(path, 'r') as f:
 			raw = yaml.safe_load(f)
+		if raw is None:
+			raw = {}
 		raw['info_path'] = path # automatically set info_path to the path
 		raw['info_dir'] = os.path.dirname(path)
 		return raw

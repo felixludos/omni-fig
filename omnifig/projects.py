@@ -77,7 +77,7 @@ class Project(Workspace):
 		
 		# region path
 		
-		self.info_path = raw['info_path']
+		self.info_path = raw.get('info_path', None)
 		self.root = os.path.dirname(self.info_path)
 		
 		# endregion
