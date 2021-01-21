@@ -25,8 +25,9 @@ def include_files(*paths):
 		if os.path.isfile(path):
 			apath = os.path.abspath(path)
 			if apath not in _loaded_files:
-				sys.path.append(os.path.dirname(apath))
-				print(f'-- Running {apath}, sys: {sys.path}') # DEBUGMODE
+				# sys.path.append(os.path.dirname(apath))
+				sys.path.insert(0, os.path.dirname(apath))
+				# print(f'-- Running {apath}, sys: {sys.path}') # DEBUGMODE
 				prt.debug(f'Loading {apath}')
 				code_block = compile(open(apath).read(), apath, 'exec')
 				globs = {'__file__':apath}
@@ -42,7 +43,8 @@ def include_files(*paths):
 				# # mod.MyClass()
 				# _loaded_files[apath] = mod
 				_load_counter += 1
-				sys.path.pop()
+				del sys.path[0]
+				# sys.path.pop()
 
 def include_package(*packages):
 	'''
