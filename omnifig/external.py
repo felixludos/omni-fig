@@ -10,9 +10,28 @@ prt = get_printer(__name__)
 
 # region Source files
 
+_loaded_projects = {}
+def include_project(name, path=None):
+	
+	if name not in _loaded_projects and path is not None:
+		path = os.path.abspath(path)
+		
+		sys.path.insert(1, os.path.dirname(path))
+		old = os.getcwd()
+		os.chdir(os.path.dirname(path))
+	
+		spec = importlib.util.spec_from_file_location(name, path)
+		mod = importlib.util.module_from_spec(spec)
+		spec.loader.exec_module(mod)
+		# mod.MyClass()
+		_loaded_projects[name] = mod
+		
+		del sys.path[1]
+		os.chdir(old)
+		
+
 _loaded_files = {}
-_load_counter = 0
-def include_files(*paths):
+def include_files(*paths, project_name='unknown_project'):
 	'''
 	Executes all provided paths to python files that have not already been run.
 	
@@ -33,6 +52,8 @@ def include_files(*paths):
 				prt.debug(f'Loading {apath}')
 				code_block = compile(open(apath).read(), apath, 'exec')
 				globs = {'__file__':apath}
+				if project_name != 'unknown_project':
+					globs['__name__'] = project_name
 				# print(f'globs: {globs}')
 				exec(code_block, globs)
 				# print("blob %s" % blob['toto'])
@@ -45,7 +66,7 @@ def include_files(*paths):
 				# spec.loader.exec_module(mod)
 				# # mod.MyClass()
 				# _loaded_files[apath] = mod
-				_load_counter += 1
+				# _load_counter += 1
 				# del sys.path[0]
 				# sys.path.pop()
 				del sys.path[1]
