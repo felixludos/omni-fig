@@ -151,7 +151,8 @@ class Project(Workspace):
 		root = self.get_path()
 		
 		if self.add_to_path:
-			sys.path.append(root)
+			sys.path.insert(0, root)
+			# sys.path.append(root)
 			
 		origin = os.getcwd()
 		os.chdir(root)
