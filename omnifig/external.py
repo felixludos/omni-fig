@@ -25,14 +25,15 @@ def include_files(*paths):
 		if os.path.isfile(path):
 			apath = os.path.abspath(path)
 			if apath not in _loaded_files:
-				sys.path.append(os.path.dirname(apath))
-				# sys.path.insert(0, os.path.dirname(apath))
+				# sys.path.append(os.path.dirname(apath))
+				sys.path.insert(1, os.path.dirname(apath))
 				old = os.getcwd()
 				os.chdir(os.path.dirname(apath))
-				print(f'-- Running {apath}, sys: {sys.path}') # DEBUGMODE
+				# print(f'-- Running {apath}, sys: {sys.path}') # DEBUGMODE
 				prt.debug(f'Loading {apath}')
 				code_block = compile(open(apath).read(), apath, 'exec')
 				globs = {'__file__':apath}
+				# print(f'globs: {globs}')
 				exec(code_block, globs)
 				# print("blob %s" % blob['toto'])
 				_loaded_files[apath] = globs
@@ -46,7 +47,8 @@ def include_files(*paths):
 				# _loaded_files[apath] = mod
 				_load_counter += 1
 				# del sys.path[0]
-				sys.path.pop()
+				# sys.path.pop()
+				del sys.path[1]
 				os.chdir(old)
 
 def include_package(*packages):
