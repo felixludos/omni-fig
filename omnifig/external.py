@@ -26,6 +26,7 @@ def include_files(*paths):
 			apath = os.path.abspath(path)
 			if apath not in _loaded_files:
 				sys.path.append(os.path.dirname(apath))
+				print(f'-- Running {apath}, sys: {sys.path}') # DEBUGMODE
 				prt.debug(f'Loading {apath}')
 				code_block = compile(open(apath).read(), apath, 'exec')
 				globs = {'__file__':apath}
