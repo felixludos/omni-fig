@@ -11,7 +11,7 @@ from .rules import view_meta_rules, meta_rule_fns
 from .errors import UnknownArtifactError, artifact_errors, MissingModifierError, AmbiguousRuleError, \
 	MissingConfigError, MissingArtifactError
 from .registry import Script_Registry, Component_Registry, Modifier_Registry, Config_Registry
-from .external import include_files, include_package, include_project, register_project_type
+from .external import include_files, include_package, register_project_type
 from .util import global_settings, configurize, parse_arg
 
 prt = get_printer(__name__)
@@ -744,9 +744,9 @@ class Project(Workspace):
 		
 		super().initialize()
 		
-		if self.init is not None:
-			name = self.get_name() if self.init_name is None else self.init_name
-			include_project(name, self.init)
+		# if self.init is not None:
+		# 	name = self.get_name() if self.init_name is None else self.init_name
+		# 	include_project(name, self.init)
 		
 		os.chdir(origin)
 	
