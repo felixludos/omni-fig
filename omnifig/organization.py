@@ -65,7 +65,7 @@ class Workspace(Container):
 	def load_src(self, srcs=[], packages=[]):
 		'''Imports all specified packages and runs the specified python files'''
 		include_package(*packages)
-		include_files(*[src for src in srcs], project_name=self.get_name())
+		include_files(*[src for src in srcs],)# project_name=self.get_name())
 
 	def meta_rules(self):
 		return view_meta_rules()
