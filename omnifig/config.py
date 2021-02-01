@@ -544,7 +544,7 @@ class ConfigType(hp.Transactionable):
 
 		return val
 	
-	def push(self, key, val, *_skip, silent=False, overwrite=True, no_parent=True, force_root=False):
+	def push(self, key, val, *_skip, silent=False, overwrite=True, no_parent=True, force_root=False, process=True):
 		'''
 		Set ``key`` with ``val`` in the config object, but pulls ``key`` first so that `val` is only set
 		if it is not found or ``overwrite`` is set to ``True``. It will return the current value of ``key`` after
@@ -560,9 +560,11 @@ class ConfigType(hp.Transactionable):
 		:return: current val of key (updated if written)
 		'''
 		self._reset_prefix()
-		return self._push(key, val, silent=silent, overwrite=overwrite, no_parent=no_parent, force_root=force_root)
+		return self._push(key, val, silent=silent, overwrite=overwrite, no_parent=no_parent,
+		                  force_root=force_root, process=process)
 	
-	def _push(self, key, val, silent=False, overwrite=True, no_parent=True, force_root=False, _origin=None):
+	def _push(self, key, val, silent=False, overwrite=True, no_parent=True, force_root=False,
+	          process=True, _origin=None):
 		'''
 		Set ``key`` with ``val`` in the config object, but pulls ``key`` first so that `val` is only set
 		if it is not found or ``overwrite`` is set to ``True``. It will return the current value of ``key`` after
@@ -592,7 +594,7 @@ class ConfigType(hp.Transactionable):
 		
 		if parent is not None and force_root:
 			return self.get_root().push((key, *line), val, silent=silent, overwrite=overwrite,
-			                   no_parent=no_parent)
+			                   no_parent=no_parent, process=process)
 		elif no_parent:
 			parent = None
 		
@@ -601,14 +603,15 @@ class ConfigType(hp.Transactionable):
 			
 			child._set_prefix(self.get_prefix() + [key])
 			
-			out = child._push(line, val, silent=silent, overwrite=overwrite, no_parent=True)
+			out = child._push(line, val, silent=silent, overwrite=overwrite, no_parent=True, process=process)
 			
 			return out
 		elif parent is not None and key in parent: # push parent
 
 			parent._set_prefix(self.get_prefix() + [''])
 			
-			out = parent._push((key, *line), val, silent=silent, overwrite=overwrite, no_parent=no_parent)
+			out = parent._push((key, *line), val, silent=silent, overwrite=overwrite,
+			                   no_parent=no_parent, process=process)
 			
 			return out
 			
@@ -618,7 +621,7 @@ class ConfigType(hp.Transactionable):
 			
 			child._set_prefix(self.get_prefix() + [key])
 			
-			out = child._push(line, val, silent=silent, overwrite=overwrite, no_parent=True)
+			out = child._push(line, val, silent=silent, overwrite=overwrite, no_parent=True, process=process)
 		
 			return out
 		
@@ -637,7 +640,8 @@ class ConfigType(hp.Transactionable):
 		self[key] = val
 		# val = self[key]
 		
-		val = self._process_val(key, val, silent=silent, pushed=True)
+		if process:
+			val = self._process_val(key, val, silent=silent, pushed=True)
 		
 		return val
 
@@ -675,7 +679,7 @@ class ConfigType(hp.Transactionable):
 
 	# region Silencing
 	
-	def _set_silent(self, silent=True):
+	def set_silent(self, silent=True):
 		self.__dict__['_printer'].silent = silent
 	
 	# self._silent_config_flag = silent
@@ -692,11 +696,11 @@ class ConfigType(hp.Transactionable):
 			self.prev = config._get_silent()
 		
 		def __enter__(self):
-			self.config._set_silent(self.setting)
+			self.config.set_silent(self.setting)
 			return self.config
 		
 		def __exit__(self, exc_type, exc_val, exc_tb):
-			self.config._set_silent(self.prev)
+			self.config.set_silent(self.prev)
 	
 	def silenced(self, setting=True):
 		return ConfigType._Silent_Config(self, setting=setting)
