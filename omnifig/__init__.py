@@ -13,7 +13,7 @@ from .top import get_project, get_current_project, \
 	register_script, register_config, register_component, \
 	register_config_dir, register_modifier, resolve_order
 
-from . import projects
+#from . import projects
 from .modes import Run_Mode
 from .rules import Meta_Rule
 from . import debug
