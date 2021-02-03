@@ -188,7 +188,10 @@ class Profile(Workspace):
 		
 		if load_related or all_related:
 			for related in project.get_related():
-				self.load_project(related, load_related=all_related, all_related=all_related)
+				try:
+					self.load_project(related, load_related=all_related, all_related=all_related)
+				except NoValidProjectError:
+					prt.error(f'Project {ident} is needs a related project which can\'t be found: {related}')
 		
 		self.set_current_project(project)
 		project.initialize()

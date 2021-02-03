@@ -47,6 +47,7 @@ def load_profile(**overrides):
 	if profile_path is None:
 		prt.warning(f'No profile path provided (can be set with environment variable: {PROFILE_NAME})')
 	
+	# profile_path = None
 	_profile = _profile_cls(path=profile_path)
 	
 	if profile_path is None:
