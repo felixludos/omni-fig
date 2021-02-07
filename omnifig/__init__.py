@@ -11,7 +11,9 @@ from .top import get_project, get_current_project, \
 	entry, main, run, quick_run, initialize, cleanup, \
 	get_config, create_component, quick_create, \
 	register_script, register_config, register_component, \
-	register_config_dir, register_modifier, resolve_order
+	register_config_dir, register_modifier, resolve_order, \
+	find_script, find_component, find_modifier, find_config, \
+	has_script, has_component, has_config, has_modifier
 
 #from . import projects
 from .modes import Run_Mode

@@ -95,7 +95,7 @@ class Workspace(Container):
 		if not self.silent:
 			msg_name = name if atype is None else f'{atype} {name}'
 			if name in registry:
-				prt.warning(f'A {msg_name} has already been registered in {self}, now overwriting')
+				prt.info(f'A {msg_name} has already been registered in {self}, now overwriting')
 			else:
 				prt.debug(f'Registering {msg_name} in {self}')
 		

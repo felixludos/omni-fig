@@ -24,7 +24,6 @@ _info_names = {
 
 _default_project_type = 'default'
 
-
 class Profile(Workspace):
 	'''
 	Generally all paths that the Profile deals with should be absolute paths as the profile operates system wide
@@ -232,7 +231,7 @@ class Profile(Workspace):
 	def track_project_info(self, name, path):
 		'''Add project info to projects table :attr:`self.projects`'''
 		if name in self.projects:
-			prt.warning(f'Projects already contains {name}, now overwriting')
+			prt.info(f'Projects already contains {name}, now overwriting')
 		else:
 			prt.debug(f'Registering {name} in profile projects')
 		self.projects[name] = path
@@ -292,10 +291,7 @@ class Profile(Workspace):
 
 			pname, *idents = name.split(':')
 			
-			if len(pname) == 1:
-				prt.warning('Running on Windows: Assuming project names are longer than one letter')
-			
-			if os.name != 'nt' or len(pname) > 1:
+			if os.name != 'nt' or len(pname) > 1 or (len(pname) == 1 and name[2:4] == r'\\'):
 				name = ':'.join(idents)
 				proj = self.get_project(pname)
 				return proj.find_artifact(atype, name)
