@@ -20,6 +20,8 @@ omni-fig
     :target: https://travis-ci.com/felixludos/omni-fig
     :alt: Test Status
 
+Unfortuantely, the documentation is currently very out of date - but I'm working on it!
+
 .. setup-marker-do-not-remove
 
 .. role:: py(code)
