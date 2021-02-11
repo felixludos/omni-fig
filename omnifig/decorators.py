@@ -163,10 +163,10 @@ def _make_post_mod(mod):
 	def _make_cmpn_decorator(cmpn):
 		def _modification_fn(info):
 			return mod(cmpn(info), info)
-		monkey_patch(_modification_fn)
+		# monkey_patch(_modification_fn)
 		return _modification_fn
-	monkey_patch(_make_cmpn_decorator)
-	return _make_post_mod
+	# monkey_patch(_make_cmpn_decorator)
+	return _make_cmpn_decorator
 
 
 def Modification(name=None):
