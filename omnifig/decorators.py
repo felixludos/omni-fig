@@ -147,7 +147,8 @@ def AutoModifier(name=None):
 		
 		def _the_mod_creation_fn(cmpn_type):
 			# awesome python feature -> dynamic type declaration!
-			cls = type('{}_{}'.format(mod_type.__name__, cmpn_type.__name__), (mod_type, cmpn_type), {})
+			cls = cmpn_type if issubclass(cmpn_type, mod_type) \
+				else type('{}_{}'.format(mod_type.__name__, cmpn_type.__name__), (mod_type, cmpn_type), {})
 			monkey_patch(cls)
 			return cls
 		monkey_patch(_the_mod_creation_fn)
