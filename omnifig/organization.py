@@ -246,6 +246,7 @@ class Workspace(Container):
 		except MissingConfigError:
 			path = Path(name)
 			if path.suffix in {'.yaml', '.yml'} and path.is_file():
+				return Config_Registry.default(str(path))
 				return str(path)
 			
 			if not path.is_dir():
@@ -258,13 +259,15 @@ class Workspace(Container):
 			if path.is_dir():
 				cpath = path / 'config.yaml'
 				if cpath.is_file():
+					return Config_Registry.default(str(cpath))
 					return str(cpath)
 				cpath = path / 'config.yml'
 				if cpath.is_file():
+					return Config_Registry.default(str(cpath))
 					return str(cpath)
 			
 			raise
-		return entry.path
+		return entry
 	def view_configs(self):
 		return self.view_artifacts('config')
 	
@@ -465,7 +468,7 @@ class Workspace(Container):
 		
 		return merged
 	
-	def _process_single_config(self, data, process=True, parents=None):
+	def _process_single_config(self, data, process=True, parents=None, tree=None, me=''):
 		'''
 		This loads the data (if a path or name is provided) and then checks for parents and loads those as well
 
@@ -479,18 +482,28 @@ class Workspace(Container):
 		
 		if isinstance(data, str):
 			data = self.find_config(data)
-			data = self._load_config_from_path(data, process=process)
+		if isinstance(data, Config_Registry.entry_cls):
+			me = data
+			data = self._load_config_from_path(data.path, process=process)
 		
 		if parents is not None and 'parents' in data:
 			todo = []
+			if tree is not None:# and me not in edges:
+				tree[me] = []
 			for parent in data['parents']:  # prep new parents
 				# ppath = _config_registry[parent] if parent in _config_registry else parent
-				ppath = self.find_config(parent)
-				if ppath not in parents:
-					todo.append(ppath)
-					parents[ppath] = None
-			for ppath in todo:  # load parents
-				parents[ppath] = self._process_single_config(ppath, parents=parents)
+				entry = self.find_config(parent)
+				# ppath = entry.path
+				if entry.path not in parents:
+					todo.append(entry)
+					parents[entry] = None
+				if tree is not None:
+					tree[me].append(entry)
+			for entry in todo:  # load parents
+				proj = self if entry.project is None else entry.project
+				parents[entry] = proj._process_single_config(entry, parents=parents, tree=tree)
+		elif tree is not None:
+			tree[me] = []
 		
 		return data
 	
@@ -549,28 +562,30 @@ class Workspace(Container):
 		root['parents'] = configurize(data=reg + (list(root['parents']) if 'parents' in root else []))
 		
 		parents = {}
+		tree = {}
 		
-		root = self._process_single_config(root, parents=parents)
+		root_id = ''
+		root = self._process_single_config(root, parents=parents, tree=tree, me=root_id)
 		
 		pnames = []
 		if len(parents):  # topo sort parents
 			
 			# TODO: maybe clean up?
 			
-			root_id = ' root'
-			src = defaultdict(list)
+			# root_id = ''
+			# src = defaultdict(list)
+			#
+			# names = {self.find_config(p): p for p in root['parents']} if 'parents' in root else {}
+			# src[root_id] = list(names.keys())
+			#
+			# for n, data in parents.items():
+			# 	connections = {self.find_config(p): p for p in data['parents']} if 'parents' in data else {}
+			# 	names.update(connections)
+			# 	src[n] = list(connections.keys())
 			
-			names = {self.find_config(p): p for p in root['parents']} if 'parents' in root else {}
-			src[root_id] = list(names.keys())
+			order = linearize(tree, heads=[root_id], order=True)[root_id]
 			
-			for n, data in parents.items():
-				connections = {self.find_config(p): p for p in data['parents']} if 'parents' in data else {}
-				names.update(connections)
-				src[n] = list(connections.keys())
-			
-			order = linearize(src, heads=[root_id], order=True)[root_id]
-			
-			pnames = [names[p] for p in order[1:]]
+			pnames = [(node.name if node.project is None else f'{node.project}:{node.name}') for node in order[1:]]
 			order = [root] + [parents[p] for p in order[1:]]
 			
 			# for analysis, record the history of all loaded parents
@@ -582,7 +597,7 @@ class Workspace(Container):
 		root = self._merge_configs(order, )
 		root.set_project(self)
 		
-		include_history = root.pull('_history_key', None, silent=True)
+		include_history = root.pull('_ancestry_key', 'ancestors', silent=True)
 		if include_history is not None:
 			root.push(include_history, pnames, silent=True)
 		
@@ -795,6 +810,7 @@ class Project(Workspace):
 		try:
 			path = super().find_config(name)
 		except MissingConfigError:
+			raise
 			path = self.get_path() / Path(name)
 			if path.suffix in {'.yaml', '.yml'} and path.is_file():
 				return str(path)

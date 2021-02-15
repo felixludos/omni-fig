@@ -19,8 +19,10 @@ class Modifier_Registry(Artifact_Registry, components=['fn', 'description', 'exp
 	pass
 
 class Config_Registry(Artifact_Registry, components=['path', 'project']):
-	pass
-
+	@classmethod
+	def default(cls, path):
+		return cls.entry_cls(path, path, None)
+# DefaultConfigEntry = Config_Registry.entry_cls
 
 class Rules_Registry(Entry_Registry, components=['fn', 'priority', 'code', 'num_args', 'description']):
 	pass
