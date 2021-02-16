@@ -20,7 +20,7 @@ _info_names = {
 	'fig_info.yaml', 'fig_info.yml', '.fig_info.yaml', '.fig_info.yml',
 	'project.yaml', 'project.yml', '.project.yaml', '.project.yml',
 }
-# _info_code = '.fig.yml'
+_info_code = '.fig.yml'
 
 _default_project_type = 'default'
 
@@ -69,7 +69,7 @@ class Profile(Workspace):
 		'''Check if a path points to a project directory'''
 		
 		# valid = lambda name: name is not None and (_info_code in name or name in _info_names)
-		valid = lambda name: name is not None and name in _info_names
+		valid = lambda name: name is not None and (name in _info_names or _info_code in name)
 		
 		if os.path.isfile(path):
 			base = os.path.basename(path)

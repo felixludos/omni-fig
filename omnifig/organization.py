@@ -3,6 +3,7 @@ import sys, os
 from pathlib import Path
 from collections import defaultdict, OrderedDict
 from c3linearize import linearize
+import importlib.util
 
 from omnibelt import get_printer, load_yaml
 
@@ -13,6 +14,7 @@ from .errors import UnknownArtifactError, artifact_errors, MissingModifierError,
 from .registry import Script_Registry, Component_Registry, Modifier_Registry, Config_Registry
 from .external import include_files, include_package, register_project_type
 from .util import global_settings, configurize, parse_arg
+from . import projects as projects_module
 
 prt = get_printer(__name__)
 
@@ -678,25 +680,30 @@ class Project(Workspace):
 		# region path
 		
 		self.info_path = raw.get('info_path', None)
-		self.root = os.path.dirname(self.info_path)
+		self.root = Path(self.info_path).parents[0]
 		
 		# endregion
 		
 		if 'py_info' in raw:
-			info = {'__file__': os.path.join(self.root, raw['py_info'])}
+			info = {'__file__': str(self.root / raw['py_info'])}
 			with open(info['__file__'], 'r') as f:
 				exec(f.read(), info)
 			del info['__file__']
 			raw.update(info)
+			info.update(raw)
+			raw = info
 		
 		# region info
 		
 		self.name = raw.get('name', None)
 		
-		self.author = raw.get('author', None)
+		author = raw.get('author', None)
+		self.primary_author = raw.get('primary_author', author)
 		self.authors = raw.get('authors', None)
-		if self.authors is None and self.author is not None:
-			self.authors = [self.author]
+		if self.authors is None and self.primary_author is not None:
+			self.authors = [self.primary_author]
+		if self.primary_author is None and self.authors is not None and len(self.authors):
+			self.primary_author = self.authors[0]
 		
 		self.github = raw.get('github', None)
 		self.url = raw.get('url', None)
@@ -705,19 +712,21 @@ class Project(Workspace):
 		
 		self.version = raw.get('version', None)
 		self.license = raw.get('license', None)
-		self.use = raw.get('use', 'leaf')  # {leaf, package}
+		# self.use = raw.get('use', 'leaf')  # {leaf, package}
 		
 		self.add_to_path = raw.get('add_to_path', True)
 		
 		self.description = raw.get('description', None)
+		if self.description is not None:
+			self.__doc__ = self.description
 		
 		for key in raw:
 			if key not in self.__dict__:
 				prt.info(f'Found optional project info: {key}')
 				setattr(self, key, raw[key])
 		
-		self.init = raw.get('init', None)
-		self.init_name = raw.get('init_name', None)
+		# self.init = raw.get('init', None)
+		# self.init_name = raw.get('init_name', None)
 		
 		# endregion
 		
@@ -731,18 +740,17 @@ class Project(Workspace):
 		# endregion
 		# region components
 		
-		self.last_update = raw.get('last_update', None)
+		# self.last_update = raw.get('last_update', None)
 		self.conda_env = raw.get('conda', None)  # TODO
 		
+		self.package = raw.get('package', None)
+		
 		self.no_auto_config = raw.get('no_auto_config', None)
-		if self.no_auto_config is None or not self.no_auto_config:
-			contents = set(os.listdir(self.root))
-			auto_names = {'config', 'configs'}
-			for aname in auto_names:
-				if aname in contents:
-					auto_config = os.path.join(self.root, aname)
-					if os.path.isdir(auto_config) and auto_config not in self.config_paths:
-						self.config_paths.append(auto_config)
+		if not self.no_auto_config:
+			for aname in ['config', 'configs']:
+				path = self.root / aname
+				if path.is_dir() and str(path) not in self.config_paths:
+					self.config_paths.append(str(path))
 		
 		# endregion
 		
@@ -752,18 +760,27 @@ class Project(Workspace):
 		root = self.get_path()
 		
 		if self.add_to_path:
-			sys.path.append(root)
+			sys.path.append(str(root))
 		
 		origin = os.getcwd()
-		os.chdir(root)
+		os.chdir(str(root))
 		
 		super().initialize()
 		
-		# if self.init is not None:
-		# 	name = self.get_name() if self.init_name is None else self.init_name
-		# 	include_project(name, self.init)
-		
+		name = self.get_name()
+		if self.package is not None and name not in sys.modules:
+			path = root / self.package / '__init__.py'
+			if path.exists():
+				spec = importlib.util.spec_from_file_location(name, str(path))
+				mod = importlib.util.module_from_spec(spec)
+				sys.modules[mod.__name__] = mod
+				projects_module.__dict__[mod.__name__] = mod
+				spec.loader.exec_module(mod)
+				# mod.MyClass()
+			
 		os.chdir(origin)
+		
+		prt.info(f'Project "{name}" initialized')
 	
 	# region Registration
 	
