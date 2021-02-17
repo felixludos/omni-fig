@@ -1,5 +1,6 @@
 import sys, os
 import omnifig as fig
+from omnifig.config import EmptyElement, ConfigType
 
 import _test_util as tu
 import _test_objs
@@ -86,9 +87,12 @@ def test_deep_hierarchy():
 	assert A['tree'] == 'nodes'
 	
 	assert A['all'][0] == 0
-	assert A['_history'][0] == 'test3'
+	print(A['ancestors'])
+	print(type(A['ancestors']))
+	assert A['ancestors'][0] == 'test3'
+	# assert A['_history'][0] == 'test3'
 	
-	order = tuple(A['_history'][1:])
+	order = tuple(A['ancestors'][1:])
 	assert order == ('t/n0', 't/n1', 't/n3', 't/n5', 't/n2', 't/n4', 't/n6', 't/n7')
 
 
@@ -238,8 +242,8 @@ def test_push3():
 	
 	a = A.push('fruit.10', 'veggies')
 	assert a == 'veggies'
-	assert A.pull('fruit.3') is None
-	assert A.pull('fruit.7') is None
+	assert A.pull('fruit.3') is EmptyElement
+	assert A.pull('fruit.7') is EmptyElement
 	assert A.pull('fruit.10') == 'veggies'
 	assert A.pull('fruit.11', 'nope') == 'nope'
 	assert A.pull('fruit.20', 'no way') == 'no way'
@@ -532,6 +536,31 @@ def test_removing():
 	assert len(itr) == 1
 	assert next(itr) == ('papagei', 'parrot')
 	
+
+def test_raw_and_cousins():
+	
+	A = fig.get_config('test5')
+	
+	raw = A.pull('a7', raw=True)
+	assert isinstance(raw, ConfigType)
+	
+	A.push('pocket.a7', raw, process=False)
+	A.push('a2', '_x_')
+	A.push('a7', '_x_')
+	A.push('a7.a2', 'cousin')
+	A.push('pocket.a7.a2', '_x_')
+	
+	pocket = A.pull('pocket', raw=True)
+	
+	# create
+	c = pocket.pull('a7')
+	
+	assert c.a2 == 'cousin'
+	assert c.a4_a6 == 2
+	assert c.a10_0 == '0'
+	assert c.x is None
+	assert c.a14 == 'success'
+	assert c.a14b == 'next'
 	
 	
 # TODO: unit tests checking the printed output when pulling/pushing objects

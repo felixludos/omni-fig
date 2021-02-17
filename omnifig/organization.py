@@ -587,7 +587,8 @@ class Workspace(Container):
 			
 			order = linearize(tree, heads=[root_id], order=True)[root_id]
 			
-			pnames = [(node.name if node.project is None else f'{node.project}:{node.name}') for node in order[1:]]
+			pnames = [(node.name if node.project is None or not isinstance(node.project, Project)
+			           else f'{node.project}:{node.name}') for node in order[1:]]
 			order = [root] + [parents[p] for p in order[1:]]
 			
 			# for analysis, record the history of all loaded parents
