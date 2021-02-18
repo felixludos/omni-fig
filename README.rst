@@ -240,20 +240,34 @@ While this example should give you a basic idea for what a project might look li
 
 .. end-quickstart-marker-do-not-remove
 
+Citation
+========
 
-TODO
-====
+If you used `omnifig` in your work, please cite it using:
 
-Features that could be added/improved:
+```latex
+@misc{omnifig,
+author = {Leeb, Felix},
+title = {Omni-fig: Configuration and Project Management for Python},
+year = {2020},
+publisher = {GitHub},
+journal = {GitHub repository},
+howpublished = {\url{https://github.com/felixludos/omni-fig}},
+}
+```
 
-- include convenience scripts (such as creating/changing projects)
-- more examples
-- enable customizing the print messages when using a config
+
+Road to 1.0
+===========
+
+Major features to be added in the near future:
+
+- configuration macros for modifying every part of the config behavior
+- customized the print messages or logging when using a config
+- enable multi-processing with registered artifacts
+- server run mode to submit, monitor, and schedule commands
 - full coverage with unit tests
-- allow registered "macros" for modifying config behavior
-- deep copy of config objects
-- integrate ``humpack.adict`` for configs (easier direct access to data)
-- use global settings everywhere (especially for logging)
+- clean up global settings and env variables
 
 Feedback and contributions are always welcome.
 
