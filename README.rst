@@ -162,9 +162,6 @@ Inside the python package ``src/`` you can register any ``Components``, ``Modifi
 
         return msg # anything this script should return
 
-    if __name__ == '__main__':
-        fig.entry('myscript') # automatically runs "myscript" script when called directly
-        # fig.entry() alone has the same effect as executing the "fig" command from the terminal
 
 Any function or class that should be specified in the config should be registered as a ``Component``. When "pulling" a component (a config node that contains the "_type" key), the config system will automatically get the corresponding class/function and run it (returning the created instance/output). You can also define and register ``Modifiers`` to dynamically specify modifications that you want to make to the components in the config (using the "_mod" key in the same node as "_type").
 
