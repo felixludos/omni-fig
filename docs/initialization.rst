@@ -62,7 +62,7 @@ The directory that contains the project info file (``.fig.yml``) is defined as t
 
 When a project is loaded, first the desired type is identified. As a result, you can subclass the :class:`Project` class and override the behavior of project objects. Note that this is a fairly advanced featured and should be used only when absolutely necessary (atm I'm not sure why I added this feature in the first place).
 
-.. automodule:: omnifig.projects
+.. automodule:: omnifig.organization
     :members:
     :undoc-members:
     :show-inheritance:
@@ -96,7 +96,7 @@ As a particularly useful example of how meta rules can be used, the "help rule" 
 
 Note that by subclassing and reregistering this rule, the help message and behavior can easily be augmented.
 
-.. automodule:: omnifig.help
+.. automodule:: omnifig.common.help
     :members:
     :undoc-members:
     :show-inheritance:
@@ -128,7 +128,7 @@ The debug mode serves as a good example for how run modes can be used. During de
 
 The debug mode is activated using a meta rule (``-d`` => ``debug``), which then changes the run mode to the debug run mode (registered under ``run_mode/debug``. Finally, the debugger also automatically updates the config to include a ``debug`` config (registered as ``debug``)
 
-.. automodule:: omnifig.debug
+.. automodule:: omnifig.common.debug
     :members:
     :undoc-members:
     :show-inheritance:

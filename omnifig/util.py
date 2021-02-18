@@ -9,7 +9,7 @@ from omnibelt import primitives, get_printer, \
 	spawn_path_options
 from omnibelt.logging import global_settings as belt_global_settings
 
-from .errors import PythonizeError
+from .errors import PythonizeError, ConfigurizeFailed
 
 LIB_PATH = os.path.dirname(__file__)
 
@@ -45,8 +45,7 @@ global_settings.update({
 
 prt = get_printer(__name__)
 
-class ConfigurizeFailed(Exception):
-	pass
+
 
 def configurize(data):
 	'''

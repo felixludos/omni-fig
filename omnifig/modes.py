@@ -1,7 +1,7 @@
 
 from .errors import MissingScriptError
 # from .registry import Component, get_script
-from .top import get_current_project
+from .top import find_script
 from .decorators import Component
 from .util import autofill_args
 
@@ -23,7 +23,7 @@ class Run_Mode:
 	@staticmethod
 	def get_script_info(script_name):
 		'''Given the name of the registered script, this returns the corresponding entry in the registry'''
-		return get_current_project().find_script(script_name)
+		return find_script(script_name)
 	
 	
 	def run(self, meta, config):

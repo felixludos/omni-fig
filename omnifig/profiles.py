@@ -6,7 +6,7 @@ from pathlib import Path
 from .errors import NoValidProjectError, UnknownArtifactError, MissingConfigError
 from .util import get_global_setting, resolve_order, spawn_path_options, set_global_setting
 from .organization import Workspace
-from .rules import view_meta_rules, meta_rule_fns
+# from .rules import view_meta_rules, meta_rule_fns
 from .external import include_files, get_project_type
 
 from omnibelt import get_printer, Registry
@@ -287,6 +287,13 @@ class Profile(Workspace):
 		return self._current_project
 
 	def find_artifact(self, atype, name):
+		'''
+		Search for a registered artifact from the name either in a loaded project or in the profile (global) registries
+		
+		:param atype: component, modifier, script, or config
+		:param name: registered artifact name, can use prefix to specify project (separated with ":")
+		:return: artifact entry (namedtuple)
+		'''
 		if ':' in name:
 
 			pname, *idents = name.split(':')
@@ -299,6 +306,13 @@ class Profile(Workspace):
 		return super().find_artifact(atype, name)
 
 	def has_artifact(self, atype, name):
+		'''
+		Check if a registered artifact of type `atype` with name `name` exists
+		
+		:param atype: component, modifier, script, or config
+		:param name: registered artifact name, can use prefix to specify project (separated with ":")
+		:return: True iff an entry for `name` exists
+		'''
 		if ':' in name:
 			pname, *idents = name.split(':')
 			name = ':'.join(idents)

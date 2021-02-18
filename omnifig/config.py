@@ -3,21 +3,14 @@ import sys, os
 from pathlib import Path
 from copy import deepcopy, copy
 import humpack as hp
-import io, yaml, json
 from collections import defaultdict, OrderedDict
-from c3linearize import linearize
 
 from omnibelt import save_yaml, load_yaml, get_printer
 
 from .util import primitives, global_settings, configurize, pythonize, ConfigurizeFailed
 from .errors import PythonizeError, MissingParameterError, UnknownActionError, InvalidKeyError
-# from .registry import create_component, _appendable_keys, Component
-
 
 prt = get_printer(__name__)
-
-
-
 
 _printing_instance = None
 class Config_Printing:
@@ -52,7 +45,6 @@ class Config_Printing:
 	
 	def process_addr(self, *terms):
 
-		# return '.'.join(terms)
 		addr = []
 		
 		skip = False
@@ -116,14 +108,13 @@ class ConfigType(hp.Transactionable):
 	
 	'''
 
-	def __init__(self, parent=None, silent=False, printer=None,
+	def __init__(self, parent=None, printer=None,
 	             prefix=None, safe_mode=False, project=None,
 	             data=None):
 		'''
 		Generally it should not be necessary to create a ConfigType manually, instead use ``get_config()``.
 		
 		:param parent: parent config used for defaults
-		:param silent: don't print ``pull``s and ``push``es
 		:param printer: printer object to handle printing messages
 		:param prefix: initial prefix used for printing
 		:param project: project this config responds to
@@ -161,10 +152,12 @@ class ConfigType(hp.Transactionable):
 		raise NotImplementedError
 
 	def copy(self):
+		'''shallow copy of the config object'''
 		return copy(self)
 
 	@classmethod
 	def convert(cls, data, recurse):
+		'''used by configurize to turn a nested python object into a config object'''
 		return cls(data=[recurse(x) for x in data])
 		
 	def sub(self, item):
@@ -173,6 +166,8 @@ class ConfigType(hp.Transactionable):
 		:param item: address of the branch to return
 		:return: config object at the address
 		'''
+		
+		# TODO: replace with a pull(raw=True)
 		
 		val = self.get_nodefault(item)
 		
@@ -281,7 +276,7 @@ class ConfigType(hp.Transactionable):
 			assert obj is not None, 'no object provided'
 			printer.dec_indent()
 			return ''
-			return printer.log_record(f'=> id={hex(id(obj))}', silent=silent)
+			# return printer.log_record(f'=> id={hex(id(obj))}', silent=silent)
 
 		pval = None if val is None else (f'[{type(val)}]' if _raw else repr(val))
 		
@@ -635,7 +630,6 @@ class ConfigType(hp.Transactionable):
 			return
 		
 		val = configurize(val)
-		# val = self.__setitem__(key, val)
 		
 		self[key] = val
 		# val = self[key]
@@ -668,7 +662,7 @@ class ConfigType(hp.Transactionable):
 	def seq(self):
 		'''
 		Returns an iterator over the contents of this config object where elements are lazily
-		processed during iteration (see ``Config_Iter`` for details).
+		processed during iteration (see ``ConfigIter`` for details).
 		
 		:return: iterator over all arguments in self
 		'''
@@ -680,6 +674,7 @@ class ConfigType(hp.Transactionable):
 	# region Silencing
 	
 	def set_silent(self, silent=True):
+		'''Sets whether pushes and pulls on this config object should be printed out to stdout'''
 		self.__dict__['_printer'].silent = silent
 	
 	# self._silent_config_flag = silent
@@ -703,6 +698,7 @@ class ConfigType(hp.Transactionable):
 			self.config.set_silent(self.prev)
 	
 	def silenced(self, setting=True):
+		'''Returns a context manager to silence this config object'''
 		return ConfigType._Silent_Config(self, setting=setting)
 	
 	# endregion
@@ -714,6 +710,7 @@ class ConfigType(hp.Transactionable):
 		return self.get_parent() is None
 	
 	def set_parent(self, parent):
+		'''Sets the parent config object to be checked when a parameter is not found in `self`'''
 		self.__dict__['_parent'] = parent
 	
 	def get_parent(self):
@@ -721,6 +718,7 @@ class ConfigType(hp.Transactionable):
 		return self.__dict__['_parent']
 	
 	def set_process_id(self, name=None):
+		'''Set the unique ID to include when printing out pulls from this object'''
 		self._get_printer().src = name
 	
 	def get_root(self):
@@ -787,7 +785,7 @@ class ConfigType(hp.Transactionable):
 		return f'{type(self).__name__}[id={hex(id(self))}]'
 	
 	def __str__(self):
-		return repr(self)
+		# return repr(self)
 		return f'<{type(self).__name__}>'
 	
 	# endregion
@@ -947,17 +945,6 @@ class ConfigDict(ConfigType, hp.tdict):
 	@classmethod
 	def convert(cls, data, recurse):
 		return cls(data={k: recurse(v) for k, v in data.items()})
-		# try:
-		# 	inds = [int(k) for k in data]
-		# 	if not len(inds):
-		# 		raise ValueError
-		# except ValueError:
-		# 	return cls(data={k:recurse(v) for k,v in data.items()})
-		# else:
-		# 	ls = [EmptyElement]*max(inds)
-		# 	for i, v in zip(inds, data.values()):
-		# 		ls[i] = recurse(v)
-		# 	return ConfigList(ls)
 	
 	def update(self, other):
 		'''
@@ -1121,25 +1108,6 @@ class ConfigList(ConfigType, hp.tlist):
 		self.append(None)
 		return super().push(key, val, *rest, overwrite=True, **kwargs) # note that *rest will have no effect
 		
-	# def __setitem__(self, item, value):
-	#
-	# 	if isinstance(item, str) and '.' in item:
-	# 		item = item.split('.')
-	#
-	# 	if isinstance(item, (tuple, list)):
-	# 		key = item[0]
-	# 	else:
-	# 		key = item
-	#
-	#
-	# 	if isinstance(item, (tuple,list)) and len(item) > 1:
-	# 		item[0] = key
-	# 	else:
-	# 		item = key
-	#
-	# 	return super().__setitem__(item, value)
-		
-		
 	def contains_nodefault(self, item):
 		
 		try:
@@ -1250,7 +1218,7 @@ class ConfigIter:
 
 	def has_next(self):
 		return (self._reversed and self._idx >= 0) or (not self._reversed and self._idx < len(self._elms))
-
+ 
 	def __next__(self):
 		
 		if not self.has_next():
@@ -1266,8 +1234,8 @@ class ConfigIter:
 		return self
 
 nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
-
 def configurize_nones(s, recurse):
+	'''Turns strings into None, if they match the expected patterns'''
 	if s in nones:
 		return None
 	raise ConfigurizeFailed

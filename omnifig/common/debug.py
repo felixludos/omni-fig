@@ -4,13 +4,13 @@ import traceback
 
 from omnibelt import get_printer
 
-from .errors import ConfigNotFoundError
+from ..errors import ConfigNotFoundError
 
-from .top import get_config, find_config
-from .decorators import Component
+from ..top import get_config, find_config
+from ..decorators import Component
 
-from .modes import Run_Mode
-from .rules import Meta_Rule
+from ..modes import Run_Mode
+from ..rules import Meta_Rule
 
 
 

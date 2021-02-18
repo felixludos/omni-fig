@@ -175,7 +175,7 @@ Another part of this example that warrants careful consideration is how the :fun
 
 Note that the :func:`AutoModifier` can be paired with, in principle, any component (although some will raise errors), which effectively means an :func:`AutoModifier` allows changing the behavior of any component, even ones that haven't even been written yet. While :func:`AutoModifier` is one of the most powerful features of the registry system in ``omni-fig``, they are consequently also rather advanced, so particular care must be taken when using them.
 
-.. automodule:: omnifig.registry
+.. automodule:: omnifig.decorators
     :members:
     :undoc-members:
     :show-inheritance:
@@ -183,4 +183,5 @@ Note that the :func:`AutoModifier` can be paired with, in principle, any compone
     :special-members:
     :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,get_script,_make_post_mod,_Script_Registry,_Component_Registry,_Modifier_Registry
     :member-order: bysource
+
 

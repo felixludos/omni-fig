@@ -78,6 +78,7 @@ class Workspace(Container):
 	# region Registration
 	
 	def reset_registries(self):
+		'''Clears all registries'''
 		if not self.silent:
 			prt.debug(f'Resetting registries of {self}')
 		self.scripts = Script_Registry()
@@ -89,6 +90,7 @@ class Workspace(Container):
 		                        modifier=self.modifiers, config=self.configs)
 	
 	def register_artifact(self, atype, name, info):
+		'''General function to register an artifact of type `atype` with name `name`'''
 		
 		registry = self._registries.get(atype, None)
 		if registry is None:
@@ -190,13 +192,21 @@ class Workspace(Container):
 	# region Artifacts
 	
 	def has_artifact(self, atype, name):
+		'''Check if this workspace has an artifact of type `atype` registered with name `name`'''
 		registry = self._registries.get(atype, None)
 		if registry is None:
 			raise UnknownArtifactError(atype)
 		return name in registry
 	
 	def find_artifact(self, atype, name):
+		'''
+		Find a registered artifact from the type and name
 		
+		:param atype: component, modifier, script, or config
+		:param name: registered name
+		:return: artifact entry, throws UnknownArtifactError if `atype` is not recognized,
+		and the corresponding artifact missing error if the name cannot be found
+		'''
 		registry = self._registries.get(atype, None)
 		if registry is None:
 			raise UnknownArtifactError(atype)
@@ -209,6 +219,7 @@ class Workspace(Container):
 		return artifact
 
 	def view_artifacts(self, atype):
+		'''Return a shallow copy of the full registry of type `atype`'''
 
 		registry = self._registries.get(atype, None)
 		if registry is None:
@@ -572,19 +583,6 @@ class Workspace(Container):
 		pnames = []
 		if len(parents):  # topo sort parents
 			
-			# TODO: maybe clean up?
-			
-			# root_id = ''
-			# src = defaultdict(list)
-			#
-			# names = {self.find_config(p): p for p in root['parents']} if 'parents' in root else {}
-			# src[root_id] = list(names.keys())
-			#
-			# for n, data in parents.items():
-			# 	connections = {self.find_config(p): p for p in data['parents']} if 'parents' in data else {}
-			# 	names.update(connections)
-			# 	src[n] = list(connections.keys())
-			
 			order = linearize(tree, heads=[root_id], order=True)[root_id]
 			
 			pnames = [(node.name if node.project is None or not isinstance(node.project, Project)
@@ -594,7 +592,7 @@ class Workspace(Container):
 			# for analysis, record the history of all loaded parents
 			order = list(reversed(order))
 		
-		else:  # TODO: clean up
+		else:
 			order = [root]
 		
 		root = self._merge_configs(order, )
@@ -726,8 +724,6 @@ class Project(Workspace):
 				prt.info(f'Found optional project info: {key}')
 				setattr(self, key, raw[key])
 		
-		# self.init = raw.get('init', None)
-		# self.init_name = raw.get('init_name', None)
 		
 		# endregion
 		

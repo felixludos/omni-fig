@@ -15,13 +15,11 @@ from .top import get_project, get_current_project, \
 	find_script, find_component, find_modifier, find_config, \
 	has_script, has_component, has_config, has_modifier
 
-#from . import projects
-from .modes import Run_Mode
 from .rules import Meta_Rule
-from . import debug
-from . import help
+from .modes import Run_Mode
+from . import common
 from .common import Configurable
-from .farming import Farmer, Worker
+# from .farming import Farmer, Worker
 
 from humpack import AbortTransaction
 

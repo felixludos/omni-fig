@@ -1,28 +1,14 @@
 
 import sys, os
 import yaml
-from collections import namedtuple, OrderedDict
 
-from pathlib import Path
+from omnibelt import get_printer, get_now, save_yaml, load_yaml
 
-from omnibelt import get_printer, get_now, save_yaml
-
-
+from .errors import WrongInfoContainerType
 
 prt = get_printer(__name__)
 
 
-class WrongInfoContainerType(Exception):
-	def __init__(self, ctype, ctype_src=None):
-		super().__init__(f'Reload container using custom subclass: {ctype}')
-		self.ctype = ctype
-		self.ctype_src = ctype_src
-	
-	def get_ctype(self):
-		return self.ctype
-	
-	def get_mtype_src(self):
-		return self.ctype_src
 
 class Container:
 	'''
@@ -69,8 +55,8 @@ class Container:
 		
 	@staticmethod
 	def load_raw_info(path):
-		with open(path, 'r') as f:
-			raw = yaml.safe_load(f)
+		'''Loads the info yaml file'''
+		raw = load_yaml(path) if os.path.isfile(path) else None
 		if raw is None:
 			raw = {}
 		raw['info_path'] = path # automatically set info_path to the path
@@ -96,9 +82,22 @@ class Container:
 	
 	
 	def _process(self, raw):
+		'''
+		Extracts/formats information from the loaded info file.
+		
+		:param raw: loaded yaml file with contents
+		:return:
+		'''
 		pass
 	
 	def process(self, raw=None):
+		'''
+		Extracts/formats information from the loaded info file.
+		Calls `_process()` which should be overridden by subclasses.
+		
+		:param raw: loaded yaml file with contents
+		:return:
+		'''
 		if raw is None:
 			raw = {}
 		

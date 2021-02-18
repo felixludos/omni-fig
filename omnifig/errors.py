@@ -78,20 +78,22 @@ class PythonizeError(Exception):
 		self.obj = obj
 
 
+class WrongInfoContainerType(Exception):
+	'''Raised when trying to load a container, but the container expects a different type (ie. subclass).'''
+	def __init__(self, ctype, ctype_src=None):
+		super().__init__(f'Reload container using custom subclass: {ctype}')
+		self.ctype = ctype
+		self.ctype_src = ctype_src
+	
+	def get_ctype(self):
+		return self.ctype
+	
+	def get_mtype_src(self):
+		return self.ctype_src
+
+class ConfigurizeFailed(Exception):
+	'''Raised when trying to configurize an object by type, but it ends up not working'''
+	pass
+
 # endregion
-
-
-# old
-
-# class ScriptNotFoundError(Exception):
-# 	'''Raised when trying to run a script that has not been registered'''
-# 	pass
-
-
-# class MissingModError(Exception):
-# 	'''Raised when a modifier specified in the config for a component is not found (it has not been registered)'''
-# 	def __init__(self, mod, cmpn):
-# 		super().__init__(f'Could not find mod "{mod}" for component "{cmpn}"')
-# 		self.mod, self.cmpn = mod, cmpn
-
 

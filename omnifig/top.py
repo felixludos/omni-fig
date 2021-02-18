@@ -36,7 +36,7 @@ def entry(script_name=None):
 	given script with ``script_name`` if it is provided
 
 	:param script_name: script to be run (may be set with arguments) (overrides other arguments if provided)
-	:return: Nothing
+	:return: None
 	'''
 	argv = sys.argv[1:]
 	main(*argv, script_name=script_name)
@@ -67,6 +67,14 @@ def main(*argv, script_name=None):
 
 
 def run(script_name, config, **meta):
+	'''
+	Runs the specified script registered with ``script_name`` using the current project.
+	
+	:param script_name: must be registered in the current project or defaults to the profile
+	:param config: config object passed to the script
+	:param meta: any meta rules that modify the way the script is run
+	:return: output of the script, raises MissingScriptError if the script is not found
+	'''
 	return get_current_project().run(script_name=script_name, config=config, **meta)
 
 
@@ -137,12 +145,30 @@ def cleanup(**overrides):
 # region Create
 
 def get_config(*contents, **parameters):
+	'''
+	Process the provided info using the current project into a config object.
+	:param contents: usually a list of parent configs to be merged
+	:param parameters: any manual parameters to include in the config object
+	:return: config object
+	'''
 	return get_current_project().create_config(*contents, **parameters)
 
 def create_component(config):
+	'''
+	Create a component using the current project
+	:param config: Must contain a "_type" parameter with the name of a registered component
+	:return: the created component
+	'''
 	return get_current_project().create_component(config)
 
 def quick_create(_type, *parents, **parameters):
+	'''
+	Creates a component without an explicit config object. Effectively combines `get_config()` and `create_component()`
+	:param _type:
+	:param parents:
+	:param parameters:
+	:return:
+	'''
 	proj = get_current_project()
 	
 	config = proj.create_config(*parents, **parameters)
@@ -155,19 +181,24 @@ def quick_create(_type, *parents, **parameters):
 # region Registration
 
 def register_script(name, fn, description=None, use_config=False):
+	'''Manually register a new script to the current project'''
 	monkey_patch(fn)
 	return get_current_project().register_script(name, fn, description=description, use_config=use_config)
 
 def register_component(name, fn, description=None):
+	'''Manually register a new component to the current project'''
 	return get_current_project().register_component(name, fn, description=description)
 
 def register_modifier(name, fn, description=None, expects_config=False):
+	'''Manually register a new modifier to the current project'''
 	return get_current_project().register_modifier(name, fn, description=description, expects_config=expects_config)
 
 def register_config(name, path):
+	'''Manually register a new config file to the current project'''
 	return get_current_project().register_config(name, path)
 
 def register_config_dir(path, recursive=False, prefix=None, joiner='/'):
+	'''Manually register a new config directory to the current project'''
 	return get_current_project().register_config_dir(path, recursive=recursive, prefix=prefix, joiner=joiner)
 
 # endregion

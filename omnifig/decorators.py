@@ -1,5 +1,5 @@
 
-from omnibelt import monkey_patch
+# from omnibelt import monkey_patch
 
 from .top import register_script, register_component, register_modifier
 from .util import autofill_args
@@ -17,7 +17,7 @@ def Script(name, description=None, use_config=True):
 		nonlocal name, use_config
 		register_script(name, fn, use_config=use_config, description=description)
 		return fn
-	monkey_patch(_reg_script_decorator)
+	# monkey_patch(_reg_script_decorator)
 	
 	return _reg_script_decorator
 
@@ -49,7 +49,7 @@ def Component(name=None):
 			name = cmp.__name__
 		register_component(name, cmp)
 		return cmp
-	monkey_patch(_register_cmp_decorator)
+	# monkey_patch(_register_cmp_decorator)
 	
 	return _register_cmp_decorator
 
@@ -75,12 +75,12 @@ def AutoComponent(name=None, aliases=None, auto_name=True):
 		if type(cmp) == type:  # to allow AutoModifiers
 			
 			cls = type(f'Auto_{cmp.__name__}' if auto_name else cmp.__name__, (cmp,), {})
-			monkey_patch(cls)
+			# monkey_patch(cls)
 			
 			def _cmp_init_fn(self, info):
 				args, kwargs = autofill_args(cmp, info, aliases=aliases, run=False)
 				super(cls, self).__init__(*args, **kwargs)
-			monkey_patch(_cmp_init_fn)
+			# monkey_patch(_cmp_init_fn)
 			
 			cls.__init__ = _cmp_init_fn
 			
@@ -91,12 +91,12 @@ def AutoComponent(name=None, aliases=None, auto_name=True):
 				nonlocal cmp, aliases
 				return autofill_args(cmp, config, aliases)
 			
-			monkey_patch(_auto_create_fn)
+			# monkey_patch(_auto_create_fn)
 		Component(name)(_auto_create_fn)
 		
 		return cmp
 	
-	monkey_patch(_auto_cmp_decorator)
+	# monkey_patch(_auto_cmp_decorator)
 	
 	return _auto_cmp_decorator
 
@@ -119,7 +119,7 @@ def Modifier(name=None, expects_config=False):
 			name = mod.__name__
 		register_modifier(name, mod, expects_config=expects_config)
 		return mod
-	monkey_patch(_mod_decorator_fn)
+	# monkey_patch(_mod_decorator_fn)
 	
 	return _mod_decorator_fn
 
@@ -149,13 +149,13 @@ def AutoModifier(name=None):
 			# awesome python feature -> dynamic type declaration!
 			cls = cmpn_type if issubclass(cmpn_type, mod_type) \
 				else type('{}_{}'.format(mod_type.__name__, cmpn_type.__name__), (mod_type, cmpn_type), {})
-			monkey_patch(cls)
+			# monkey_patch(cls)
 			return cls
-		monkey_patch(_the_mod_creation_fn)
+		# monkey_patch(_the_mod_creation_fn)
 		
 		Modifier(name=mod_type.__name__ if name is None else name)(_the_mod_creation_fn)
 		return mod_type
-	monkey_patch(_auto_mod_decorator)
+	# monkey_patch(_auto_mod_decorator)
 	
 	return _auto_mod_decorator
 
@@ -188,7 +188,7 @@ def Modification(name=None):
 		nonlocal name
 		Modifier(name)(_make_post_mod(mod))
 		return mod
-	monkey_patch(_reg_modification)
+	# monkey_patch(_reg_modification)
 	
 	return _reg_modification
 

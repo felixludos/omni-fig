@@ -2,6 +2,13 @@
 from omnibelt import InitWall, unspecified_argument
 
 class Configurable:
+	'''
+	Removes the config object `A` from the __init__() to clean up the init stream.
+	
+	This class should be subclassed when creating components/modifiers,
+	especially when those components/modifiers also subclass types that
+	do not use the config object.
+	'''
 	def __init__(self, A, _req_args=unspecified_argument,
 	             _req_kwargs=unspecified_argument, **kwargs):
 

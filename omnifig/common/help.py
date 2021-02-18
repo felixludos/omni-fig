@@ -2,8 +2,8 @@
 import sys, os
 from tabulate import tabulate
 
-from .rules import Meta_Rule, view_meta_rules
-from .top import view_scripts, view_configs, find_script
+from ..rules import Meta_Rule, view_meta_rules
+from ..top import view_scripts, view_configs, find_script
 
 
 _default_help_msg = '''

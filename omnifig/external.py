@@ -4,31 +4,9 @@ import importlib.util
 
 from omnibelt import get_printer, Registry, Entry_Registry
 
-from .errors import ConfigNotFoundError
-
 prt = get_printer(__name__)
 
 # region Source files
-
-# _loaded_projects = {}
-# def include_project(name, path=None):
-#
-# 	if name not in _loaded_projects and path is not None:
-# 		path = os.path.abspath(path)
-#
-# 		sys.path.insert(1, os.path.dirname(path))
-# 		old = os.getcwd()
-# 		os.chdir(os.path.dirname(path))
-#
-# 		spec = importlib.util.spec_from_file_location(name, path)
-# 		mod = importlib.util.module_from_spec(spec)
-# 		spec.loader.exec_module(mod)
-# 		# mod.MyClass()
-# 		_loaded_projects[name] = mod
-#
-# 		del sys.path[1]
-# 		os.chdir(old)
-		
 
 _loaded_files = {}
 def include_files(*paths):
@@ -44,29 +22,15 @@ def include_files(*paths):
 		if os.path.isfile(path):
 			apath = os.path.abspath(path)
 			if apath not in _loaded_files:
-				# sys.path.append(os.path.dirname(apath))
 				sys.path.insert(1, os.path.dirname(apath))
 				old = os.getcwd()
 				os.chdir(os.path.dirname(apath))
-				# print(f'-- Running {apath}, sys: {sys.path}') # DEBUGMODE
 				prt.debug(f'Loading {apath}')
 				code_block = compile(open(apath).read(), apath, 'exec')
 				globs = {'__file__':apath}
-				# print(f'globs: {globs}')
 				exec(code_block, globs)
-				# print("blob %s" % blob['toto'])
 				_loaded_files[apath] = globs
 				
-				# _loaded_files[apath] = exec(open(apath).read())
-				
-				# spec = importlib.util.spec_from_file_location(f"load{_load_counter}", apath)
-				# mod = importlib.util.module_from_spec(spec)
-				# spec.loader.exec_module(mod)
-				# # mod.MyClass()
-				# _loaded_files[apath] = mod
-				# _load_counter += 1
-				# del sys.path[0]
-				# sys.path.pop()
 				del sys.path[1]
 				os.chdir(old)
 
