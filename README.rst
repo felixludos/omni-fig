@@ -80,12 +80,12 @@ A project only requires a yaml file called ``.fig.yml`` or similar (see document
     │   └── debug.yaml - config to be automatically used in debug mode
     │
     ├── src/ - any python source files
-    │   ├── __init__.py
+    │   ├── __init__.py - python file to be called to load project as a package into omnifig.projects
+    │   ├── script1.py - any additional source files
     │   └── ...
     │
     ├── .fig.yml - project info file
-    ├── startup.py - python file to be called to load project (must be specified in project info file)
-    ├── script1.py - any additional source files (usually executable)
+    ├── startup.py -
     └── ...
 
 For the example above, ``.fig.yml`` should contain something like:
@@ -93,18 +93,11 @@ For the example above, ``.fig.yml`` should contain something like:
 .. code-block:: yaml
 
     name: myproject
-    src: startup.py
+    package: src
 
-To specify that ``startup.py`` should be run to load the project. ``startup.py`` might include something like:
+To specify that ``src/`` contains the code neccessary load the project.
 
-.. code-block:: python
-
-    import src
-    import script1
-
-    print('Loaded myproject!') # optional message to see when the project has been loaded
-
-The ``startup.py`` file imports any necessary source files (registering any ``Components``, ``Modifiers``, ``Scripts``, or configs specfied therein). For example, ``script1.py`` might look like:
+Inside the python package ``src/`` you can register any ``Components``, ``Modifiers``, ``Scripts``, or configs needed for the project. For example, ``src/__init__.py`` might look like:
 
 .. code-block:: python
 
@@ -230,11 +223,11 @@ You might also load and run scripts in this project from a jupyter notebook (or 
     # quick_run effectively combines get_config and
     out4 = fig.quick_run('myscript', 'config1', use_gpu=True)
 
-While this example should give you a basic idea for what a project might look like, this only touches on the basics of what you can do with ``omni-fig``. I strongly recommend you check out the documentation_. for more information, additionally there are some examples of real projects that use ``omnifig`` such as foundation_ and No-Nonsense-News_ .
+While this example should give you a basic idea for what a project might look like, this only touches on the basics of what you can do with ``omni-fig``. I strongly recommend you check out the documentation_. for more information, additionally there are some examples of real projects that use ``omni-fig`` such as omnilearn_ and No-Nonsense-News_ .
 
 .. _documentation: https://omnifig.readthedocs.io/
 
-.. _foundation: https://github.com/felixludos/foundation/
+.. _omnilearn: https://github.com/felixludos/omni-learn/
 
 .. _No-Nonsense-News: https://github.com/felixludos/nnn/
 
