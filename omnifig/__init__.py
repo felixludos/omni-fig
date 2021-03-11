@@ -13,7 +13,8 @@ from .top import get_project, get_current_project, \
 	register_script, register_config, register_component, \
 	register_config_dir, register_modifier, resolve_order, \
 	find_script, find_component, find_modifier, find_config, \
-	has_script, has_component, has_config, has_modifier
+	has_script, has_component, has_config, has_modifier, \
+	view_configs, view_components, view_scripts, view_modifiers
 
 from .rules import Meta_Rule
 from .modes import Run_Mode

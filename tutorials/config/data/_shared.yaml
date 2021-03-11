@@ -1,0 +1,9 @@
+
+data-name: toy
+
+input:
+  shape: (100,100)
+  range:
+    min: 0
+    max: 1
+

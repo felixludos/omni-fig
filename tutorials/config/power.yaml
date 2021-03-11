@@ -1,0 +1,7 @@
+
+parents: [advanced, data/large]
+
+epochs: 50
+
+device: gpu-of-the-gods
+

@@ -1,0 +1,9 @@
+
+parents: [group1/special]
+
+data: [3,4,5,6,7]
+
+input.range:
+  max: 7
+  min: 3
+

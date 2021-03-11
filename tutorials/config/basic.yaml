@@ -1,0 +1,16 @@
+
+
+root: test/dir
+
+name: basic
+
+epochs: 25
+
+device: cheap-cpu
+
+model:
+  _type: simple-model
+
+  size: 10
+
+favorite-device: <>device

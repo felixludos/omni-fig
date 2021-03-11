@@ -1,0 +1,9 @@
+
+name: updated-experiment
+
+device: good-gpu
+
+model:
+  _type: variant-model
+  special-sauce: -2
+

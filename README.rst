@@ -12,6 +12,8 @@
 omni-fig
 --------
 
+Configuration and project organization without compromises
+
 .. image:: https://readthedocs.org/projects/omnifig/badge/?version=latest
     :target: https://omnifig.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
@@ -20,14 +22,14 @@ omni-fig
     :target: https://travis-ci.com/felixludos/omni-fig
     :alt: Test Status
 
-Unfortuantely, the documentation is currently very out of date - but I'm working on it!
+.. Unfortuantely, the documentation is currently very out of date - but I'm working on it!
 
 .. setup-marker-do-not-remove
 
 .. role:: py(code)
    :language: python
 
-Visit the project page_.
+.. Visit the project page_.
 
 .. _page: https://www.notion.so/felixleeb/omni-fig-c5223f0ca9e54eb4b8d9749aade4a9d3
 

@@ -197,7 +197,7 @@ def register_config(name, path):
 	'''Manually register a new config file to the current project'''
 	return get_current_project().register_config(name, path)
 
-def register_config_dir(path, recursive=False, prefix=None, joiner='/'):
+def register_config_dir(path, recursive=True, prefix=None, joiner='/'):
 	'''Manually register a new config directory to the current project'''
 	return get_current_project().register_config_dir(path, recursive=recursive, prefix=prefix, joiner=joiner)
 

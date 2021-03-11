@@ -1,0 +1,12 @@
+
+parents: [basic]
+
+device: better-gpu
+
+model:
+  _mod: [improved]
+
+  name: advanced-model
+
+  size: 50
+

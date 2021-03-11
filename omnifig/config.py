@@ -155,6 +155,9 @@ class ConfigType(hp.Transactionable):
 		'''shallow copy of the config object'''
 		return copy(self)
 
+	def pythonize(self):
+		return pythonize(self)
+
 	@classmethod
 	def convert(cls, data, recurse):
 		'''used by configurize to turn a nested python object into a config object'''
@@ -489,6 +492,7 @@ class ConfigType(hp.Transactionable):
 				self._record_action('pull-dict', suffix=item, val=val, silent=silent, **record_flags)
 				terms = {}
 				for k, v in val.items():  # WARNING: pulls all entries in dict
+					k = str(k)
 					self._record_action('entry', silent=silent, suffix=k)
 					terms[k] = val._process_val(k, v, reuse=reuse, silent=silent, _origin=_origin, _entry=True)
 				self._record_action('pulled-dict', suffix=item, val=val, obj=terms, silent=silent, **record_flags)
