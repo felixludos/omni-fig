@@ -2,11 +2,10 @@
 .. role:: py(code)
    :language: python
 
-
-
 .. raw:: html
 
     <img align="right" width="150" height="150" src="assets/logo_border.png" alt="omni-fig">
+
 
 --------
 omni-fig
@@ -21,8 +20,6 @@ Configuration and project organization without compromises
 .. image:: https://travis-ci.com/felixludos/omni-fig.svg?branch=master
     :target: https://travis-ci.com/felixludos/omni-fig
     :alt: Test Status
-
-.. Unfortuantely, the documentation is currently very out of date - but I'm working on it!
 
 .. setup-marker-do-not-remove
 
@@ -237,15 +234,15 @@ Citation
 
 If you used `omnifig` in your work, please cite it using:
 
-```latex
+```text
 @misc{omnifig,
 author = {Leeb, Felix},
 title = {Omni-fig: Configuration and Project Management for Python},
 year = {2020},
 publisher = {GitHub},
 journal = {GitHub repository},
-howpublished = {\url{https://github.com/felixludos/omni-fig}},
-}
+howpublished = {https://github.com/felixludos/omni-fig}
+ }
 ```
 
 
