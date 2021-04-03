@@ -17,8 +17,12 @@ class Configurable:
 		if _req_kwargs is unspecified_argument:
 			_req_kwargs = A.pull('_req_kwargs', {}, silent=True)
 
-		if isinstance(self, InitWall):
+		try:
+			walled = isinstance(self, InitWall)
+		except ValueError:
+			walled = True
+			
+		if walled:
 			super().__init__(_req_args=_req_args, _req_kwargs=_req_kwargs, **kwargs)
 		else:
 			super().__init__(*_req_args, **_req_kwargs)
-		
