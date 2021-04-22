@@ -681,6 +681,9 @@ class ConfigType(hp.Transactionable):
 		'''Sets whether pushes and pulls on this config object should be printed out to stdout'''
 		self.__dict__['_printer'].silent = silent
 	
+	def silence(self, silent=True):
+		self.set_silent(silent)
+	
 	# self._silent_config_flag = silent
 	
 	def _get_silent(self):

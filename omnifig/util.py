@@ -80,7 +80,7 @@ def pythonize(data):  # TODO: allow adding yamlify rules for custom objects
 	if data is None or isinstance(data, primitives):
 		return data
 	if isinstance(data, dict):
-		return {k: pythonize(v) for k, v in data.items() if not k.startswith('__')}
+		return {k: pythonize(v) for k, v in data.items() if not str(k).startswith('__')}
 	if isinstance(data, (list, tuple, set)):
 		return [pythonize(x) for x in data]
 	
