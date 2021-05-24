@@ -326,7 +326,7 @@ class ConfigType(hp.Transactionable):
 		                         _origin=self, _raw=raw)
 
 	def _pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False,
-	          _defaulted=False, _origin=None, _raw=False):
+	          _defaulted=False, _origin=None, _raw=False, _allow_cousin=True):
 		'''
 		Internal pull method, should generally not be called manually (unless you know what you're doing)
 		
@@ -359,7 +359,7 @@ class ConfigType(hp.Transactionable):
 			defaulted = True
 		if defaulted:
 			try:
-				if '__origin_key' in self: # cousins
+				if '__origin_key' in self and _allow_cousin: # cousins
 					origin = self['__origin_key']
 					if origin is not None:
 						parent = self.get_parent()
@@ -367,7 +367,7 @@ class ConfigType(hp.Transactionable):
 							grandparent = parent.get_parent()
 							if grandparent is not None:
 								return grandparent._pull((origin, item), silent=silent, _defaulted=defaulted or _defaulted,
-							                        as_iter=as_iter, ref=ref, _origin=_origin, _raw=_raw)
+							                        as_iter=as_iter, ref=ref, _origin=_origin, _raw=_raw, _allow_cousin=False)
 			except MissingParameterError:
 				pass
 			
@@ -397,7 +397,7 @@ class ConfigType(hp.Transactionable):
 			
 			val._set_prefix(self.get_prefix() + [item])
 			out = val._pull(line, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
-			               _defaulted=_defaulted, _origin=_origin, _raw=_raw)
+			               _defaulted=_defaulted, _origin=_origin, _raw=_raw, _allow_cousin=_allow_cousin)
 			
 			val = out
 			
@@ -406,7 +406,7 @@ class ConfigType(hp.Transactionable):
 
 			parent._set_prefix(self.get_prefix() + [''])
 			val = parent._pull((item, *line), *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
-			                   _origin=_origin, _raw=_raw)
+			                   _origin=_origin, _raw=_raw, _allow_cousin=_allow_cousin)
 			
 		else: # process val from me/defaults
 			val = self._process_val(item, val, *defaults, silent=silent, defaulted=defaulted or _defaulted,
@@ -1091,6 +1091,8 @@ class ConfigList(ConfigType, hp.tlist):
 		
 		item = self._str_to_int(item)
 		
+		if item < 0:
+			item += len(self)
 		if item >= len(self):
 			self.extend([self._empty_fill_value] * (item - len(self) + 1))
 			
