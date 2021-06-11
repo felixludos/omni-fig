@@ -22,7 +22,7 @@ from . import common
 from .common import Configurable
 # from .farming import Farmer, Worker
 
-from humpack import AbortTransaction
+from omnibelt import AbortTransaction
 
 import os
 __info__ = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py')}

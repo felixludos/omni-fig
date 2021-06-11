@@ -25,7 +25,7 @@ try:
 	with open(os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), 'requirements.txt'), 'r') as f:
 		install_requires = f.readlines()
 except:
-	install_requires = ['pyyaml', 'C3Linearize', 'humpack', 'omnibelt']
+	install_requires = ['pyyaml', 'C3Linearize', 'omnibelt']
 del os
 
 entry_points = {'console_scripts': 'fig = omnifig.top:entry'}

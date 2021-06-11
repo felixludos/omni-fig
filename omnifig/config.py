@@ -2,7 +2,7 @@
 import sys, os
 from pathlib import Path
 from copy import deepcopy, copy
-import humpack as hp
+import omnibelt as belt
 from collections import defaultdict, OrderedDict
 
 from omnibelt import save_yaml, load_yaml, get_printer
@@ -83,7 +83,7 @@ class Config_Printing:
 		return msg
 		
 
-class ConfigType(hp.Transactionable):
+class ConfigType(belt.Transactionable):
 	'''
 	The abstract super class of config objects.
 	
@@ -919,7 +919,7 @@ class ConfigType(hp.Transactionable):
 	# endregion
 
 
-class ConfigDict(ConfigType, hp.tdict):
+class ConfigDict(ConfigType, belt.tdict):
 	'''
 	Dict like node in the config.
 	
@@ -1003,7 +1003,7 @@ class ConfigDict(ConfigType, hp.tdict):
 class EmptyElement:
 	pass
 
-class ConfigList(ConfigType, hp.tlist):
+class ConfigList(ConfigType, belt.tlist):
 	'''
 	List like node in the config.
 	'''
