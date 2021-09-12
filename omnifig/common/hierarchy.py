@@ -17,6 +17,9 @@ class Configurable:
 		if _req_kwargs is unspecified_argument:
 			_req_kwargs = A.pull('_req_kwargs', {}, silent=True)
 
+		if _req_kwargs is None:
+			_req_kwargs = kwargs
+
 		try:
 			walled = isinstance(self, InitWall)
 		except ValueError:
