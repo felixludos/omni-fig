@@ -370,7 +370,9 @@ class Workspace(Container):
 						raise
 				component = mod.fn(component, info) if mod.expects_config else mod.fn(component)
 
-		return component(info)
+		args = info.pull('__args', (), silent=True, raw=True)
+		kwargs = info.pull('__kwargs', {}, silent=True, raw=True)
+		return component(info, *args, **kwargs)
 	
 	# endregion
 	
