@@ -20,6 +20,7 @@ from .rules import Meta_Rule
 from .modes import Run_Mode
 from . import common
 from .common import Configurable
+from.organization import Cerifiable
 # from .farming import Farmer, Worker
 
 from omnibelt import AbortTransaction

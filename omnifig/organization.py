@@ -18,6 +18,12 @@ from . import projects as projects_module
 
 prt = get_printer(__name__)
 
+
+class Cerifiable: # TODO: turn this into a macro
+	def __certify__(self, A, **kwargs):
+		pass
+
+
 class Workspace(Container):
 	
 	def __init__(self, silent=False, **kwargs):
@@ -372,7 +378,11 @@ class Workspace(Container):
 
 		args = info.pull('__args', (), silent=True, raw=True)
 		kwargs = info.pull('__kwargs', {}, silent=True, raw=True)
-		return component(info, *args, **kwargs)
+		
+		obj = component(info, *args, **kwargs)
+		if isinstance(obj, Cerifiable):
+			obj.__certify__(info)
+		return obj
 	
 	# endregion
 	
