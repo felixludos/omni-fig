@@ -514,7 +514,7 @@ class ConfigType(belt.Transactionable):
 			
 			self._record_action('local-alias', suffix=item, val=alias, silent=silent, **record_flags)
 			
-			val = self._pull(alias, *defaults, silent=silent, _origin=_origin, as_iter=as_iter)
+			val = self._pull(alias, *defaults, silent=silent, _origin=_origin, as_iter=as_iter, ref=reuse)
 			
 		elif isinstance(val, str) and val.startswith('<o>'): # origin alias (returns to origin to find alias)
 			alias = val[3:]
