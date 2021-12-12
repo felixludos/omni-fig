@@ -17,9 +17,8 @@ Configuration and project organization without compromises
     :target: https://omnifig.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
-.. image:: https://travis-ci.com/felixludos/omni-fig.svg?branch=master
-    :target: https://travis-ci.com/felixludos/omni-fig
-    :alt: Test Status
+
+[![Unit-Tests](https://github.com/felixludos/omni-fig/actions/workflows/tests.yaml/badge.svg)](https://github.com/felixludos/omni-fig/actions/workflows/tests.yaml)
 
 .. setup-marker-do-not-remove
 
@@ -233,17 +232,6 @@ Citation
 ========
 
 If you used `omnifig` in your work, please cite it using:
-
-```text
-@misc{omnifig,
-author = {Leeb, Felix},
-title = {Omni-fig: Configuration and Project Management for Python},
-year = {2020},
-publisher = {GitHub},
-journal = {GitHub repository},
-howpublished = {https://github.com/felixludos/omni-fig}
- }
-```
 
 
 Road to 1.0

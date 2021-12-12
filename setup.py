@@ -39,3 +39,15 @@ setup(name=info.get('name', None),
       install_requires=info.get('install_requires', []),
       zip_safe=info.get('zip_safe', False),
       )
+
+
+# ```text
+# @misc{omnifig,
+# author = {Leeb, Felix},
+# title = {Omni-fig: Configuration and Project Management for Python},
+# year = {2020},
+# publisher = {GitHub},
+# journal = {GitHub repository},
+# howpublished = {https://github.com/felixludos/omni-fig}
+#  }
+# ```
