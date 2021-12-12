@@ -18,7 +18,9 @@ Configuration and project organization without compromises
     :alt: Documentation Status
 
 
-[![Unit-Tests](https://github.com/felixludos/omni-fig/actions/workflows/tests.yaml/badge.svg)](https://github.com/felixludos/omni-fig/actions/workflows/tests.yaml)
+.. image:: https://github.com/felixludos/omni-fig/actions/workflows/tests.yaml/badge.svg
+    :target: https://github.com/felixludos/omni-fig/actions/workflows/tests.yaml
+    :alt: Unit-Tests
 
 .. setup-marker-do-not-remove
 
