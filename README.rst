@@ -85,7 +85,6 @@ A project only requires a yaml file called ``.fig.yml`` or similar (see document
     │   └── ...
     │
     ├── .fig.yml - project info file
-    ├── startup.py -
     └── ...
 
 For the example above, ``.fig.yml`` should contain something like:
