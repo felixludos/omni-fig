@@ -1,6 +1,21 @@
 
 
-from omnibelt import SpaceTimeNode
+# from omnibelt import SpaceTimeNode
+
+
+class SpaceTimeNode:
+	def past(self, addr=None):
+		raise NotImplementedError
+	
+	def future(self, addr=None):
+		raise NotImplementedError
+	
+	def super(self, addr=None):
+		raise NotImplementedError
+	
+	def sub(self, addr=None):
+		raise NotImplementedError
+	
 
 
 class AddressNode(SpaceTimeNode):
