@@ -283,6 +283,17 @@ class BranchNode(AddressNode, DataNode):
 	pass
 
 
+class Integral:
+	def touch(self, node):
+		pass
+	
+	def mark(self, node):
+		pass
+	
+	def untouched(self, nodes):
+		pass
+
+
 class Trajectory:
 	def step(self, current, target):
 		pass
