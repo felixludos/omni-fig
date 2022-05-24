@@ -106,6 +106,34 @@ class LeafNode(AddressNode, DataNode):
 	pass
 
 
+class Structure:
+	def update(self, addr=None, **kwargs):
+		raise NotImplementedError
+
+	def attach(self, addr=None, **kwargs):
+		raise NotImplementedError
+
+
+	def assemble(self, base=None, **kwargs):
+		raise NotImplementedError
+
+	def forecast(self, base=None, **kwargs):
+		raise NotImplementedError
+
+	def external(self, addr=None, **kwargs):
+		raise NotImplementedError
+
+	def internal(self, addr=None, **kwargs):
+		raise NotImplementedError
+
+	def owners(self, base=None, **kwargs):
+		raise NotImplementedError
+
+	def followers(self, base=None, **kwargs):
+		raise NotImplementedError
+
+
+
 
 class BranchNode(AddressNode, DataNode):
 
