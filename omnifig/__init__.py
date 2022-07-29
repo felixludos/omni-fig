@@ -20,7 +20,8 @@ from .rules import Meta_Rule
 from .modes import Run_Mode
 from . import common
 from .common import Configurable
-from.organization import Cerifiable
+from .organization import Cerifiable
+from .errors import MissingParameterError
 # from .farming import Farmer, Worker
 
 from omnibelt import AbortTransaction
