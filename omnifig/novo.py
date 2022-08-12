@@ -27,6 +27,11 @@ class ConfigNode:
 	
 	
 	@property
+	def parent(self):
+		return self._parent
+	
+	
+	@property
 	def is_leaf(self):
 		raise NotImplementedError
 
@@ -179,11 +184,21 @@ class ConfigBase:
 
 
 class Config(ConfigBase):
+	def __init__(self, node, **kwargs):
+		super().__init__(**kwargs)
+		self._current_node = node
+		self._root_node = node
+	
+	
+	@property
+	def node(self) -> ConfigNode:
+		return self._current_node
+	
 	
 	@classmethod
 	def from_yaml(cls, path: str, ordered=True, **kwargs):
 		data = load_yaml(path, ordered=ordered, **kwargs)
-		return cls.nodify(data)
+		return cls(cls.nodify(data))
 	
 	
 	LeafNode: ConfigNode = ConfigLeaf
@@ -195,20 +210,68 @@ class Config(ConfigBase):
 	def nodify(self, data):
 		parent = None if type(self) == type else self
 		if isinstance(data, (list, tuple, set)):
-			node = self.ConfigSequence(parent=parent)
+			node = self.SequenceNode(parent=parent)
 			for element in data:
-				node._add(node.nodify(element))
+				node.add(self.nodify(element))
 			return node
 		if isinstance(data, dict):
-			node = self.ConfigTable(parent=parent)
+			node = self.TableNode(parent=parent)
 			for k, v in data.items():
-				node._named_add(k, node.nodify(v))
+				node.add_named(k, self.nodify(v))
 			return node
-		return self.ConfigLeaf(payload=data, parent=parent)
+		return self.LeafNode(payload=data, parent=parent)
 	
 	
-	def query(self, q, ):
-		raise NotImplementedError
+	class NodeSearch:
+		def __init__(self, query):
+			self.query = query
+		
+		
+		def search(self, node):
+			
+			pass
+	
+	
+		def _search_path(self, node, query, path=None):
+			if isinstance(query, str):
+				query = query.split('.')
+			
+			if len(query) == 0:
+				return (('done', node, query), path)
+			
+			term, query = query[0], query[1:]
+			if term == '':
+				if len(query):
+					return path
+				parent = node.parent
+				if parent is None:
+					return (('no parent found', node, query), path)
+				return self._search_path(parent, query, (('parent', node, query), path))
+			
+			
+			
+			
+			pass
+		
+	
+	
+	def search(self, query):
+		result = self.NodeSearch(query).search(self._current_node)
+		return result
+	
+	
+	def _search_node(self, node, query):
+		if isinstance(query, str):
+			query = query.split('.')
+			# if query.startswith('.'):
+			# 	return self._search_node(node.parent, query[1:])
+		
+		if not len(query):
+			return node
+		
+		
+		
+		pass
 	
 	
 	def pull(self, q):
