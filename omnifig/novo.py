@@ -223,13 +223,25 @@ class Config(ConfigBase):
 	
 	
 	class NodeSearch:
-		def __init__(self, query):
+		def __init__(self, query, allow_defaults=True):
 			self.query = query
+			self.allow_defaults = allow_defaults
 		
 		
 		def search(self, node):
+			path = self._search_path(node, self.query)
+			steps = []
+			while path is not None:
+				step, path = path
+				steps.append(step)
+			steps = reversed(steps)
 			
-			pass
+			if len(steps):
+				
+				
+
+				
+				pass
 	
 	
 		def _search_path(self, node, query, path=None):
@@ -241,19 +253,20 @@ class Config(ConfigBase):
 			
 			term, query = query[0], query[1:]
 			if term == '':
-				if len(query):
-					return path
 				parent = node.parent
 				if parent is None:
-					return (('no parent found', node, query), path)
+					return (('error: no parent found', node, query), path)
 				return self._search_path(parent, query, (('parent', node, query), path))
 			
+			if node.has(term):
+				return self._search_path(node.get(term), query, (('found', node, query), path))
 			
+			if self.allow_defaults:
+				parent = node.parent
+				return self._search_path(parent, query, (('default', node, query), path))
 			
-			
-			pass
+			return ((f'error: invalid term: {term}', node, query), path)
 		
-	
 	
 	def search(self, query):
 		result = self.NodeSearch(query).search(self._current_node)
