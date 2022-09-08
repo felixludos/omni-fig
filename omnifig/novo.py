@@ -1,294 +1,120 @@
-from typing import Any, Dict, List, Optional, Union, Hashable, Sequence, Tuple
-from collections import OrderedDict
-from omnibelt import nodes, unspecified_argument, load_yaml, agnosticmethod, OrderedSet
+from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, Iterator
+from omnibelt import unspecified_argument, Singleton
+from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode
 
 
-
-class ConfigNode:
-	class _null_value(Exception): pass
+class ConfigNode(AutoTreeNode):
+	class QueryNotFoundError(KeyError): pass
 	
-	def __init__(self, parent: 'ConfigNode' = None, **kwargs):
-		super().__init__(**kwargs)
-		self._parent = parent
-	
-	
-	def __copy__(self, parent=unspecified_argument, payload=unspecified_argument, **kwargs):
-		if parent is unspecified_argument:
-			parent = self._parent
-		return self.__class__(parent=parent, **kwargs)
-	
-	
-	def __eq__(self, other):
-		return self is other
-	
-	
-	def __hash__(self):
-		return id(self)
-	
-	
+	class QueryFormatter(Singleton):
+		def __init__(self, indent=' > ', prefix='| ', transfer=' -> ', link=': ', suffix_fmt=' ({})',
+		             silent=False, **kwargs):
+			super().__init__(**kwargs)
+			self.level = 0
+			self.indent = indent
+			self.prefix = prefix
+			self.transfer = transfer
+			self.link = link
+			self.suffix_fmt = suffix_fmt
+			self._silent = silent
+		
+		@property
+		def silent(self):
+			return self._silent
+		@silent.setter
+		def silent(self, value):
+			self._silent = value
+		
+		def log_msg(self, msg, silent=None):
+			if silent is None:
+				silent = self.silent
+			if silent:
+				return
+			print(msg)
+			return msg
+		
+		def inc_indent(self):
+			self.level += 1
+		
+		def dec_indent(self):
+			self.level = max(0, self.level-1)
+		
+		# def present_node(self, node):
+		#
+		# 	pass
+		
+		def search_report(self, queries, result=None, default=unspecified_argument, silent=None):
+			indent = self.level * self.indent
+			key = self.transfer.join(queries)
+			
+			suffix = ''
+			
+			line = f'{self.prefix}{indent}{key}{self.link}{value}{}'
+			
+			style = self.style
+			src = '' if self.src is None else f'({self.src}) '
+			prefix = style + src + indent
+			
+			msg = raw.replace('\n', '\n' + prefix)
+			if not self.is_new_line:
+				prefix = ''
+			msg = f'{prefix}{msg}{end}'
+			pass
+			
+			
+		
+		
+	def __init__(self, *args, formatter=None, **kwargs):
+		if formatter is None:
+			formatter = self.QueryFormatter()
+		super().__init__(*args, **kwargs)
+		self.formatter = formatter
+		
 	@property
-	def parent(self):
-		return self._parent
+	def silent(self):
+		return self.formatter.silent
+	@silent.setter
+	def silent(self, value):
+		self.formatter.silent = value
+	
+	@classmethod
+	def _clean_up_search_path(cls, path: Tuple[Tuple[str, 'ConfigNode', str], Tuple]):
+		if len(path):
+			seq = cls._clean_up_search_path(path[1])
+			seq.append(path[0])
+			return seq
+		return []
+	
+	def search(self, *queries, default=unspecified_argument, silent=None):
+		for query in queries:
+			try:
+				path = self._search_path(query, path=())
+			except self.QueryNotFoundError:
+				path = None
+			else:
+				path = self._clean_up_search_path(path)
+				break
+		
+		return self.package(path, default=default, silent=silent)
 	
 	
-	@property
-	def is_leaf(self):
-		raise NotImplementedError
-
-
-
-class ConfigLeaf(ConfigNode):
-	def __init__(self, payload: Any, **kwargs):
-		super().__init__(**kwargs)
-		self._payload = payload
-	
-	
-	def __copy__(self, payload=unspecified_argument, **kwargs):
-		if payload is unspecified_argument:
-			payload = self._payload
-		return super().__copy__(payload=payload, **kwargs)
-
-
-	@property
-	def is_leaf(self):
-		return True
-	
-	
-	@property
-	def payload(self) -> Any:
-		return self._payload
-
-
-
-class ConfigStructure: pass
-
-
-
-class ConfigBranch(ConfigNode):
-	SubStructure: ConfigStructure = None
-	
-	def __init__(self, children: ConfigStructure = unspecified_argument, **kwargs):
-		if children is not None:
-			children = self.SubStructure() if children is unspecified_argument else self.SubStructure(children)
-		super().__init__(**kwargs)
-		self._children = children
-	
-	
-	def __copy__(self, children=unspecified_argument, payload=unspecified_argument, **kwargs):
-		if children is unspecified_argument:
-			children = self._children
-		return super().__copy__(children=children, **kwargs)
-
-
-	@property
-	def is_leaf(self):
-		return False
-	
-	
-	def get(self, addr: Hashable) -> ConfigNode:
+	def _search_path(self, query: str, path: Tuple):
 		raise NotImplementedError
 	
-	def has(self, node: ConfigNode) -> bool:
-		raise NotImplementedError
 	
-	def add(self, node: ConfigNode) -> ConfigNode:
-		raise NotImplementedError
-	
-	def add_named(self, addr: Hashable, node: ConfigNode) -> ConfigNode:
-		raise NotImplementedError
-	
-	def register(self, *nodes: ConfigNode, **items: Tuple[Hashable, ConfigNode]):
-		for node in nodes:
-			self.add(node)
-		for addr, node in items.items():
-			self.add_named(addr, node)
-	
-	def children(self) -> Sequence[ConfigNode]:
-		raise NotImplementedError
-	
-	def named_children(self) -> Dict[Hashable, ConfigNode]:
-		raise NotImplementedError
-
-
-
-class ConfigDict(ConfigBranch):
-	class SubStructure(ConfigStructure, OrderedDict):
+	def package(self, value):
 		pass
-
-
-	@property
-	def payload(self) -> Dict[Hashable, Any]:
-		return OrderedDict([(key, value.payload) for key, value in self._named_sub()])
 	
-	def get(self, addr: Hashable) -> ConfigNode:
-		return self._children[addr]
-	
-	# def has(self, node: ConfigNode) -> bool:
-	# 	raise NotImplementedError
-	#
-	# def add(self, node: ConfigNode) -> ConfigNode:
-	# 	raise NotImplementedError
-	
-	def add_named(self, addr: Hashable, node: ConfigNode) -> ConfigNode:
-		self._children[addr] = node
-		return self._children[addr]
-	
-	def children(self):
-		return self._children.values()
-	
-	def named_children(self):
-		return self._children.items()
-
-
-
-class ConfigList(ConfigNode):
-	class SubStructure(nodes.SequenceStructure):
-		pass
-
-
-	@property
-	def payload(self) -> Sequence[Any]:
-		return [value.payload for value in self.children()]
-	
-	def get(self, addr: Union[str, int]) -> ConfigNode:
-		if isinstance(addr, str):
-			addr = int(addr)
-		assert 0 <= addr < len(self._children), f'Index out of range {addr} from {len(self._children)}'
-		return self._children[addr]
-	
-	def has(self, node: ConfigNode):
-		return node in self._children
-	
-	def add(self, node: ConfigNode):
-		return self._children.append(node)
-	
-	def add_named(self, addr: Union[str, int], node: ConfigNode):
-		if isinstance(addr, str):
-			addr = int(addr)
-		assert -len(self._children) < addr <= len(self._children), \
-			f'Index out of range {addr} from {len(self._children)}'
-		self._children.insert(addr, node)
-		return self._children[addr]
-	
-	def children(self):
-		return self._children
-	
-	def named_children(self):
-		return enumerate(self._children)
-
-
-
-class ConfigBase:
 	pass
 
 
 
-class Config(ConfigBase):
-	def __init__(self, node, **kwargs):
-		super().__init__(**kwargs)
-		self._current_node = node
-		self._root_node = node
-	
-	
-	@property
-	def node(self) -> ConfigNode:
-		return self._current_node
-	
-	
-	@classmethod
-	def from_yaml(cls, path: str, ordered=True, **kwargs):
-		data = load_yaml(path, ordered=ordered, **kwargs)
-		return cls(cls.nodify(data))
-	
-	
-	LeafNode: ConfigNode = ConfigLeaf
-	SequenceNode: ConfigNode = ConfigList
-	TableNode: ConfigNode = ConfigDict
-	
-	
-	@agnosticmethod
-	def nodify(self, data):
-		parent = None if type(self) == type else self
-		if isinstance(data, (list, tuple, set)):
-			node = self.SequenceNode(parent=parent)
-			for element in data:
-				node.add(self.nodify(element))
-			return node
-		if isinstance(data, dict):
-			node = self.TableNode(parent=parent)
-			for k, v in data.items():
-				node.add_named(k, self.nodify(v))
-			return node
-		return self.LeafNode(payload=data, parent=parent)
-	
-	
-	class NodeSearch:
-		def __init__(self, query, allow_defaults=True):
-			self.query = query
-			self.allow_defaults = allow_defaults
-		
-		
-		def search(self, node):
-			path = self._search_path(node, self.query)
-			steps = []
-			while path is not None:
-				step, path = path
-				steps.append(step)
-			steps = reversed(steps)
-			
-			if len(steps):
-				
-				
+class ConfigSparseNode(AutoTreeSparseNode, ConfigNode): pass
+class ConfigDenseNode(AutoTreeDenseNode, ConfigNode): pass
+ConfigNode.DefaultNode = AutoTreeSparseNode
+ConfigNode.SparseNode = AutoTreeSparseNode
+ConfigNode.DenseNode = AutoTreeDenseNode
 
-				
-				pass
-	
-	
-		def _search_path(self, node, query, path=None):
-			if isinstance(query, str):
-				query = query.split('.')
-			
-			if len(query) == 0:
-				return (('done', node, query), path)
-			
-			term, query = query[0], query[1:]
-			if term == '':
-				parent = node.parent
-				if parent is None:
-					return (('error: no parent found', node, query), path)
-				return self._search_path(parent, query, (('parent', node, query), path))
-			
-			if node.has(term):
-				return self._search_path(node.get(term), query, (('found', node, query), path))
-			
-			if self.allow_defaults:
-				parent = node.parent
-				return self._search_path(parent, query, (('default', node, query), path))
-			
-			return ((f'error: invalid term: {term}', node, query), path)
-		
-	
-	def search(self, query):
-		result = self.NodeSearch(query).search(self._current_node)
-		return result
-	
-	
-	def _search_node(self, node, query):
-		if isinstance(query, str):
-			query = query.split('.')
-			# if query.startswith('.'):
-			# 	return self._search_node(node.parent, query[1:])
-		
-		if not len(query):
-			return node
-		
-		
-		
-		pass
-	
-	
-	def pull(self, q):
-		raise NotImplementedError
 
 
 
