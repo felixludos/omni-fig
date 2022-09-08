@@ -31,6 +31,7 @@ class SimpleConfigNode(AutoTreeNode):
 			self.queries = queries
 			self.default = default
 			self.result = None
+			self.final_query = None
 
 		class SearchFailed(KeyError):
 			def __init__(self, queries):
@@ -50,7 +51,7 @@ class SimpleConfigNode(AutoTreeNode):
 
 		def evaluate_node(self):
 			try:
-				self.query, self.result = self._resolve_queries()
+				self.final_query, self.result = self._resolve_queries()
 			except self.SearchFailed:
 				if self.default is unspecified_argument:
 					raise
@@ -64,14 +65,27 @@ class SimpleConfigNode(AutoTreeNode):
 			return node.payload
 
 
+	def __init__(self, *args, readonly=False, **kwargs):
+		super().__init__(*args, **kwargs)
+		self._readonly = readonly
+	
+	@property
+	def readonly(self):
+		return self._readonly
+	@readonly.setter
+	def readonly(self, value):
+		self._readonly = value
+
+	class ReadOnlyError(Exception): pass
+
 	def pull(self, *queries: str, default=unspecified_argument, **kwargs):
 		search = self.Search(origin=self, queries=queries, default=default, **kwargs)
 		return search.evaluate()
 
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
-		# if self.read_only:
-		# 	raise self.ReadOnlyError('Cannot push to read-only node')
+		if self.readonly:
+			raise self.ReadOnlyError('Cannot push to read-only node')
 		try:
 			existing = self.get(addr)
 		except self.MissingKey:
@@ -99,7 +113,7 @@ Primitive = Union[primitive]
 
 
 class ConfigNode(SimpleConfigNode):
-	class Reporter(ConfigReporter, Singleton):
+	class Reporter(ConfigReporter):
 		def __init__(self, indent=' > ', flair='| ', transfer=' -> ', colon=': ',
 		             prefix_fmt='{prefix}', suffix_fmt=' (by {suffix!l})', **kwargs):
 			super().__init__(**kwargs)
@@ -126,6 +140,7 @@ class ConfigNode(SimpleConfigNode):
 				return 0
 			return cls._node_depth(node.parent, _fuel=_fuel-1) + 1
 
+
 		def _extract_prefix(self, search):
 			prefix = getattr(search, 'action', None)
 			if prefix is not None:
@@ -140,16 +155,22 @@ class ConfigNode(SimpleConfigNode):
 			pass
 
 		def _present_payload(self, search):
-
+			
+			key = self.transfer.join(search.query_chain)
+			
 			if search.action == 'primitive':
-				key = self.transfer.join(search.query_chain)
 				value = self._extract_value(search)
 
 				return f'{key}{self.colon}{value}'
 
 			elif search.action == 'no-payload': # list or dict
-				pass
-
+				node = search.result
+				N = len(node)
+				
+				t, x = ('list', 'element') if isinstance(node, search.origin.SparseNode) else ('dict', 'item')
+				
+				return f'{key} has {N} {x}{"s" if N > 1 else ""}:'
+				
 			elif search.action == 'component':
 				pass
 
@@ -164,7 +185,7 @@ class ConfigNode(SimpleConfigNode):
 			line = f'{self.flair}{indent}{prefix}{result}{suffix}'
 			return self.log(line)
 			
-
+			
 	class Search:
 		def __init__(self, origin, queries, default=unspecified_argument, **kwargs):
 			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
@@ -203,20 +224,27 @@ class ConfigNode(SimpleConfigNode):
 
 
 	class Editor:
-		def __init__(self, node):
-			self.node = node
+		def __init__(self, readonly=False, **kwargs):
+			super().__init__(**kwargs)
+			self._readonly = readonly
+		
+		@property
+		def readonly(self):
+			return self._readonly
+		@readonly.setter
+		def readonly(self, value):
+			self._readonly = value
+		
 
-		def __enter__(self):
-			return self.node
-
-		def __exit__(self, exc_type, exc_val, exc_tb):
-			pass
-
-	def __init__(self, *args, reporter=None, **kwargs):
+	def __init__(self, *args, reporter=None, editor=None, **kwargs):
 		if reporter is None:
 			reporter = self.Reporter()
+		if editor is None:
+			editor = self.Editor()
 		super().__init__(*args, **kwargs)
+		del self._readonly
 		self.reporter = reporter
+		self.editor = editor
 
 	@property
 	def silent(self):
@@ -227,12 +255,21 @@ class ConfigNode(SimpleConfigNode):
 
 	@property
 	def readonly(self):
-		return self._readonly
+		return self.editor.readonly
 	@readonly.setter
 	def readonly(self, value):
-		self._readonly = value
+		self.editor.readonly = value
 
-	pass
+
+	def set(self, addr: str, value: Any, editor=None, reporter=None, **kwargs) -> 'ConfigNode':
+		if editor is None:
+			editor = self.editor
+		if reporter is None:
+			reporter = self.reporter
+		node, key = self._evaluate_address(addr)
+		return super().set(key, value, editor=editor, reporter=reporter, **kwargs)
+
+
 
 class AskParentNode(SimpleConfigNode):
 	_ask_parent = True
@@ -249,7 +286,6 @@ class StorageNodes(VolatileNode):
 	# created components are stored under __obj and can be access with prefix
 	# (where weak creates component when missing)
 	pass
-
 
 
 class ReferenceNode(SimpleConfigNode):
