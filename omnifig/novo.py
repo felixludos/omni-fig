@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, Iterator
 from omnibelt import unspecified_argument, Singleton
-from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode
+from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode,  AutoAddressNode, AddressNode
 
 
 class ConfigReporter:
@@ -30,45 +30,54 @@ class SimpleConfigNode(AutoTreeNode):
 			self.origin = origin
 			self.queries = queries
 			self.default = default
-			self.result = None
+			self.result_node = None
 			self.final_query = None
 
 		class SearchFailed(KeyError):
 			def __init__(self, queries):
 				super().__init__(', '.join(queries))
 
-		def _resolve_queries(self):
-			if not len(self.queries):
-				return None, self.origin
-			for query in self.queries:
+		def _resolve_queries(self, src, queries):
+			if not len(queries):
+				return None, src
+			for query in queries:
 				if query is None:
-					return None, self.origin
+					return None, src
 				try:
-					return query, self.origin.get(query)
-				except self.origin.MissingKey:
+					return query, src.get(query)
+				except src.MissingKey:
 					pass
-			raise self.SearchFailed(self.queries)
+			raise self.SearchFailed(queries)
 
 		def evaluate_node(self):
 			try:
-				self.final_query, self.result = self._resolve_queries()
+				self.final_query, self.result_node = self._resolve_queries(self.origin, self.queries)
 			except self.SearchFailed:
 				if self.default is unspecified_argument:
 					raise
-				self.result = self.default
-			return self.result
+			return self.result_node
 
 		def evaluate(self):
-			return self.package(self.evaluate_node())
+			self.evaluate_node()
+			self.product = self.package(self.result_node)
+			return self.product
 
 		def package(self, node):
-			return node.payload
-
+			if node is None:
+				return self.default
+			return self.result_node.payload
 
 	def __init__(self, *args, readonly=False, **kwargs):
 		super().__init__(*args, **kwargs)
 		self._readonly = readonly
-	
+
+	@property
+	def root(self):
+		parent = self.parent
+		if parent is None:
+			return self
+		return parent.root
+
 	@property
 	def readonly(self):
 		return self._readonly
@@ -78,9 +87,16 @@ class SimpleConfigNode(AutoTreeNode):
 
 	class ReadOnlyError(Exception): pass
 
+	def search(self, queries, default=unspecified_argument, **kwargs):
+		return self.Search(origin=self, queries=queries, default=default, **kwargs)
+
+
+	def peek(self, *queries, default=unspecified_argument, **kwargs) -> 'SimpleConfigNode':
+		return self.search(queries, default, **kwargs).evaluate_node()
+
+
 	def pull(self, *queries: str, default=unspecified_argument, **kwargs):
-		search = self.Search(origin=self, queries=queries, default=default, **kwargs)
-		return search.evaluate()
+		return self.search(queries, default, **kwargs).evaluate()
 
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
@@ -97,11 +113,6 @@ class SimpleConfigNode(AutoTreeNode):
 		return False
 
 
-	def peek(self, *queries, default=unspecified_argument, **kwargs) -> 'SimpleConfigNode':
-		search = self.Search(self, queries, default, **kwargs)
-		return search.evaluate_node()
-
-
 	def push_pull(self, addr: str, value: Any, overwrite: bool = True, **kwargs) -> Any:
 		self.push(addr, value, overwrite=overwrite)
 		return self.pull(addr, **kwargs)
@@ -114,8 +125,8 @@ Primitive = Union[primitive]
 
 class ConfigNode(SimpleConfigNode):
 	class Reporter(ConfigReporter):
-		def __init__(self, indent=' > ', flair='| ', transfer=' -> ', colon=': ',
-		             prefix_fmt='{prefix}', suffix_fmt=' (by {suffix!l})', **kwargs):
+		def __init__(self, indent=' > ', flair='| ', transfer=' --> ', colon=': ',
+		             prefix_fmt='{prefix}', suffix_fmt=' (by {suffix!l})', max_num_aliases=3, **kwargs):
 			super().__init__(**kwargs)
 			self.indent = indent
 			self.flair = flair
@@ -123,6 +134,7 @@ class ConfigNode(SimpleConfigNode):
 			self.colon = colon
 			self.prefix_fmt = prefix_fmt
 			self.suffix_fmt = suffix_fmt
+			self.max_num_aliases = max_num_aliases
 
 
 		def log(self, *msg, silent=None, **kwargs):
@@ -143,6 +155,13 @@ class ConfigNode(SimpleConfigNode):
 
 		def _extract_prefix(self, search):
 			prefix = getattr(search, 'action', None)
+			if prefix is None:
+				if search.action == 'component':
+					prefix = 'creating'.upper()
+				elif search.action == 'storage':
+					prefix = 'reusing'.upper()
+				elif search.action == 'iterator':
+					prefix = 'iterator'.upper()
 			if prefix is not None:
 				return self.prefix_fmt.format(prefix=prefix)
 
@@ -151,76 +170,117 @@ class ConfigNode(SimpleConfigNode):
 			if suffix is not None:
 				return self.suffix_fmt.format(suffix=suffix)
 
-		def _extract_product(self, search):
-			pass
+
+		def _present_component(self, key, search):
+			cmpn_type = search.component_type
+			mod_types = search.mod_types
+			mod_info = f' (mods=[{", ".join(mod_types)}])' if len(mod_types) > 1 else f' (mod={mod_types[0]})'
+			return f'{key} type={cmpn_type}{mod_info}:'
+
 
 		def _present_payload(self, search):
-			
-			key = self.transfer.join(search.query_chain)
+			if len(search.query_chain) > self.max_num_aliases:
+				key = self.transfer.join([search.query_chain[0], '...', search.query_chain[-1]])
+			else:
+				key = self.transfer.join(search.query_chain)
 			
 			if search.action == 'primitive':
-				value = self._extract_value(search)
-
+				value = repr(search.result_node)
 				return f'{key}{self.colon}{value}'
 
-			elif search.action == 'no-payload': # list or dict
-				node = search.result
+			elif search.action == 'no-payload' or search.action == 'iterator': # list or dict
+				node = search.result_node
 				N = len(node)
 				
 				t, x = ('list', 'element') if isinstance(node, search.origin.SparseNode) else ('dict', 'item')
-				
-				return f'{key} has {N} {x}{"s" if N > 1 else ""}:'
+				x = x + 's' if N != 1 else x
+				# return f'{key} has {N} {x}:'
+				return f'{key} [{t} with {N} {x}]'
 				
 			elif search.action == 'component':
-				pass
+				return self._present_component(key, search)
+
+			elif search.action == 'storage':
+				return self._present_component(key, search)
+
+			raise ValueError(f'Unknown action: {search.action!r}')
 
 
 		def search_report(self, search):
 			indent = self._node_depth(search.origin) * self.indent
 
-			result = self._present_payload(search)
 			prefix = self._extract_prefix(search)
+			result = self._present_payload(search)
 			suffix = self._extract_suffix(search)
 
 			line = f'{self.flair}{indent}{prefix}{result}{suffix}'
 			return self.log(line)
 			
 			
-	class Search:
+	class Search(SimpleConfigNode.Search):
 		def __init__(self, origin, queries, default=unspecified_argument, **kwargs):
 			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
 			self.query_chain = []
-			self.product = None
+
+		# class SearchFailed(KeyError):
+		# 	def __init__(self, queries):
+		# 		super().__init__(', '.join(queries))
+
+		# def _resolve_queries(self, src, queries):
+		# 	if not len(queries):
+		# 		return None, src
+		# 	for query in queries:
+		# 		if query is None:
+		# 			return None, src
+		# 		try:
+		# 			return query, src.get(query)
+		# 		except src.MissingKey:
+		# 			pass
+		# 	raise self.SearchFailed(queries)
+
+		def evaluate_node(self):
+			try:
+				self.final_query, self.result_node = self._resolve_queries(self.origin, self.queries)
+			except self.SearchFailed:
+				if self.default is unspecified_argument:
+					raise
+				self.result_node = self.default
+			return self.result_node
+
+		def evaluate(self):
+			self.evaluate_node()
+			self.product = self.package(self.result_node)
+			return self.product
+
+		def package(self, node):
+			if node is None:
+				return self.default
+			return self.result_node.payload
 
 
-
-		def _resolve_query(self, node, query):
-			return node.get(query)
-
-		def _search_path(self, query, path=()):
-
-			if query in self.origin:
-				return path + (query,)
-			for key, value in self.origin.items():
-				if isinstance(value, SimpleConfigNode):
-					try:
-						return value._search_path(query, path=path + (key,))
-					except self.QueryFailed:
-						pass
-			raise self.QueryFailed(query)
-
-
-		def evaluate(self, silent=None):
-			for query in queries:
-				try:
-					path = self._search_path(query, path=())
-				except self.QueryFailed:
-					path = None
-				else:
-					path = self._clean_up_search_path(path)
-					break
-
-			return self.package(path, default=default, silent=silent)
+		# def _search_path(self, query, path=()):
+		# 	if query in self.origin:
+		# 		return path + (query,)
+		# 	for key, value in self.origin.items():
+		# 		if isinstance(value, SimpleConfigNode):
+		# 			try:
+		# 				return value._search_path(query, path=path + (key,))
+		# 			except self.QueryFailed:
+		# 				pass
+		# 	raise self.QueryFailed(query)
+		#
+		#
+		# def evaluate(self, silent=None):
+		# 	for query in queries:
+		# 		try:
+		# 			path = self._search_path(query, path=())
+		# 		except self.QueryFailed:
+		# 			path = None
+		# 		else:
+		# 			path = self._clean_up_search_path(path)
+		# 			break
+		#
+		# 	return self.package(path, default=default, silent=silent)
 
 
 	class Editor:
@@ -267,7 +327,7 @@ class ConfigNode(SimpleConfigNode):
 		if reporter is None:
 			reporter = self.reporter
 		node, key = self._evaluate_address(addr)
-		return super().set(key, value, editor=editor, reporter=reporter, **kwargs)
+		return super(AddressNode, node).set(key, value, editor=editor, reporter=reporter, **kwargs)
 
 
 
