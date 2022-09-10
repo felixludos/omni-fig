@@ -49,7 +49,7 @@ class SimpleConfigNode(AutoTreeNode):
 					pass
 			raise self.SearchFailed(queries)
 
-		def evaluate_node(self):
+		def find_node(self):
 			try:
 				self.final_query, self.result_node = self._resolve_queries(self.origin, self.queries)
 			except self.SearchFailed:
@@ -58,7 +58,7 @@ class SimpleConfigNode(AutoTreeNode):
 			return self.result_node
 
 		def evaluate(self):
-			self.evaluate_node()
+			self.find_node()
 			self.product = self.package(self.result_node)
 			return self.product
 
@@ -92,7 +92,7 @@ class SimpleConfigNode(AutoTreeNode):
 
 
 	def peek(self, *queries, default=unspecified_argument, **kwargs) -> 'SimpleConfigNode':
-		return self.search(queries, default, **kwargs).evaluate_node()
+		return self.search(queries, default, **kwargs).find_node()
 
 
 	def pull(self, *queries: str, default=unspecified_argument, **kwargs):
@@ -175,7 +175,7 @@ class ConfigNode(SimpleConfigNode):
 			cmpn_type = search.component_type
 			mod_types = search.mod_types
 			mod_info = f' (mods=[{", ".join(mod_types)}])' if len(mod_types) > 1 else f' (mod={mod_types[0]})'
-			return f'{key} type={cmpn_type}{mod_info}:'
+			return f'{key} type={cmpn_type}{mod_info}'
 
 
 		def _present_payload(self, search):
@@ -238,7 +238,7 @@ class ConfigNode(SimpleConfigNode):
 		# 			pass
 		# 	raise self.SearchFailed(queries)
 
-		def evaluate_node(self):
+		def find_node(self):
 			try:
 				self.final_query, self.result_node = self._resolve_queries(self.origin, self.queries)
 			except self.SearchFailed:
@@ -248,13 +248,19 @@ class ConfigNode(SimpleConfigNode):
 			return self.result_node
 
 		def evaluate(self):
-			self.evaluate_node()
+			self.find_node()
 			self.product = self.package(self.result_node)
 			return self.product
 
 		def package(self, node):
 			if node is None:
 				return self.default
+			
+			if node.has_payload:
+				payload = node.payload
+				assert isinstance(payload, primitive)
+				return payload
+			
 			return self.result_node.payload
 
 
