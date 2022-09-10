@@ -94,10 +94,11 @@ class SimpleConfigNode(AutoTreeNode):
 	def peek(self, *queries, default=unspecified_argument, **kwargs) -> 'SimpleConfigNode':
 		return self.search(*queries, default=default, **kwargs).find_node()
 
+	def pull(self, query: str, default=unspecified_argument, **kwargs) -> Any:
+		return self.pulls(query, default=default, **kwargs)
 
-	def pull(self, *queries: str, default=unspecified_argument, **kwargs):
+	def pulls(self, *queries: str, default=unspecified_argument, **kwargs) -> Any:
 		return self.search(*queries, default=default, **kwargs).evaluate()
-
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
 		if self.readonly:
@@ -218,48 +219,113 @@ class ConfigNode(SimpleConfigNode):
 			
 			
 	class Search(SimpleConfigNode.Search):
-		def __init__(self, origin, queries, default=unspecified_argument, **kwargs):
+		def __init__(self, origin, queries, default=unspecified_argument,
+		             ask_parent=True, lazy_iterator=False,
+		             **kwargs):
 			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
-			self.init_origin = origin
+			# self.init_origin = origin
 			self.query_chain = []
+			self._ask_parent = ask_parent
+			self._lazy_iterator = lazy_iterator
 
 		# class SearchFailed(KeyError):
 		# 	def __init__(self, queries):
 		# 		super().__init__(', '.join(queries))
 
-		def _resolve_queries(self, src, queries):
-			if not len(queries):
-				return None, src
-			for query in queries:
-				if query is None:
-					return None, src
-				try:
-					return query, src.get(query)
-				except src.MissingKey:
-					pass
-			raise self.SearchFailed(queries)
-
-		def find_node(self):
-			try:
-				self.final_query, self.result_node = self._resolve_queries(self.origin, self.queries)
-			except self.SearchFailed:
-				if self.default is unspecified_argument:
-					raise
-				self.result_node = self.default
-			return self.result_node
-
-		def evaluate(self):
-			self.find_node()
-			self.product = self.package(self.result_node)
-			return self.product
-		
-		_ask_parent = True
 		_confidential_prefix = '_'
-		_volatile_prefix = '__'
-		_weak_storage_prefix = '<?>'
-		_strong_storage_prefix = '<!>'
+
+		def _resolve_query(self, src, query, *remainder):
+			try:
+				result = src.get(query)
+			except src.MissingKey:
+				if self._ask_parent and not query.startswith(self._confidential_prefix):
+					parent = src.parent
+					if parent is not None:
+						try:
+							result = self._resolve_query(parent, query)
+						except parent.MissingKey:
+							pass
+						else:
+							self.query_chain.append(f'.{query}')
+							return result
+				if len(remainder):
+					self.query_chain.append(query)
+					return self._resolve_query(src, *remainder)
+				raise
+			else:
+				self.query_chain.append(query)
+				return result
+			
+		def find_node(self):
+			if self.queries is None or not len(self.queries):
+				node = self.origin
+			else:
+				node = self._resolve_query(self.origin, *self.queries)
+				# try:
+				# 	node = self._resolve_query(self.origin, *self.queries)
+				# except self.origin.MissingKey:
+				# 	raise self.SearchFailed(self.queries)
+			
+			self.query_node = node
+			self.result_node = self.process_node(node)
+			return self.result_node
+		
+
+		# _weak_storage_prefix = '<?>'
+		# _strong_storage_prefix = '<!>'
 		reference_prefix = '<>'
 		origin_reference_prefix = '<o>'
+		
+		def process_node(self, node): # follows references
+			if node.has_payload:
+				payload = node.payload
+				if isinstance(payload, str):
+					if payload.startswith(self.reference_prefix):
+						ref = payload[len(self.reference_prefix):]
+						out = self._resolve_query(node, ref)
+						return self.process_node(out)
+					elif payload.startswith(self.origin_reference_prefix):
+						ref = payload[len(self.origin_reference_prefix):]
+						out = self._resolve_query(self.origin, ref)
+						return self.process_node(out)
+			return node
+		
+		def package_payload(self, node): # creates components
+			
+			if node.has_payload:
+				return node.payload
+			
+			# complex object - either component or list/dict
+			
+			typ = node.pull('_type', None, silent=True)
+			if typ is None:
+				
+				# check for iterator
+				
+				# list or dict
+				
+				pass
+				
+			# create component
+			
+			
+			
+			
+			pass
+
+		def evaluate(self):
+			try:
+				node = self.find_node()
+			except self.SearchFailed:
+				if self.default is not unspecified_argument:
+					return self.default
+				raise
+			else:
+				self.product = self.package_payload(node)
+				return self.product
+		
+		_ask_parent = True
+		_volatile_prefix = '__'
 
 		def package(self, node):
 			if node is None:
@@ -267,11 +333,14 @@ class ConfigNode(SimpleConfigNode):
 			
 			if node.has_payload:
 				payload = node.payload
-				assert isinstance(payload, primitive)
 				
-				if isinstance(payload, str) and payload.startswith(self.reference_prefix):
-					payload = payload[len(self.reference_prefix):]
+				if isinstance(payload, primitive):
+					if isinstance(payload, str) and payload.startswith(self.reference_prefix):
+						ref = payload[len(self.reference_prefix):]
+						
 				
+				else:
+					return payload
 				
 				return payload
 			
