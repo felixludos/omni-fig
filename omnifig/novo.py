@@ -87,17 +87,17 @@ class SimpleConfigNode(AutoTreeNode):
 
 	class ReadOnlyError(Exception): pass
 
-	def search(self, *queries, default=unspecified_argument, **kwargs):
+	def search(self, *queries, default: Optional[Any] = unspecified_argument, **kwargs):
 		return self.Search(origin=self, queries=queries, default=default, **kwargs)
 
 
-	def peek(self, *queries, default=unspecified_argument, **kwargs) -> 'SimpleConfigNode':
+	def peek(self, *queries, default: Optional[Any] = unspecified_argument, **kwargs) -> 'SimpleConfigNode':
 		return self.search(*queries, default=default, **kwargs).find_node()
 
-	def pull(self, query: str, default=unspecified_argument, **kwargs) -> Any:
+	def pull(self, query: str, default: Optional[Any] = unspecified_argument, **kwargs) -> Any:
 		return self.pulls(query, default=default, **kwargs)
 
-	def pulls(self, *queries: str, default=unspecified_argument, **kwargs) -> Any:
+	def pulls(self, *queries: str, default: Optional[Any] = unspecified_argument, **kwargs) -> Any:
 		return self.search(*queries, default=default, **kwargs).evaluate()
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
@@ -166,6 +166,7 @@ class ConfigNode(SimpleConfigNode):
 			if prefix is not None:
 				return self.prefix_fmt.format(prefix=prefix)
 
+
 		def _extract_suffix(self, search):
 			suffix = getattr(search, 'source', None)
 			if suffix is not None:
@@ -220,13 +221,13 @@ class ConfigNode(SimpleConfigNode):
 			
 	class Search(SimpleConfigNode.Search):
 		def __init__(self, origin, queries, default=unspecified_argument,
-		             ask_parent=True, lazy_iterator=False,
-		             **kwargs):
+		             ask_parent=True, lazy_iterator=None, parent_search=(), **kwargs):
 			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
 			# self.init_origin = origin
 			self.query_chain = []
 			self._ask_parent = ask_parent
-			self._lazy_iterator = lazy_iterator
+			self.lazy_iterator = lazy_iterator
+			self.parent_search = parent_search
 
 		# class SearchFailed(KeyError):
 		# 	def __init__(self, queries):
@@ -276,7 +277,7 @@ class ConfigNode(SimpleConfigNode):
 		reference_prefix = '<>'
 		origin_reference_prefix = '<o>'
 		
-		def process_node(self, node): # follows references
+		def process_node(self, node: 'ConfigNode'): # follows references
 			if node.has_payload:
 				payload = node.payload
 				if isinstance(payload, str):
@@ -290,7 +291,7 @@ class ConfigNode(SimpleConfigNode):
 						return self.process_node(out)
 			return node
 		
-		def package_payload(self, node): # creates components
+		def package_payload(self, node: 'ConfigNode'): # creates components
 			
 			if node.has_payload:
 				return node.payload
@@ -299,12 +300,25 @@ class ConfigNode(SimpleConfigNode):
 			
 			typ = node.pull('_type', None, silent=True)
 			if typ is None:
-				
 				# check for iterator
+				if self.lazy_iterator is not None:
+					return self.lazy_iterator(node)
 				
 				# list or dict
-				
-				pass
+				if isinstance(node, node.SparseNode):
+					product = {}
+					
+					for key, child in node.children():
+						product[key] = self.sub_search(node, key)
+					
+				elif isinstance(node, node.DenseNode):
+					product = []
+					
+					for key, child in node.children():
+						product.append(self.sub_search(node, key))
+					
+				else:
+					raise TypeError(f'Unknown node type: {node!r}')
 				
 			# create component
 			
@@ -312,6 +326,9 @@ class ConfigNode(SimpleConfigNode):
 			
 			
 			pass
+
+		def sub_search(self, node, key):
+			return self.__class__(node, (key,), parent_search=(*self.parent_search, self)).evaluate()
 
 		def evaluate(self):
 			try:
