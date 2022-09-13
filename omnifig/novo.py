@@ -1,5 +1,6 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, Iterator
 from collections import OrderedDict
+from c3linearize import linearize
 from omnibelt import unspecified_argument, Singleton, extract_function_signature
 from inspect import Parameter
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode,  AutoAddressNode, AddressNode
@@ -148,7 +149,7 @@ Primitive = Union[primitive]
 import io
 import yaml
 from pathlib import Path
-from omnibelt import Path_Registry
+from omnibelt import Path_Registry, load_yaml
 
 class ConfigManager:
 
@@ -186,12 +187,145 @@ class ConfigManager:
 		# 	pass
 		# return arg
 
-	def parse_argv(self, argv):
+	class AmbiguousRuleError(Exception): pass
+	class UnknownMetaError(ValueError): pass
 
+	def parse_argv(self, argv, script_name=None):
+		
+		meta = {}
+		data = {}
+		
+		waiting_key = None
+		waiting_meta = 0
+		
+		remaining = []
+		for i, arg in enumerate(argv):
+			
+			if waiting_meta > 0:
+				val = self._parse_raw_arg(arg)
+				if waiting_key in meta and isinstance(meta[waiting_key], list):
+					meta[waiting_key].append(val)
+				else:
+					meta[waiting_key] = val
+				waiting_meta -= 1
+				if waiting_meta == 0:
+					waiting_key = None
+			
+			elif arg.startswith('-') and not arg.startswith('--'):
+				text = arg[1:]
+				while len(text) > 0:
+					for rule in self.project.meta_rules():
+						name = rule.name
+						code = rule.code
+						if code is not None and text.startswith(code):
+							text = text[len(code):]
+							num = rule.num_args
+							if num:
+								if len(text):
+									raise self.AmbiguousRuleError(code, text)
+								waiting_key = name
+								waiting_meta = num
+								if num > 1:
+									meta[waiting_key] = []
+							else:
+								meta[name] = True
+						if not len(text):
+							break
+					else:
+						raise self.UnknownMetaError(text)
+			
+			elif arg == '_' or script_name is not None:
+				remaining = argv[i + int(script_name is None):]
+				break
+			
+			elif script_name is None:
+				script_name = arg
+		
+		if script_name is not None:
+			meta['script_name'] = script_name
+		
+		configs = []
+		for i, term in enumerate(remaining):
+			if term.startswith('--'):
+				remaining = remaining[i:]
+			else:
+				configs.append(term)
 
+		waiting_arg_key = None
+		data = {}
+		
+		for arg in remaining:
+			if arg.startswith('--'):
+				if waiting_arg_key is not None:
+					data[waiting_arg_key] = True
+				
+				key, *other = arg[2:].split('=', 1)
+				if len(other) and len(other[0]):
+					data[key] = self._parse_raw_arg(other[0])
+				else:
+					waiting_arg_key = key
+				
+			elif waiting_arg_key is not None:
+				data[waiting_arg_key] = self._parse_raw_arg(arg)
+				waiting_arg_key = None
+			
+			else:
+				raise ValueError(f'Unexpected argument: {arg}')
+		
+		if waiting_arg_key is not None:
+			data[waiting_arg_key] = True
+		
+		if '_meta' in data:
+			data['_meta'].update(meta)
+		else:
+			data['_meta'] = meta
+		
+		# create config with remaining argv
+		return self.create_config(configs, data)
+	
+	def find_config_path(self, name):
+		if name not in self.registry:
+			raise ValueError(f'Unknown config: {name}')
+		return self.registry[name].path
+	
+	@staticmethod
+	def _find_config_parents(raw):
+		return raw.get('parents', [])
+	
+	def _merge_raw_configs(self, raws):
+		raise NotImplementedError
+	
+	def create_config(self, configs=None, data=None):
+		if configs is None:
+			configs = []
+		if data is None:
+			data = {}
+		assert len(self._find_config_parents(data)) == 0, 'Passed in args cannot have a parents key'
+		data['parents'] = configs.copy()
+		raws = {None: data}
+		used_paths = {}
+		todo = configs
+		while len(todo):
+			name = todo.pop()
+			path = self.find_config_path(name)
+			if path not in raws:
+				if not path.exists():
+					raise FileNotFoundError(path)
+				raws[path] = load_yaml(path)
+				todo.extend(self._find_config_parents(raws[path]))
+				used_paths[name] = path
+		if len(used_paths) != len(configs):
+			graph = {key: [used_paths[name] for name in self._find_config_parents(raw)] for key, raw in raws.items()}
+			graph[None] = [used_paths[name] for name in configs]
+			order = linearize(graph, heads=[None], order=True)[None]
+			order = [data] + [raws[p] for p in order[1:]]
+			order = list(reversed(order))
+		else:
+			order = [data]
+		
+		merged = self._merge_raw_configs(order)
+		return merged
 
-
-		pass
 
 
 class ConfigNode(SimpleConfigNode):
