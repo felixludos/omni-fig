@@ -179,7 +179,9 @@ class Profile(Workspace):
 				include_files(src_file, os.path.join(root, src_file))
 		
 		proj_cls = self.get_project_type(ptype)
-		
+		if proj_cls is None:
+			raise ValueError(f'No project type registered with name: {ptype!r}')
+
 		project = proj_cls(raw=info, profile=self)
 
 		self.projects[project.get_name()] = path

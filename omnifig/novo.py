@@ -90,17 +90,21 @@ class SimpleConfigNode(AutoTreeNode):
 
 	class ReadOnlyError(Exception): pass
 
-	def search(self, *queries, default: Optional[Any] = unspecified_argument, **kwargs):
+	def search(self, *queries, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
+	           **kwargs) -> Search:
 		return self.Search(origin=self, queries=queries, default=default, **kwargs)
 
-	def peek(self, *queries, default: Optional[Any] = unspecified_argument, **kwargs) -> 'SimpleConfigNode':
+	def peek(self, *queries, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
+	         **kwargs) -> 'SimpleConfigNode':
 		return self.search(*queries, default=default, **kwargs).find_node()
 
-	def pull(self, query: str, default: Optional[Any] = unspecified_argument, **kwargs) -> Any:
-		return self.pulls(query, default=default, **kwargs)
+	def pull(self, query: str, default: Optional[Any] = unspecified_argument, *, silent: Optional[bool] = None,
+	         **kwargs) -> Any:
+		return self.pulls(query, default=default, silent=silent, **kwargs)
 
-	def pulls(self, *queries: str, default: Optional[Any] = unspecified_argument, **kwargs) -> Any:
-		return self.search(*queries, default=default, **kwargs).evaluate()
+	def pulls(self, *queries: str, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
+	          **kwargs) -> Any:
+		return self.search(*queries, default=default, silent=silent, **kwargs).evaluate()
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
 		if self.readonly:
@@ -150,182 +154,6 @@ import io
 import yaml
 from pathlib import Path
 from omnibelt import Path_Registry, load_yaml
-
-class ConfigManager:
-
-	_config_path_delimiter = '/'
-
-	def __init__(self, project):
-		self.registry = Path_Registry()
-		self.project = project
-
-	def register(self, name: str, path: Path, **kwargs):
-		self.registry.new(name, path, **kwargs)
-
-	def auto_register_directory(self, root: Path, exts=('yaml', 'yml')):
-		for ext in exts:
-			for path in root.glob(f'**/*.{ext}'):
-				terms = path.relative_to(root).parts[:-1]
-				name = path.stem
-				ident = self._config_path_delimiter.join(terms + (name,))
-				self.register(ident, path)
-
-
-	def _parse_raw_arg(self, arg):
-		return yaml.safe_load(io.StringIO(arg))
-		# try:
-		# 	if isinstance(mode, str):
-		# 		if mode == 'yaml':
-		# 			return yaml.safe_load(io.StringIO(arg))
-		# 		elif mode == 'python':
-		# 			return eval(arg, {}, {})
-		# 		else:
-		# 			pass
-		# 	else:
-		# 		return mode(arg)
-		# except:
-		# 	pass
-		# return arg
-
-	class AmbiguousRuleError(Exception): pass
-	class UnknownMetaError(ValueError): pass
-
-	def parse_argv(self, argv, script_name=None):
-		
-		meta = {}
-		data = {}
-		
-		waiting_key = None
-		waiting_meta = 0
-		
-		remaining = []
-		for i, arg in enumerate(argv):
-			
-			if waiting_meta > 0:
-				val = self._parse_raw_arg(arg)
-				if waiting_key in meta and isinstance(meta[waiting_key], list):
-					meta[waiting_key].append(val)
-				else:
-					meta[waiting_key] = val
-				waiting_meta -= 1
-				if waiting_meta == 0:
-					waiting_key = None
-			
-			elif arg.startswith('-') and not arg.startswith('--'):
-				text = arg[1:]
-				while len(text) > 0:
-					for rule in self.project.meta_rules():
-						name = rule.name
-						code = rule.code
-						if code is not None and text.startswith(code):
-							text = text[len(code):]
-							num = rule.num_args
-							if num:
-								if len(text):
-									raise self.AmbiguousRuleError(code, text)
-								waiting_key = name
-								waiting_meta = num
-								if num > 1:
-									meta[waiting_key] = []
-							else:
-								meta[name] = True
-						if not len(text):
-							break
-					else:
-						raise self.UnknownMetaError(text)
-			
-			elif arg == '_' or script_name is not None:
-				remaining = argv[i + int(script_name is None):]
-				break
-			
-			elif script_name is None:
-				script_name = arg
-		
-		if script_name is not None:
-			meta['script_name'] = script_name
-		
-		configs = []
-		for i, term in enumerate(remaining):
-			if term.startswith('--'):
-				remaining = remaining[i:]
-			else:
-				configs.append(term)
-
-		waiting_arg_key = None
-		data = {}
-		
-		for arg in remaining:
-			if arg.startswith('--'):
-				if waiting_arg_key is not None:
-					data[waiting_arg_key] = True
-				
-				key, *other = arg[2:].split('=', 1)
-				if len(other) and len(other[0]):
-					data[key] = self._parse_raw_arg(other[0])
-				else:
-					waiting_arg_key = key
-				
-			elif waiting_arg_key is not None:
-				data[waiting_arg_key] = self._parse_raw_arg(arg)
-				waiting_arg_key = None
-			
-			else:
-				raise ValueError(f'Unexpected argument: {arg}')
-		
-		if waiting_arg_key is not None:
-			data[waiting_arg_key] = True
-		
-		if '_meta' in data:
-			data['_meta'].update(meta)
-		else:
-			data['_meta'] = meta
-		
-		# create config with remaining argv
-		return self.create_config(configs, data)
-	
-	def find_config_path(self, name):
-		if name not in self.registry:
-			raise ValueError(f'Unknown config: {name}')
-		return self.registry[name].path
-	
-	@staticmethod
-	def _find_config_parents(raw):
-		return raw.get('parents', [])
-	
-	def _merge_raw_configs(self, raws):
-		raise NotImplementedError
-	
-	def create_config(self, configs=None, data=None):
-		if configs is None:
-			configs = []
-		if data is None:
-			data = {}
-		assert len(self._find_config_parents(data)) == 0, 'Passed in args cannot have a parents key'
-		data['parents'] = configs.copy()
-		raws = {None: data}
-		used_paths = {}
-		todo = configs
-		while len(todo):
-			name = todo.pop()
-			path = self.find_config_path(name)
-			if path not in raws:
-				if not path.exists():
-					raise FileNotFoundError(path)
-				raws[path] = load_yaml(path)
-				todo.extend(self._find_config_parents(raws[path]))
-				used_paths[name] = path
-		if len(used_paths) != len(configs):
-			graph = {key: [used_paths[name] for name in self._find_config_parents(raw)] for key, raw in raws.items()}
-			graph[None] = [used_paths[name] for name in configs]
-			order = linearize(graph, heads=[None], order=True)[None]
-			order = [data] + [raws[p] for p in order[1:]]
-			order = list(reversed(order))
-		else:
-			order = [data]
-		
-		merged = self._merge_raw_configs(order)
-		return merged
-
 
 
 class ConfigNode(SimpleConfigNode):
@@ -380,9 +208,11 @@ class ConfigNode(SimpleConfigNode):
 		def component_creation(self, node, key, cmpn, mods, silent=None):
 			if silent is None:
 				silent = self.silent
-			mod_info = f' (mods=[{", ".join(mods)}])' if len(mods) > 1 else f' (mod={mods[0]})'
+			mod_info = ''
+			if len(mods):
+				mod_info = f' (mods=[{", ".join(mods)}])' if len(mods) > 1 else f' (mod={mods[0]})'
 			key = '' if key is None else key + ' '
-			indent = self._node_depth(node) * self.indent
+			indent = max(0,self._node_depth(node)-1) * self.indent
 			return self.log(f'{self.flair}{indent}CREATING {key}type={cmpn}{mod_info}', silent=silent)
 
 
@@ -434,7 +264,7 @@ class ConfigNode(SimpleConfigNode):
 			suffix = self._extract_suffix(search)
 
 			line = f'{self.flair}{indent}{prefix}{result}{suffix}'
-			return self.log(line)
+			return self.log(line, silent=search.silent)
 
 
 		class Silencer:
@@ -455,10 +285,13 @@ class ConfigNode(SimpleConfigNode):
 			
 			
 	class Search(SimpleConfigNode.Search):
-		def __init__(self, origin, queries, default=unspecified_argument,
+		def __init__(self, origin, queries, default=unspecified_argument, silent=None,
 		             ask_parent=True, lazy_iterator=None, parent_search=(), **kwargs):
+			if silent is None:
+				silent = origin.silent
 			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
 			# self.init_origin = origin
+			self.silent = silent
 			self.query_chain = []
 			self._ask_parent = ask_parent
 			self.lazy_iterator = lazy_iterator
@@ -483,7 +316,7 @@ class ConfigNode(SimpleConfigNode):
 				if len(remainder):
 					self.query_chain.append(query)
 					return self._resolve_query(src, *remainder)
-				raise
+				raise self.SearchFailed(f'No such key: {query!r}')
 			else:
 				self.query_chain.append(query)
 				return result
@@ -539,6 +372,7 @@ class ConfigNode(SimpleConfigNode):
 					return self.lazy_iterator(node)
 
 				self.action = 'no-payload'
+				node.reporter.search_report(self)
 
 				# list or dict
 				if isinstance(node, node.SparseNode):
@@ -559,7 +393,7 @@ class ConfigNode(SimpleConfigNode):
 				return product
 			else:
 				# create component
-				return node._create_component(cmpn, mods, record_key=node.reporter.get_key(self))
+				return node._create_component(cmpn, mods, record_key=node.reporter.get_key(self), silent=self.silent)
 
 
 		def silence(self, silent=True):
@@ -567,7 +401,8 @@ class ConfigNode(SimpleConfigNode):
 
 
 		def sub_search(self, node, key):
-			return self.__class__(node, (key,), parent_search=(*self.parent_search, self)).evaluate()
+			return self.__class__(node, (key,), parent_search=(*self.parent_search, self),
+			                      silent=self.silent).evaluate()
 
 
 		def evaluate(self):
@@ -673,6 +508,29 @@ class ConfigNode(SimpleConfigNode):
 	def create(self, *args, **kwargs):
 		return self._create_component(*self._extract_component_info(), args=args, kwargs=kwargs)
 
+	def __repr__(self):
+		return f'<{self.__class__.__name__} {len(self)} children>'
+
+	def update(self, update: 'ConfigNode'):
+		if update.has_payload:
+			self.payload = update.payload
+		elif self.has_payload:
+			self.payload = unspecified_argument
+		for key, child in update.children():
+			child.reporter = self.reporter
+			child.parent = self
+			if key in self:
+				self[key].update(child)
+			else:
+				self[key] = child
+
+
+	def set_project(self, project):
+		self.root._project = project
+
+	# def sub(self, key, **kwargs):
+	# 	return self.peek(key, **kwargs)
+
 
 	@property
 	def project(self):
@@ -702,7 +560,7 @@ class ConfigNode(SimpleConfigNode):
 		# 	editor = self.editor
 		if reporter is None:
 			reporter = self.reporter
-		node, key = self._evaluate_address(addr)
+		node, key = self._evaluate_address(addr, auto_create=True)
 		return super(AddressNode, node).set(key, value, reporter=reporter, **kwargs)
 
 
@@ -738,21 +596,274 @@ class ReferenceNode(SimpleConfigNode):
 
 class ConfigSparseNode(AutoTreeSparseNode, ConfigNode): pass
 class ConfigDenseNode(AutoTreeDenseNode, ConfigNode): pass
-ConfigNode.DefaultNode = AutoTreeSparseNode
-ConfigNode.SparseNode = AutoTreeSparseNode
-ConfigNode.DenseNode = AutoTreeDenseNode
+ConfigNode.DefaultNode = ConfigSparseNode
+ConfigNode.SparseNode = ConfigSparseNode
+ConfigNode.DenseNode = ConfigDenseNode
+
+
+class ConfigManager:
+	_config_path_delimiter = '/'
+
+	ConfigNode = ConfigNode
+
+	def __init__(self, project):
+		self.registry = Path_Registry()
+		self.project = project
+
+	def register(self, name: str, path: Path, **kwargs):
+		self.registry.new(name, path, **kwargs)
+
+	def auto_register_directory(self, root: Path, exts=('yaml', 'yml')):
+		root = Path(root)
+		for ext in exts:
+			for path in root.glob(f'**/*.{ext}'):
+				terms = path.relative_to(root).parts[:-1]
+				name = path.stem
+				ident = self._config_path_delimiter.join(terms + (name,))
+				self.register(ident, path)
+
+	def _parse_raw_arg(self, arg):
+		return yaml.safe_load(io.StringIO(arg))
+
+	# try:
+	# 	if isinstance(mode, str):
+	# 		if mode == 'yaml':
+	# 			return yaml.safe_load(io.StringIO(arg))
+	# 		elif mode == 'python':
+	# 			return eval(arg, {}, {})
+	# 		else:
+	# 			pass
+	# 	else:
+	# 		return mode(arg)
+	# except:
+	# 	pass
+	# return arg
+
+	class AmbiguousRuleError(Exception):
+		pass
+
+	class UnknownMetaError(ValueError):
+		pass
+
+	def parse_argv(self, argv, script_name=None):
+		meta = {}
+
+		waiting_key = None
+		waiting_meta = 0
+
+		remaining = []
+		for i, arg in enumerate(argv):
+
+			if waiting_meta > 0:
+				val = self._parse_raw_arg(arg)
+				if waiting_key in meta and isinstance(meta[waiting_key], list):
+					meta[waiting_key].append(val)
+				else:
+					meta[waiting_key] = val
+				waiting_meta -= 1
+				if waiting_meta == 0:
+					waiting_key = None
+
+			elif arg.startswith('-') and not arg.startswith('--'):
+				text = arg[1:]
+				while len(text) > 0:
+					for rule in self.project.meta_rules():
+						name = rule.name
+						code = rule.code
+						if code is not None and text.startswith(code):
+							text = text[len(code):]
+							num = rule.num_args
+							if num:
+								if len(text):
+									raise self.AmbiguousRuleError(code, text)
+								waiting_key = name
+								waiting_meta = num
+								if num > 1:
+									meta[waiting_key] = []
+							else:
+								meta[name] = True
+						if not len(text):
+							break
+					else:
+						raise self.UnknownMetaError(text)
+
+			elif arg == '_' or script_name is not None:
+				remaining = argv[i + int(script_name is None):]
+				break
+
+			elif script_name is None:
+				script_name = arg
+
+		if script_name is not None:
+			meta['script_name'] = script_name
+
+		configs = []
+		for i, term in enumerate(remaining):
+			if term.startswith('--'):
+				remaining = remaining[i:]
+			else:
+				configs.append(term)
+
+		waiting_arg_key = None
+		data = {}
+
+		for arg in remaining:
+			if arg.startswith('--'):
+				if waiting_arg_key is not None:
+					data[waiting_arg_key] = True
+
+				key, *other = arg[2:].split('=', 1)
+				if len(other) and len(other[0]):
+					data[key] = self._parse_raw_arg(other[0])
+				else:
+					waiting_arg_key = key
+
+			elif waiting_arg_key is not None:
+				data[waiting_arg_key] = self._parse_raw_arg(arg)
+				waiting_arg_key = None
+
+			else:
+				raise ValueError(f'Unexpected argument: {arg}')
+
+		if waiting_arg_key is not None:
+			data[waiting_arg_key] = True
+
+		if '_meta' in data:
+			data['_meta'].update(meta)
+		else:
+			data['_meta'] = meta
+
+		# create config with remaining argv
+		return self.create_config(configs, data)
+
+	def find_config_path(self, name):
+		if name not in self.registry:
+			raise ValueError(f'Unknown config: {name}')
+		return self.registry.get_path(name)
+
+	@staticmethod
+	def _find_config_parents(raw):
+		return raw.get('parents', [])
+
+	def _configurize(self, raw):
+		return self.ConfigNode.from_raw(raw)
+
+	def _merge_raw_configs(self, raws):
+		singles = [self._configurize(raw) for raw in raws]
+
+		if not len(singles):
+			return self.ConfigNode.from_raw({})
+
+		merged = singles.pop()
+		while len(singles):
+			update = singles.pop()
+			merged.update(update)
+
+		return merged
+
+	# def _unify_config_node(self, node):
+	# 	for child in node.children():
+	# 		child.parent = node
+	# 		child.reporter = node.reporter
+	# 		self._unify_config_node(child)
+
+	def _process_full_config(self, config):
+		# self._unify_config_node(config)
+		pass
+
+	def create_config(self, configs=None, data=None):
+		if configs is None:
+			configs = []
+		if data is None:
+			data = {}
+		assert len(self._find_config_parents(data)) == 0, 'Passed in args cannot have a parents key'
+		data['parents'] = configs.copy()
+		raws = {None: data}
+		used_paths = {}
+		while len(configs):
+			name = configs.pop()
+			path = self.find_config_path(name)
+			if path not in raws:
+				if not path.exists():
+					raise FileNotFoundError(path)
+				raws[path] = load_yaml(path)
+				configs.extend(self._find_config_parents(raws[path]))
+				used_paths[name] = path
+		if len(used_paths) != len(configs):
+			graph = {key: [used_paths[name] for name in self._find_config_parents(raw)] for key, raw in raws.items()}
+			graph[None] = [used_paths[name] for name in data['parents']]
+			order = linearize(graph, heads=[None], order=True)[None]
+			order = [data] + [raws[p] for p in order[1:]]
+			order = list(reversed(order))
+		else:
+			order = [data]
+
+		merged = self._merge_raw_configs(order)
+		return merged
 
 
 from .organization import Project
 
+
 class NovoProject(Project, name='novo'):
 	ConfigManager = ConfigManager
 
-	def __init__(self, profile=None, **kwargs):
+	def __init__(self, **kwargs):
 		super().__init__(**kwargs)
 		self.config_manager = ConfigManager(self)
 
-	pass
+
+	def process_argv(self, argv=(), script_name=None):
+		return self.config_manager.parse_argv(argv, script_name)
+
+	def create_config(self, *contents, **parameters):
+		return self.config_manager.create_config(list(contents), parameters)
+
+	def find_config(self, name):
+		return str(self.config_manager.find_config_path(name))
+
+	def register_config(self, name, path):
+		self.config_manager.register(name, path)
+
+	def register_config_dir(self, path, recursive=False, prefix=None, joiner='/'):
+		self.config_manager.auto_register_directory(path)
+
+
+	def run(self, script_name=None, config=None, **meta_args):
+		'''
+		This actually runs the script given the ``config`` object.
+
+		Before starting the script, all meta rules are executed in order of priority (low to high)
+		as they may change the config or script behavior, then the run mode is created, which is
+		then called to execute the script specified in the config object (or manually overridden
+		using ``script_name``)
+
+		:param script_name: registered script name to run (overrides what is specified in ``config``)
+		:param config: config object (usually created with :func:`get_config()` (see :ref:`config:Config System`)
+		:param meta_args: Any additional meta arguments to include before running
+		:return: script output
+		'''
+		if config is None:
+			config = self.create_config()
+		else:
+			config.set_project(self)
+
+		if script_name is not None:
+			config.push('_meta.script_name', script_name, overwrite=True, silent=True)
+		for k, v in meta_args.items():
+			config.push(f'_meta.{k}', v, overwrite=True, silent=True)
+		# config._meta.update(meta_args)
+
+		for rule in self.meta_rules_fns():
+			config = rule(config.peek('_meta'), config)
+
+		config.push('_meta._type', 'run_mode/default', overwrite=False, silent=True)
+		silent = config.pull('_meta._quiet_run_mode', True, silent=True)
+		mode = config.pull('_meta', silent=silent)
+		# config = mode.process(config)
+
+		return mode.run(config.sub('_meta'), config)
+
 
 
 

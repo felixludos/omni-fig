@@ -22,6 +22,7 @@ from . import common
 from .common import Configurable
 from .organization import Cerifiable
 from .errors import MissingParameterError
+from . import novo
 # from .farming import Farmer, Worker
 
 from omnibelt import AbortTransaction
