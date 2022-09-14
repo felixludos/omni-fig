@@ -1,10 +1,9 @@
 
-# from omnibelt import monkey_patch
-
 from .top import register_script, register_component, register_modifier
 from .util import autofill_args
 
-def Script(name, description=None, use_config=True):
+
+class Script:
 	'''
 	Decorator to register a script
 
@@ -13,48 +12,81 @@ def Script(name, description=None, use_config=True):
 	:param use_config: :code:`True` if the config should be passed as only arg when calling the script function, otherise it will automatically pull all arguments in the script function signature
 	:return: decorator function expecting a callable
 	'''
-	def _reg_script_decorator(fn):
-		nonlocal name, use_config
-		register_script(name, fn, use_config=use_config, description=description)
-		return fn
-	# monkey_patch(_reg_script_decorator)
+	def __init__(self, name, description=None, use_config=True):
+		self.name = name
+		self.description = description
+		self.use_config = use_config
 	
-	return _reg_script_decorator
+	
+	def __call__(self, fn):
+		register_script(self.name, fn, use_config=self.use_config, description=self.description)
+		return fn
+		
+		
 
-def AutoScript(name, description=None):
+class AutofillMixin:
+	def __init__(self, name=None, aliases=None, **kwargs):
+		super().__init__(name=name, **kwargs)
+		self.aliases = aliases
+
+
+	def autofill(self, config):
+		return autofill_args(self.fn, config, aliases=self.aliases, run=False)
+
+
+	def top(self, config):
+		'''
+		Automatically fill in the arguments of the component function
+		:param config: config object
+		:return: the result of the component function
+		'''
+		args, kwargs = self.autofill(config)
+		return self.fn(*args, **kwargs)
+
+
+	def __call__(self, fn):
+		if self.name is None:
+			self.name = fn.__name__
+		self.fn = fn
+		super().__call__(self.top)
+		return fn
+
+
+
+class AutoScript(AutofillMixin, Script):
 	'''
 	Convienence decorator to register scripts that automatically extract
 	relevant arguments from the config object
 
 	:param name: name of the script
 	:param description: a short description of what the script does
-	:return: decorator function expecting a callable that does not expect the config as argument (otherwise use :func:`Script`)
+	:param aliases: optional aliases for arguments used when autofilling (should be a dict[name,list[aliases]])
 	'''
-	return Script(name, use_config=False, description=description)
+	def __init__(self, name, description=None, aliases=None):
+		super().__init__(name, description=description, aliases=aliases, use_config=False)
 
 
-def Component(name=None):
+
+class Component:
 	'''
 	Decorator to register a component
 
 	NOTE: components should usually be types/classes to allow modifications
 
 	:param name: if not provided, will use the __name__ attribute.
-	:return: decorator function
 	'''
-	
-	def _register_cmp_decorator(cmp):
-		nonlocal name
-		if name is None:
-			name = cmp.__name__
-		register_component(name, cmp)
-		return cmp
-	# monkey_patch(_register_cmp_decorator)
-	
-	return _register_cmp_decorator
+	def __init__(self, name=None):
+		self.name = name
+
+	def __call__(self, fn):
+		if self.name is None:
+			self.name = fn.__name__
+		register_component(self.name, fn)
+		return fn
 
 
-def AutoComponent(name=None, aliases=None, auto_name=True):
+
+class AutoComponent(AutofillMixin, Component):
 	'''
 	Instead of directly passing the config to an AutoComponent, the necessary args are auto filled and passed in.
 	This means AutoComponents are somewhat limited in that they cannot modify the config object and they cannot be
@@ -68,40 +100,12 @@ def AutoComponent(name=None, aliases=None, auto_name=True):
 	:param aliases: optional aliases for arguments used when autofilling (should be a dict[name,list[aliases]])
 	:return: decorator function
 	'''
-	
-	def _auto_cmp_decorator(cmp):
-		nonlocal name, aliases
-		
-		if type(cmp) == type:  # to allow AutoModifiers
-			
-			cls = type(f'Auto_{cmp.__name__}' if auto_name else cmp.__name__, (cmp,), {})
-			# monkey_patch(cls)
-			
-			def _cmp_init_fn(self, info):
-				args, kwargs = autofill_args(cmp, info, aliases=aliases, run=False)
-				super(cls, self).__init__(*args, **kwargs)
-			# monkey_patch(_cmp_init_fn)
-			
-			cls.__init__ = _cmp_init_fn
-			
-			_auto_create_fn = cls
-		
-		else:
-			def _auto_create_fn(config):
-				nonlocal cmp, aliases
-				return autofill_args(cmp, config, aliases)
-			
-			# monkey_patch(_auto_create_fn)
-		Component(name)(_auto_create_fn)
-		
-		return cmp
-	
-	# monkey_patch(_auto_cmp_decorator)
-	
-	return _auto_cmp_decorator
+	def __init__(self, name=None, aliases=None):
+		super().__init__(name=name, aliases=aliases)
 
 
-def Modifier(name=None, expects_config=False):
+
+class Modifier:
 	'''
 	Decorator to register a modifier
 
@@ -112,19 +116,20 @@ def Modifier(name=None, expects_config=False):
 	:param expects_config: True iff this modifier expects to be given the config as second arg
 	:return: decorator function
 	'''
-	
-	def _mod_decorator_fn(mod):
-		nonlocal name, expects_config
-		if name is None:
-			name = mod.__name__
-		register_modifier(name, mod, expects_config=expects_config)
-		return mod
-	# monkey_patch(_mod_decorator_fn)
-	
-	return _mod_decorator_fn
+	def __init__(self, name=None, expects_config=False):
+		self.name = name
+		self.expects_config = expects_config
 
 
-def AutoModifier(name=None):
+	def __call__(self, fn):
+		if self.name is None:
+			self.name = fn.__name__
+		register_modifier(self.name, fn, expects_config=self.expects_config)
+		return fn
+	
+	
+
+class AutoModifier(Modifier):
 	'''
 	Can be used to automatically register modifiers that combine types
 
@@ -141,36 +146,22 @@ def AutoModifier(name=None):
 	:param name: if not provided, will use the __name__ attribute.
 	:return: decorator to decorate a class
 	'''
-	
-	def _auto_mod_decorator(mod_type):
-		nonlocal name
-		
-		def _the_mod_creation_fn(cmpn_type):
-			# awesome python feature -> dynamic type declaration!
-			cls = cmpn_type if issubclass(cmpn_type, mod_type) \
-				else type('{}_{}'.format(mod_type.__name__, cmpn_type.__name__), (mod_type, cmpn_type), {})
-			# monkey_patch(cls)
-			return cls
-		# monkey_patch(_the_mod_creation_fn)
-		
-		Modifier(name=mod_type.__name__ if name is None else name)(_the_mod_creation_fn)
-		return mod_type
-	# monkey_patch(_auto_mod_decorator)
-	
-	return _auto_mod_decorator
+	def create_modified_component(self, component):
+		self.product = component if issubclass(component, self.mod_cls) \
+			else type('{}_{}'.format(self.mod_cls.__name__, component.__name__), (self.mod_cls, component), {})
+		return self.product
 
 
-def _make_post_mod(mod):
-	def _make_cmpn_decorator(cmpn):
-		def _modification_fn(info):
-			return mod(cmpn(info), info)
-		# monkey_patch(_modification_fn)
-		return _modification_fn
-	# monkey_patch(_make_cmpn_decorator)
-	return _make_cmpn_decorator
+	def __call__(self, cls):
+		if self.name is None:
+			self.name = cls.__name__
+		self.mod_cls = cls
+		super().__call__(self.create_modified_component)
+		return cls
 
 
-def Modification(name=None):
+
+class Modification(Modifier):
 	'''
 	A kind of Modifier that modifies the component after it is created,
 	and then returns the modified component
@@ -184,12 +175,22 @@ def Modification(name=None):
 	:return: a decorator expecting the modification function
 	'''
 	
-	def _reg_modification(mod):
-		nonlocal name
-		Modifier(name)(_make_post_mod(mod))
-		return mod
-	# monkey_patch(_reg_modification)
+	def top(self, component):
+		self.component_fn = component
+		return self.create_and_modify
 	
-	return _reg_modification
+	
+	def create_and_modify(self, config):
+		component = self.component_fn(config)
+		return self.fn(component, config)
+
+
+	def __call__(self, fn):
+		if self.name is None:
+			self.name = fn.__name__
+		self.fn = fn
+		super().__call__(self.top)
+		return fn
+
 
 

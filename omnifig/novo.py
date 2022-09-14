@@ -493,17 +493,20 @@ class ConfigNode(SimpleConfigNode):
 
 		project = self.project
 		cmpn = project.find_component(component_type)
-		mods = [project.find_modifier(mod) for mod in mod_types]
+		mods = [project.find_modifier(mod).fn for mod in mod_types]
 
-		cls = cmpn
+		cls = cmpn.fn
 		if len(mods):
 			bases = (*reversed(mods), cmpn)
 			cls = type('_'.join(base.__name__ for base in bases), bases, {})
 
-		if issubclass(cls, Configurable):
-			return cls.init_from_spec(self, args, kwargs, silent=silent)
-		fixed_args, fixed_kwargs = self._fix_args_and_kwargs(cls.__init__, args, kwargs, silent=silent)
-		return cls(*fixed_args, **fixed_kwargs)
+		if type(cls) is type:
+			if issubclass(cls, Configurable):
+				return cls.init_from_spec(self, args, kwargs, silent=silent)
+			fixed_args, fixed_kwargs = self._fix_args_and_kwargs(cls.__init__, args, kwargs, silent=silent)
+			return cls(*fixed_args, **fixed_kwargs)
+		else:
+			return cls(self)
 
 	def create(self, *args, **kwargs):
 		return self._create_component(*self._extract_component_info(), args=args, kwargs=kwargs)
@@ -802,6 +805,7 @@ class ConfigManager:
 		return merged
 
 
+from omnibelt import Class_Registry
 from .organization import Project
 
 
@@ -811,7 +815,9 @@ class NovoProject(Project, name='novo'):
 	def __init__(self, **kwargs):
 		super().__init__(**kwargs)
 		self.config_manager = ConfigManager(self)
-
+		# self.component_registry = Class_Registry()
+		# self.modifier_registry = Class_Registry()
+		
 
 	def process_argv(self, argv=(), script_name=None):
 		return self.config_manager.parse_argv(argv, script_name)
@@ -827,6 +833,9 @@ class NovoProject(Project, name='novo'):
 
 	def register_config_dir(self, path, recursive=False, prefix=None, joiner='/'):
 		self.config_manager.auto_register_directory(path)
+
+	
+	
 
 
 	def run(self, script_name=None, config=None, **meta_args):

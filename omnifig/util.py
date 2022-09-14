@@ -114,6 +114,8 @@ def parse_arg(arg, mode=None):
 # autofill
 
 def autofill_args(fn, config, aliases=None, run=True): # TODO: move to omnibelt (?)
+	if type(fn) is type:
+		fn = fn.__init__
 
 	params = inspect.signature(fn).parameters
 
