@@ -1,0 +1,10 @@
+
+
+model:
+  _type: net
+
+  layers: [100, 100]
+
+  nonlin: elu
+
+  logger._type: stdout

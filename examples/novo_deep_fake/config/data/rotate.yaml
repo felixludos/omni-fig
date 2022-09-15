@@ -1,0 +1,8 @@
+
+dataset:
+  _mod: ['rotate']
+
+  # add additional arguments that will be merged
+
+  prob: 0.2
+

@@ -1,1264 +1,786 @@
 
-import sys, os
+
+from omnibelt import primitive
+
+from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
+	Iterator
+from collections import OrderedDict
+from c3linearize import linearize
+from omnibelt import unspecified_argument, Singleton, extract_function_signature
+from inspect import Parameter
+from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
+
+import io
+import yaml
 from pathlib import Path
-from copy import deepcopy, copy
-import omnibelt as belt
-from collections import defaultdict, OrderedDict
+from omnibelt import Path_Registry, load_yaml
 
-from omnibelt import save_yaml, load_yaml, get_printer
+from .organization import Project
 
-from .util import primitives, global_settings, configurize, pythonize, ConfigurizeFailed
-from .errors import PythonizeError, MissingParameterError, UnknownActionError, InvalidKeyError
 
-prt = get_printer(__name__)
-
-_printing_instance = None
-class Config_Printing:
-	'''
-	Internal class to manage the printing pulls/pushes of the config object. (eg. indent/line styles)
-	'''
-	def __new__(cls, *args, **kwargs): # singleton
-		global _printing_instance
-		if _printing_instance is None:
-			_printing_instance = super().__new__(cls)
-			
-			_printing_instance.level = 0
-			_printing_instance.is_new_line = True
-			_printing_instance.unit = ' > '
-			_printing_instance.style = '| '
-			_printing_instance.silent = False
-			_printing_instance.src = None
-		
-		return _printing_instance
-	def __repr__(self):
-		return f'ConfigPrinting[{hex(id(self))}]'
-	def __str__(self):
-		return f'ConfigPrinting'
-	
-	# def set_src(self, src):
-	# 	self.src = src
-	
-	def inc_indent(self):
-		self.level += 1
-	def dec_indent(self):
-		self.level = max(0, self.level-1)
-	
-	def process_addr(self, *terms):
-
-		addr = []
-		
-		skip = False
-		for term in terms[::-1]:
-			if term == '':
-				skip = True
-				addr.append('')
-			elif term is None:
-				pass
-			elif not skip:
-				addr.append(term)
-			else:
-				skip = False
-		
-		if not len(addr):
-			return '.'
-		
-		addr = '.'.join(addr[::-1])
-		return addr
-	
-	def log_record(self, raw, end='\n',
-	               silent=False):
-		indent = self.level * self.unit
-		style = self.style
-		src = '' if self.src is None else f'({self.src}) '
-		prefix = style + src + indent
-		
-		msg = raw.replace('\n', '\n' + prefix)
-		if not self.is_new_line:
-			prefix = ''
-		msg = f'{prefix}{msg}{end}'
-		base = self.silent
-		if not (silent or base):
-			print(msg, end='')
-			self.is_new_line = (len(msg) == 0 and self.is_new_line) or msg[-1] == '\n'
-		return msg
-		
-
-class ConfigType(belt.Transactionable):
-	'''
-	The abstract super class of config objects.
-	
-	The most important methods:
-	
-		- ``push()`` - set a parameter in the config
-		- ``pull()`` - get a parameter in the config
-		- ``sub()`` - get a sub branch of this config
-		- ``seq()`` - iterate through all contents
-		- ``update()`` - update a config with a different config
-		- ``export()`` - save the config object as a yaml file
-	
-	Another important property of the config object is that it acts as a tree where each node can hold parameters.
-	If a parameter cannot be found at one node, it will search up the tree for the parameter.
-	
-	Config objects also allow for "deep" gets/sets, which means you can get and set parameters not just in
-	the current node, but any number of nodes deeper in the tree by passing a list/tuple of keys
-	or keys separated by "." (hereafter called the "address" of the parameter).
-	
-	Note: that all parameters must not contain "." and should generally be valid python identifiers
-	(strings with no white space that don't start with a number).
-	
-	'''
-
-	def __init__(self, parent=None, printer=None,
-	             prefix=None, safe_mode=False, project=None,
-	             data=None):
-		'''
-		Generally it should not be necessary to create a ConfigType manually, instead use ``get_config()``.
-		
-		:param parent: parent config used for defaults
-		:param printer: printer object to handle printing messages
-		:param prefix: initial prefix used for printing
-		:param project: project this config responds to
-		:param safe_mode: don't save created component instances, unless during a transaction
-		:param data: raw parameters to immediately add to this config
-		'''
-		
-		if printer is None:
-			printer = Config_Printing()
-		self.__dict__['_printer'] = printer
-		
-		if prefix is None:
-			prefix = []
-		self.__dict__['_prefix'] = prefix
-		self.__dict__['_hidden_prefix'] = prefix.copy()
-		self.__dict__['_safe_mode'] = safe_mode
-		
-		self.__dict__['_project'] = None
-		
-		self.set_parent(parent)
-		# self._set_silent(silent)
-
-		if project is not None:
-			self.set_project(project)
-
-		super().__init__()
-		
-		if data is not None:
-			self.update(data)
-
-	def __deepcopy__(self, memodict={}):
-		raise NotImplementedError
-
-	def __copy__(self):
-		raise NotImplementedError
-
-	def copy(self):
-		'''shallow copy of the config object'''
-		return copy(self)
-
-	def pythonize(self):
-		return pythonize(self)
-
-	@classmethod
-	def convert(cls, data, recurse):
-		'''used by configurize to turn a nested python object into a config object'''
-		return cls(data=[recurse(x) for x in data])
-		
-	def sub(self, item):
-		'''
-		Used to get a subbranch of the overall config
-		:param item: address of the branch to return
-		:return: config object at the address
-		'''
-		
-		# TODO: replace with a pull(raw=True)
-		
-		val = self.get_nodefault(item)
-		
-		if isinstance(item, (list, tuple)):
-			item = '.'.join(item)
-		
-		if isinstance(val, ConfigType):
-			val._set_prefix(self.get_prefix() + [item])
-			val._store_prefix()
-		
-		return val
-
-	def update(self, other):
-		'''
-		Used to merge two config nodes (and their children) together
-		
-		This method must be implemented by child classes depending on how the contents of the node is stored
-		
-		:param other: config node to overwrite ``self`` with
-		:return: None
-		'''
-		try:
-			return super().update(other)
-		except AttributeError:
-			raise NotImplementedError
-
-	def _record_action(self, action, suffix=None, val=None, silent=False, obj=None,
-	                   defaulted=False, pushed=False, _entry=False, _raw=False):
-		'''
-		Internal function to manage printing out messages after various actions have been taken with this config.
-		
-		:param action: name of the action (see code for examples)
-		:param suffix: suffix of the address (aka. last item in the address)
-		:param val: contents at that address
-		:param silent: suppress printing a message for this action
-		:param obj: object created or used in this action (eg. a newly created component)
-		:param defaulted: is a default value being used
-		:param pushed: has this value just been pushed
-		:param _entry: internal flag used for printing messages
-		:return: formatted message corresponding to this action
-		'''
-		printer = self._get_printer()
-
-		if action == 'defaulted':
-			return ''
-		
-		name = printer.process_addr(*self.get_prefix(), suffix)
-		
-		if pushed:
-			name = '[Pushed] ' + name
-
-		if 'alias' in action:
-			return printer.log_record(f'{name} --> ', end='', silent=silent)
-		
-		origins = ' (by default)' if defaulted else ''
-		
-		if action == 'removing':
-			obj_type = action.split('-')[-1]
-			return printer.log_record(f'REMOVING {name}', silent=silent)
-		
-		if action in {'creating', 'reusing'}:
-			
-			assert val is not None, 'no info provided'
-			
-			cmpn_type = val.pull('_type', silent=True)
-			mods = val.pull('_mod', None, silent=True)
-			
-			mod_info = ''
-			if mods is not None and len(mods):
-				if not isinstance(mods, (list, tuple)):
-					mods = mods,
-				
-				mod_info = ' (mods=[{}])'.format(', '.join(m for m in mods)) if len(mods) > 1 \
-					else f' (mod={mods[0]})'
-			
-			end = ''
-			if action == 'reusing':
-				assert obj is not None, 'no object provided'
-				end = f': id={hex(id(obj))}'
-			
-			# head = '' if suffix is None else f' {name}'
-			head = f' {name}'
-			out = printer.log_record(f'{action.upper()}{head} (type={cmpn_type}){mod_info}{origins}{end}',
-			                       silent=silent)
-			if action == 'creating':
-				printer.inc_indent()
-			return out
-		
-		if action in {'iter-dict', 'iter-list'}:
-			obj_type = action.split('-')[-1]
-			
-			head = '' if suffix is None else f'{name} [{obj_type} with {len(val)} item/s]'
-			return printer.log_record(f'ITERATOR {head}{origins}', silent=silent)
-		
-		if action in {'pull-dict', 'pull-list'}:
-			
-			assert val is not None, 'no obj provided'
-			
-			obj_type = action.split('-')[-1]
-			
-			out = printer.log_record(f'{name} [{obj_type} with {len(val)} item/s]', silent=silent)
-			printer.inc_indent()
-			return out
-		
-		if action in {'created', 'pulled-dict', 'pulled-list'}:
-			assert obj is not None, 'no object provided'
-			printer.dec_indent()
-			return ''
-			# return printer.log_record(f'=> id={hex(id(obj))}', silent=silent)
-
-		pval = None if val is None else (f'[{type(val)}]' if _raw else repr(val))
-		
-		if action == 'entry': # when pulling dict/list
-			assert suffix is not None, 'no suffix provided'
-			return printer.log_record(f'({suffix}): ', end='',
-			                          silent=(silent or self._get_silent()))
-		
-		if action == 'pulled':
-			head = '' if suffix is None else f'{name}: '
-			if _entry:
-				head = ''
-			return printer.log_record(f'{head}{pval}{origins}', silent=silent)
-		
-		raise UnknownActionError(action)
-		
-	def pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False, raw=False):
-		'''
-		Top-level function to get parameters from the config object (including automatically creating components)
-
-		:param item: address of the parameter to get
-		:param defaults: default values to use if ``item`` is not found
-		:param silent: suppress printing message that this parameter was pulled
-		:param ref: if the parameter is a component that has already been created, get a reference to the created component instead of creating a new instance
-		:param no_parent: don't default to a parent node if the ``item`` is not found here
-		:param as_iter: return an iterator over the selected value (only works if the value is a dict/list)
-		:return: processed value of the parameter (or default if ``item`` is not found, or raises a ``MissingConfigError`` if not found)
-		'''
-		self._reset_prefix()
-		return self._pull(item, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
-		                  _origin=self, _raw=raw)
-
-	def pull_self(self, name=None, silent=False, as_iter=False, raw=False, ref=False):
-		'''
-		Process self as a value being pulled.
-		
-		:param name: Name given to self for printed message
-		:param silent: suppress printing message
-		:param as_iter: Return self as an iterator (has same effect as calling ``seq()``)
-		:return: the processed value of self
-		'''
-		self._reset_prefix()
-		return self._process_val(name, self, silent=silent, reuse=ref, is_self=True, as_iter=as_iter,
-		                         _origin=self, _raw=raw)
-
-	def _pull(self, item, *defaults, silent=False, ref=False, no_parent=False, as_iter=False,
-	          _defaulted=False, _origin=None, _raw=False, _allow_cousin=True):
-		'''
-		Internal pull method, should generally not be called manually (unless you know what you're doing)
-		
-		:param item: remaining address to find
-		:param defaults: any default values that can be used if address is not found
-		:param silent: suppress messages
-		:param ref: return an instance of the value instead of creating a new instance, if one exists
-		:param no_parent: do not check for the parameter in the parent
-		:param as_iter: return the value as an iterator (only for dicts/lists)
-		:param _defaulted: flag that this value was once a provided default (used for printing)
-		:param _origin: reference to the original config node that was pulled (some pulls require returing to origin)
-		:param _raw: return unprocessed value
-		:return: processed value found at ``item`` or a processed default value
-		'''
-		
-		# TODO: change defaults to be a keyword argument providing *1* default, and have item*s* instead,
-		#  which are the keys to be checked in order
-
-		if '.' in item:
-			item = item.split('.')
-
-		line = []
-		if isinstance(item, (list, tuple)):
-			line = item[1:]
-			item = item[0]
-
-		defaulted = item not in self
-		byparent = not self.contains_nodefault(item)
-		if no_parent and byparent:
-			defaulted = True
-		if defaulted:
-			try:
-				if '__origin_key' in self and _allow_cousin: # cousins
-					origin = self['__origin_key']
-					if origin is not None:
-						parent = self.get_parent()
-						if parent is not None:
-							grandparent = parent.get_parent()
-							if grandparent is not None:
-								return grandparent._pull((origin, item), silent=silent, _defaulted=defaulted or _defaulted,
-							                        as_iter=as_iter, ref=ref, _origin=_origin, _raw=_raw, _allow_cousin=False)
-			except MissingParameterError:
-				pass
-			
-			if len(defaults) == 0:
-				raise MissingParameterError(item)
-			val, *defaults = defaults
-			line = []
-		else:
-			val = self[item]
-
-		if len(line) and not isinstance(val, ConfigType):
-			defaulted = True
-			if len(defaults) == 0:
-				raise MissingParameterError(item)
-			val, *defaults = defaults
-
-		if defaulted and _origin is not None: # try again with new value
-
-			_origin._reset_prefix()
-			
-			val = _origin._process_val(item, val, *defaults, silent=silent, defaulted=defaulted or _defaulted,
-			                        as_iter=as_iter, reuse=ref, _origin=_origin, _raw=_raw)
-
-		elif len(line): # child pull
-			if not isinstance(val, ConfigType):
-				prt.warning(f'Pulling through a non-config object: {val}')
-			
-			val._set_prefix(self.get_prefix() + [item])
-			out = val._pull(line, *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
-			               _defaulted=_defaulted, _origin=_origin, _raw=_raw, _allow_cousin=_allow_cousin)
-			
-			val = out
-			
-		elif byparent and not item.startswith('_'): # parent pull
-			parent = self.get_parent()
-
-			parent._set_prefix(self.get_prefix() + [''])
-			val = parent._pull((item, *line), *defaults, silent=silent, ref=ref, no_parent=no_parent, as_iter=as_iter,
-			                   _origin=_origin, _raw=_raw, _allow_cousin=_allow_cousin)
-			
-		else: # process val from me/defaults
-			val = self._process_val(item, val, *defaults, silent=silent, defaulted=defaulted or _defaulted,
-			                        as_iter=as_iter, reuse=ref, _origin=_origin, _raw=_raw)
-			
-			if type(val) in {list, set}: # TODO: a little heavy handed
-				val = tuple(val)
-
-		return val
-
-	def _process_val(self, item, val, *defaults, silent=False,
-	                 reuse=False, is_self=False, as_iter=False, _origin=None, _raw=False,
-	                 **record_flags):
-		'''
-		This is used by ``pull()`` to process the recovered value and print the correct message if ``not silent``
-		
-		:param item: remaining address where this value was found
-		:param val: value that was found given the original address
-		:param defaults: any additional defaults to use if processing fails with ``val``
-		:param silent: suppress messages
-		:param reuse: if an instance is found (under ``__obj``) then that should be returned instead of creating a new one
-		:param is_self: this config object should be returned after processing
-		:param as_iter: return an iterator of ``val`` (only works if ``val`` is a list/dict)
-		:param _origin: original config node where the pull or push request was intially called
-		:param record_flags: additional flags used for printing.
-		:return: processed value
-		'''
-		
-		if as_iter and isinstance(val, ConfigType):
-
-			obj_type = 'list' if isinstance(val, list) else 'dict'
-
-			if obj_type == 'list' or '_type' not in val or not val.pull('_type', silent=True).startswith('iter'):
-
-				self._record_action(f'iter-{obj_type}', suffix=item, val=val, silent=silent, **record_flags)
-
-				if _raw:
-					return val
-
-				itr = ConfigIter(val, val)
-
-				return itr
-		
-		if isinstance(val, ConfigDict) and not _raw:
-			
-			val.push('__origin_key', item, silent=True)
-			typ = val._pull('_type', None, silent=True)
-			if typ is not None:
-				
-				if reuse and '__obj' in val:
-					# print('WARNING: would usually reuse {} now, but instead creating a new one!!')
-					cmpn = val['__obj']
-					self._record_action('reusing', suffix=item, val=val, obj=cmpn, silent=silent, **record_flags)
-				else:
-
-					self._record_action('creating', suffix=item, val=val, silent=silent, **record_flags)
-					
-					hidden = val._get_hidden_prefix()
-					val.get_prefix().clear()
-					val._store_prefix()
-					
-					past = self._get_silent()
-					with self.silenced(silent or past):
-						cmpn = self.get_project().create_component(val)
-
-					if not self.in_safe_mode() or self.in_transaction():
-						if item is not None and len(item) and not is_self:
-							val['__obj'] = cmpn
-						else:
-							self['__obj'] = cmpn
-					
-					val._set_prefix(hidden)
-					val._store_prefix()
-					
-					self._record_action('created', suffix=item, val=val, obj=cmpn, silent=silent, **record_flags)
-					
-				val = cmpn
-
-			else:
-				
-				val.push('__origin_key', '_x_', silent=True)
-				
-				self._record_action('pull-dict', suffix=item, val=val, silent=silent, **record_flags)
-				terms = {}
-				for k, v in val.items():  # WARNING: pulls all entries in dict
-					k = str(k)
-					self._record_action('entry', silent=silent, suffix=k)
-					terms[k] = val._process_val(k, v, reuse=reuse, silent=silent, _origin=_origin, _entry=True)
-				self._record_action('pulled-dict', suffix=item, val=val, obj=terms, silent=silent, **record_flags)
-				val = terms
-
-
-		elif isinstance(val, ConfigList) and not _raw:
-			
-			self._record_action('pull-list', suffix=item, val=val, silent=silent, **record_flags)
-			terms = []
-			for i, v in enumerate(val):  # WARNING: pulls all entries in list
-				self._record_action('entry', silent=silent, suffix=str(i))
-				terms.append(val._process_val(str(i), v, reuse=reuse, silent=silent, _origin=_origin, _entry=True))
-			self._record_action('pulled-list', suffix=item, val=val, obj=terms, silent=silent, **record_flags)
-			val = terms
-
-		elif isinstance(val, str) and val.startswith('<>'):  # local alias (looks for alias locally)
-			alias = val[2:]
-			
-			self._record_action('local-alias', suffix=item, val=alias, silent=silent, **record_flags)
-			
-			val = self._pull(alias, *defaults, silent=silent, _origin=_origin, as_iter=as_iter, ref=reuse)
-			
-		elif isinstance(val, str) and val.startswith('<o>'): # origin alias (returns to origin to find alias)
-			alias = val[3:]
-			
-			self._record_action('origin-alias', suffix=item, val=alias, silent=silent, **record_flags)
-			
-			_origin._reset_prefix()
-			val = _origin._pull(alias, *defaults, silent=silent, _origin=_origin, as_iter=as_iter)
-
-		elif isinstance(val, str) and val.startswith('<!>'): # copy alias (only for local aliases)
-			alias = val[3:]
-
-			self._record_action('copy-alias', suffix=item, val=alias, silent=silent, **record_flags)
-
-			val = self._pull(alias, *defaults, silent=silent, _origin=_origin, as_iter=as_iter, _raw=True)
-
-			# self[item] = deepcopy(val)
-			val = deepcopy(val)
-			self[item] = val
-
-			return self._process_val(item, val, silent=silent, _origin=_origin, as_iter=as_iter, _raw=_raw)
-
-
-		else:
-			self._record_action('pulled', suffix=item, val=val, silent=silent, _raw=_raw, **record_flags)
-
-		return val
-	
-	def push(self, key, val, *_skip, silent=False, overwrite=True, no_parent=True, force_root=False, process=True):
-		'''
-		Set ``key`` with ``val`` in the config object, but pulls ``key`` first so that `val` is only set
-		if it is not found or ``overwrite`` is set to ``True``. It will return the current value of ``key`` after
-		possibly setting with ``val``.
-
-		:param key: key to check/set (can be list or '.' separated string)
-		:param val: data to possibly write into the config object
-		:param _skip: soak up all other positional arguments to make sure the remaining are keyword only
-		:param silent: Do not print messages
-		:param overwrite: If key is already set, overwrite with (configurized) 'val'
-		:param no_parent: Do not check parent object if not found in self
-		:param force_root: Push key to the root config object
-		:return: current val of key (updated if written)
-		'''
-		self._reset_prefix()
-		return self._push(key, val, silent=silent, overwrite=overwrite, no_parent=no_parent,
-		                  force_root=force_root, process=process)
-	
-	def _push(self, key, val, silent=False, overwrite=True, no_parent=True, force_root=False,
-	          process=True, _origin=None):
-		'''
-		Set ``key`` with ``val`` in the config object, but pulls ``key`` first so that `val` is only set
-		if it is not found or ``overwrite`` is set to ``True``. It will return the current value of ``key`` after
-		possibly setting with ``val``.
-		
-		:param key: key to check/set (can be list or '.' separated string)
-		:param val: data to possibly write into the config object
-		:param _skip: soak up all other positional arguments to make sure the remaining are keyword only
-		:param silent: Do not print messages
-		:param overwrite: If key is already set, overwrite with (configurized) 'val'
-		:param no_parent: Do not check parent object if not found in self
-		:param force_root: Push key to the root config object
-		:return: current val of key (updated if written)
-		'''
-		
-		if '.' in key:
-			key = key.split('.')
-
-		line = []
-		if isinstance(key, (list, tuple)):
-			line = key[1:]
-			key = key[0]
-		
-		exists = self.contains_nodefault(key)
-		
-		parent = self.get_parent()
-		
-		if parent is not None and force_root:
-			return self.get_root().push((key, *line), val, silent=silent, overwrite=overwrite,
-			                   no_parent=no_parent, process=process)
-		elif no_parent:
-			parent = None
-		
-		if exists and len(line): # push me
-			child = self.get_nodefault(key)
-			
-			child._set_prefix(self.get_prefix() + [key])
-			
-			out = child._push(line, val, silent=silent, overwrite=overwrite, no_parent=True, process=process)
-			
-			return out
-		elif parent is not None and key in parent: # push parent
-
-			parent._set_prefix(self.get_prefix() + [''])
-			
-			out = parent._push((key, *line), val, silent=silent, overwrite=overwrite,
-			                   no_parent=no_parent, process=process)
-			
-			return out
-			
-		elif len(line): # push child
-			
-			child = self.get_nodefault(key)
-			
-			child._set_prefix(self.get_prefix() + [key])
-			
-			out = child._push(line, val, silent=silent, overwrite=overwrite, no_parent=True, process=process)
-		
-			return out
-		
-		if exists and not overwrite:
-			return self._pull(key, silent=True)
-		
-		if isinstance(val, str) and val == '_x_':
-			if exists:
-				self._record_action('removing', suffix=key, val=val, silent=silent)
-				del self[key]
-			return
-		
-		val = configurize(val)
-		
-		self[key] = val
-		# val = self[key]
-		
-		if process:
-			val = self._process_val(key, val, silent=silent, pushed=True)
-		
-		return val
-
-	def export(self, path=None):
-		'''
-		Convert all data to raw data (using dict/list) and save as yaml file to ``path`` if provided.
-		Also returns yamlified data.
-		
-		:param path: path to save data in this config (data is not saved to disk if not provided)
-		:return: raw "yamlified" data
-		'''
-
-		data = pythonize(self)
-
-		if path is not None:
-			path = Path(path)
-			if path.is_dir():
-				path = path / 'config.yaml'
-			save_yaml(data, path)
-			return path
-
-		return data
-	
-	def seq(self):
-		'''
-		Returns an iterator over the contents of this config object where elements are lazily
-		processed during iteration (see ``ConfigIter`` for details).
-		
-		:return: iterator over all arguments in self
-		'''
-		return ConfigIter(self, self)
-
-	def replace_vals(self, replacements):
-		raise NotImplementedError
-
-	# region Silencing
-	
-	def set_silent(self, silent=True):
-		'''Sets whether pushes and pulls on this config object should be printed out to stdout'''
-		self.__dict__['_printer'].silent = silent
-	
-	def silence(self, silent=True):
-		self.set_silent(silent)
-	
-	# self._silent_config_flag = silent
-	
-	def _get_silent(self):
-		return self.__dict__['_printer'].silent
-	
-	class _Silent_Config:
-		'''Internal context manager to silence a config object'''
-		
-		def __init__(self, config, setting):
-			self.config = config
-			self.setting = setting
-			self.prev = config._get_silent()
-		
-		def __enter__(self):
-			self.config.set_silent(self.setting)
-			return self.config
-		
-		def __exit__(self, exc_type, exc_val, exc_tb):
-			self.config.set_silent(self.prev)
-	
-	def silenced(self, setting=True):
-		'''Returns a context manager to silence this config object'''
-		return ConfigType._Silent_Config(self, setting=setting)
-	
-	# endregion
-	
-	# region Parents
-	
-	def is_root(self):  # TODO: move to tree space
-		'''Check if this config object has a parent for defaults'''
-		return self.get_parent() is None
-	
-	def set_parent(self, parent):
-		'''Sets the parent config object to be checked when a parameter is not found in `self`'''
-		self.__dict__['_parent'] = parent
-	
-	def get_parent(self):
-		'''Get parent (returns None if this is the root)'''
-		return self.__dict__['_parent']
-	
-	def set_process_id(self, name=None):
-		'''Set the unique ID to include when printing out pulls from this object'''
-		self._get_printer().src = name
-	
-	def get_root(self):
-		'''Gets the root config object (returns ``self`` if ``self`` is the root)'''
-		parent = self.get_parent()
-		if parent is None:
-			return self
-		return parent.get_root()
-	
-	# endregion
-	
-	# region Addressing
-	
-	def _get_printer(self):
-		return self.__dict__['_printer']
-	
-	def get_prefix(self):
-		return self.__dict__['_prefix']
-	
-	def _set_prefix(self, prefix):
-		self.__dict__['_prefix'] = prefix
-	
-	def _reset_prefix(self):
-		self._set_prefix(self._get_hidden_prefix())
-	
-	def _get_hidden_prefix(self):
-		return self.__dict__['_hidden_prefix']
-	
-	def _store_prefix(self):
-		self.__dict__['_hidden_prefix'] = self.get_prefix().copy()
-	
-	# endregion
-	
-	# region Misc
-	
-	def set_project(self, project):
-		self.get_root().__dict__['_project'] = project
-	
-	def get_project(self):
-		return self.get_root().__dict__['_project']
-	
-	def set_safe_mode(self, safe_mode):
-		if self.is_root():
-			self.__dict__['_safe_mode'] = safe_mode
-		else:
-			self.get_root().set_safe_mode(safe_mode)
-	
-	def in_safe_mode(self):
-		if self.is_root():
-			return self.__dict__['_safe_mode']
-		return self.get_root().in_safe_mode()
-	
-	def purge_volatile(self):
-		'''
-		Recursively remove any items where the key starts with "__"
-
-		Must be implemented by the child class
-
-		:return: None
-		'''
-		raise NotImplementedError
-	
-	def __repr__(self):
-		return f'{type(self).__name__}[id={hex(id(self))}]'
-	
-	def __str__(self):
-		# return repr(self)
-		return f'<{type(self).__name__}>'
-	
-	# endregion
-	
-	# region Get/Set/Contains
-	
-	def __setitem__(self, key, value):
-		if isinstance(key, str) and '.' in key:
-			key = key.split('.')
-		
-		if isinstance(key, (list, tuple)):
-			if len(key) == 1:
-				return self.__setitem__(key[0], value)
-			child = self.get_nodefault(*key)
-			assert isinstance(child, ConfigType)
-			return child.__setitem__(key[1:], value)
-		
-		value = configurize(value)
-		
-		if isinstance(value, ConfigType):
-			value.set_parent(self)
-			# value.set_project(self.get_project())
-		return self._single_set(key, value)
-	
-	def __getitem__(self, item, *future):
-		
-		if isinstance(item, str) and '.' in item:
-			item = item.split('.')
-		
-		if isinstance(item, (list, tuple)):
-			if len(item) == 1:
-				item = item[0]
-			else:
-				return self.__getitem__(*item)[item[1:]]
-		
-		parent = self.get_parent()
-		
-		if not self.contains_nodefault(item) \
-				and parent is not None \
-				and item[0] != '_':
-			return parent[item]
-		
-		return self._single_get(item, *future)
-	
-	def get_nodefault(self, item, *future):
-		'''Get ``item`` without defaulting up the tree if not found.'''
-		
-		if isinstance(item, str) and '.' in item:
-			item = item.split('.')
-		
-		if isinstance(item, (list, tuple)):
-			if len(item) == 1:
-				item = item[0]
-			else:
-				return self.get_nodefault(*item)[item[1:]]
-		
-		return self._single_get(item, *future)
-	
-	def _single_set(self, key, val):
-		return super().__setitem__(key, val)
-	
-	def _single_get(self, item, *context):
-		try:
-			val = super().__getitem__(item)
-			if val is EmptyElement and len(context):
-				raise KeyError(item)
-		except KeyError:
-			return self._missing_key(item, *context)
-		
-		return val
-	
-	def _missing_key(self, key, *context):
-		
-		cls = ConfigDict
-		
-		if len(context):
-			nxt = context[0]
-			try:
-				int(nxt)
-			except ValueError:
-				pass
-			else:
-				cls = ConfigList
-		
-		obj = cls(parent=self)
-		self.__setitem__(key, obj)
-		return obj
-	
-	def __contains__(self, item):
-		'''Check if ``item`` is in this config, item can be "deep" (multiple steps'''
-		if isinstance(item, str) and '.' in item:
-			item = item.split('.')
-		
-		if isinstance(item, (tuple, list)):
-			if len(item) == 1:
-				item = item[0]
-			else:
-				return item[0] in self and item[1:] in self[item[0]]
-		
-		parent = self.get_parent()
-		
-		return self.contains_nodefault(item) \
-		       or (not super().__contains__(item)
-		           and parent is not None
-		           and item[0] != '_'
-		           and item in parent)
-	
-	def contains_nodefault(self, item):
-		'''Check if ``item`` is contained in this config object without defaulting up the tree if ``item`` is not found'''
-		
-		if isinstance(item, str) and '.' in item:
-			item = item.split('.')
-		
-		if isinstance(item, (tuple, list)):
-			if len(item) == 1:
-				item = item[0]
-			else:
-				return self.contains_nodefault(item[0]) and self[item[0]].contains_nodefault(item[1:])
-		
-		if super().__contains__(item):
-			return self.get_nodefault(item) is not '__x__'
-		return False
-
-	# endregion
-
-
-class ConfigDict(ConfigType, belt.tdict):
-	'''
-	Dict like node in the config.
-	
-	Keys should all be valid python attributes (strings with no whitespace, and not starting with a number).
-
-	NOTE: avoid setting keys that start with more than one underscore (especially '__obj')
-	(unless you really know what you are doing)
-	'''
-
-	def __deepcopy__(self, memodict={}):
-		new = self.__class__(data={k:deepcopy(v) for k,v in self.items() if not k.startswith('__')})
-		new.__dict__.update(self.__dict__)
-		return new
-
-	def __copy__(self):
-		new = self.__class__(data={k:v for k,v in self.items()})
-		new.__dict__.update(self.__dict__)
-		return new
-
-	def copy(self):
-		return copy(self)
-
-	def replace_vals(self, replacements):
-		for k,v in self.items():
-			if isinstance(v, primitives) and v in replacements:
-				self[k] = replacements[v]
-			elif isinstance(v, ConfigType):
-				v.replace_vals(replacements)
-
-	@classmethod
-	def convert(cls, data, recurse):
-		return cls(data={k: recurse(v) for k, v in data.items()})
-	
-	def update(self, other):
-		'''
-		Merge self with another dict-like object
-		
-		:param other: must be dict like
-		:return: None
-		'''
-		assert isinstance(other, dict), f'invalid: {type(other)}'
-		
-		for k, v in other.items():
-			isconfig = isinstance(v, ConfigType)
-			exists = self.contains_nodefault(k)
-			if exists and '_x_' == v:  # reserved for deleting settings in parents
-				del self[k]
-			elif exists and isconfig and \
-					(isinstance(v, self[k].__class__)
-					 or isinstance(self[k], v.__class__)):
-				self[k].update(v)
-				
-			else:
-				self[k] = v
-	
-	def purge_volatile(self):
-		'''
-		Recursively remove any items where the key starts with "__"
-		
-		:return: None
-		'''
-		bad = []
-		for k, v in self.items():
-			if k.startswith('__'):
-				bad.append(k)
-			elif isinstance(v, ConfigType):
-				v.purge_volatile()
-		
-		for k in bad:
-			del self[k]
-	
-	def __repr__(self):
-		info = '{{' + ', '.join(f'{k}' for k in self) + '}}'
-		return f'[{hex(id(self))}]{info}'
-	
-	def __str__(self):
-		return repr(self)
-		return '{{' + ', '.join(f'{k}' for k in self) + '}}'
-
-
-class EmptyElement:
+class Config: # TODO: abstract class that defines the config interface/ops
 	pass
 
-class ConfigList(ConfigType, belt.tlist):
-	'''
-	List like node in the config.
-	'''
+
+class ConfigManager:
+	_config_path_delimiter = '/'
+
+	ConfigNode = ConfigNode
+
+	def __init__(self, project: Project):
+		self.registry = Path_Registry()
+		self.project = project
+
+	def register(self, name: str, path: Path, **kwargs):
+		self.registry.new(name, path, **kwargs)
+
+	def auto_register_directory(self, root: Path, exts=('yaml', 'yml')):
+		root = Path(root)
+		for ext in exts:
+			for path in root.glob(f'**/*.{ext}'):
+				terms = path.relative_to(root).parts[:-1]
+				name = path.stem
+				ident = self._config_path_delimiter.join(terms + (name,))
+				self.register(ident, path)
+
+	def _parse_raw_arg(self, arg):
+		return yaml.safe_load(io.StringIO(arg))
+
+	# try:
+	# 	if isinstance(mode, str):
+	# 		if mode == 'yaml':
+	# 			return yaml.safe_load(io.StringIO(arg))
+	# 		elif mode == 'python':
+	# 			return eval(arg, {}, {})
+	# 		else:
+	# 			pass
+	# 	else:
+	# 		return mode(arg)
+	# except:
+	# 	pass
+	# return arg
+
+	class AmbiguousRuleError(Exception):
+		pass
+
+	class UnknownMetaError(ValueError):
+		pass
+
+	def parse_argv(self, argv, script_name=None):
+		meta = {}
+
+		waiting_key = None
+		waiting_meta = 0
+
+		remaining = []
+		for i, arg in enumerate(argv):
+
+			if waiting_meta > 0:
+				val = self._parse_raw_arg(arg)
+				if waiting_key in meta and isinstance(meta[waiting_key], list):
+					meta[waiting_key].append(val)
+				else:
+					meta[waiting_key] = val
+				waiting_meta -= 1
+				if waiting_meta == 0:
+					waiting_key = None
+
+			elif arg.startswith('-') and not arg.startswith('--'):
+				text = arg[1:]
+				while len(text) > 0:
+					for rule in self.project.meta_rules():
+						name = rule.name
+						code = rule.code
+						if code is not None and text.startswith(code):
+							text = text[len(code):]
+							num = rule.num_args
+							if num:
+								if len(text):
+									raise self.AmbiguousRuleError(code, text)
+								waiting_key = name
+								waiting_meta = num
+								if num > 1:
+									meta[waiting_key] = []
+							else:
+								meta[name] = True
+						if not len(text):
+							break
+					else:
+						raise self.UnknownMetaError(text)
+
+			elif arg == '_' or script_name is not None:
+				remaining = argv[i + int(script_name is None):]
+				break
+
+			elif script_name is None:
+				script_name = arg
+
+		if script_name is not None:
+			meta['script_name'] = script_name
+
+		configs = []
+		for i, term in enumerate(remaining):
+			if term.startswith('--'):
+				remaining = remaining[i:]
+			else:
+				configs.append(term)
+
+		waiting_arg_key = None
+		data = {}
+
+		for arg in remaining:
+			if arg.startswith('--'):
+				if waiting_arg_key is not None:
+					data[waiting_arg_key] = True
+
+				key, *other = arg[2:].split('=', 1)
+				if len(other) and len(other[0]):
+					data[key] = self._parse_raw_arg(other[0])
+				else:
+					waiting_arg_key = key
+
+			elif waiting_arg_key is not None:
+				data[waiting_arg_key] = self._parse_raw_arg(arg)
+				waiting_arg_key = None
+
+			else:
+				raise ValueError(f'Unexpected argument: {arg}')
+
+		if waiting_arg_key is not None:
+			data[waiting_arg_key] = True
+
+		if '_meta' in data:
+			data['_meta'].update(meta)
+		else:
+			data['_meta'] = meta
+
+		# create config with remaining argv
+		return self.create_config(configs, data)
+
+	def find_config_path(self, name):
+		if name not in self.registry:
+			raise ValueError(f'Unknown config: {name}')
+		return self.registry.get_path(name)
+
+	@staticmethod
+	def _find_config_parents(raw):
+		return raw.get('parents', [])
+
+	def _configurize(self, raw):
+		return self.ConfigNode.from_raw(raw)
+
+	def _merge_raw_configs(self, raws):
+		singles = [self._configurize(raw) for raw in raws]
+
+		if not len(singles):
+			return self.ConfigNode.from_raw({})
+
+		merged = singles.pop()
+		while len(singles):
+			update = singles.pop()
+			merged.update(update)
+
+		return merged
+
+	# def _unify_config_node(self, node):
+	# 	for child in node.children():
+	# 		child.parent = node
+	# 		child.reporter = node.reporter
+	# 		self._unify_config_node(child)
+
+	def _process_full_config(self, config):
+		# self._unify_config_node(config)
+		pass
+
+	def create_config(self, configs=None, data=None):
+		if configs is None:
+			configs = []
+		if data is None:
+			data = {}
+		assert len(self._find_config_parents(data)) == 0, 'Passed in args cannot have a parents key'
+		data['parents'] = configs.copy()
+		raws = {None: data}
+		used_paths = {}
+		while len(configs):
+			name = configs.pop()
+			path = self.find_config_path(name)
+			if path not in raws:
+				if not path.exists():
+					raise FileNotFoundError(path)
+				raws[path] = load_yaml(path)
+				configs.extend(self._find_config_parents(raws[path]))
+				used_paths[name] = path
+		if len(used_paths) != len(configs):
+			graph = {key: [used_paths[name] for name in self._find_config_parents(raw)] for key, raw in raws.items()}
+			graph[None] = [used_paths[name] for name in data['parents']]
+			order = linearize(graph, heads=[None], order=True)[None]
+			order = [data] + [raws[p] for p in order[1:]]
+			order = list(reversed(order))
+		else:
+			order = [data]
+
+		merged = self._merge_raw_configs(order)
+		return merged
 
 
 
-	def __init__(self, *args, empty_fill_value=EmptyElement, **kwargs):
+class ConfigReporter:
+	def __init__(self, silent=False, **kwargs):
+		super().__init__(**kwargs)
+		self._silent = silent
+
+	@property
+	def silent(self):
+		return self._silent
+
+	@silent.setter
+	def silent(self, value):
+		self._silent = value
+
+	@staticmethod
+	def log(*msg, end='\n', sep=' ') -> None:
+		msg = sep.join(str(m) for m in msg) + end
+		print(msg, end='')
+		return msg
+
+
+class SimpleConfigNode(AutoTreeNode):
+	class Search:
+		def __init__(self, origin, queries, default=unspecified_argument, **kwargs):
+			super().__init__(**kwargs)
+			self.origin = origin
+			self.queries = queries
+			self.default = default
+			self.result_node = None
+			self.final_query = None
+
+		class SearchFailed(KeyError):
+			def __init__(self, queries):
+				super().__init__(', '.join(queries))
+
+		def _resolve_queries(self, src, queries):
+			if not len(queries):
+				return None, src
+			for query in queries:
+				if query is None:
+					return None, src
+				try:
+					return query, src.get(query)
+				except src.MissingKey:
+					pass
+			raise self.SearchFailed(queries)
+
+		def find_node(self):
+			try:
+				self.final_query, self.result_node = self._resolve_queries(self.origin, self.queries)
+			except self.SearchFailed:
+				if self.default is self.origin.empty_default:
+					raise
+			return self.result_node
+
+		def evaluate(self):
+			self.find_node()
+			self.product = self.package(self.result_node)
+			return self.product
+
+		def package(self, node):
+			if node is None:
+				return self.default
+			return self.result_node.payload
+
+	def __init__(self, *args, readonly=False, **kwargs):
 		super().__init__(*args, **kwargs)
-		self._empty_fill_value = empty_fill_value
+		self._readonly = readonly
 
-	def __deepcopy__(self, memodict={}):
-		new = self.__class__(data=[deepcopy(x) for x in self])
-		new.__dict__.update(self.__dict__)
-		return new
+	@property
+	def root(self):
+		parent = self.parent
+		if parent is None:
+			return self
+		return parent.root
 
-	def __copy__(self):
-		new = self.__class__(data=[x for x in self])
-		new.__dict__.update(self.__dict__)
-		return new
+	@property
+	def readonly(self):
+		return self._readonly
+
+	@readonly.setter
+	def readonly(self, value):
+		self._readonly = value
+
+	empty_default = unspecified_argument
+
+	class ReadOnlyError(Exception):
+		pass
+
+	def search(self, *queries, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
+	           **kwargs) -> Search:
+		return self.Search(origin=self, queries=queries, default=default, **kwargs)
+
+	def peek(self, *queries, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
+	         **kwargs) -> 'SimpleConfigNode':
+		return self.search(*queries, default=default, **kwargs).find_node()
+
+	def pull(self, query: str, default: Optional[Any] = unspecified_argument, *, silent: Optional[bool] = None,
+	         **kwargs) -> Any:
+		return self.pulls(query, default=default, silent=silent, **kwargs)
+
+	def pulls(self, *queries: str, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
+	          **kwargs) -> Any:
+		return self.search(*queries, default=default, silent=silent, **kwargs).evaluate()
+
+	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
+		if self.readonly:
+			raise self.ReadOnlyError('Cannot push to read-only node')
+		try:
+			existing = self.get(addr)
+		except self.MissingKey:
+			existing = None
+
+		if existing is None or overwrite:
+			self.set(addr, value)
+			return True
+		return False
+
+	def push_pull(self, addr: str, value: Any, overwrite: bool = True, **kwargs) -> Any:
+		self.push(addr, value, overwrite=overwrite)
+		return self.pull(addr, **kwargs)
+
+
+class ConfigNode(SimpleConfigNode):
+	class Reporter(ConfigReporter):
+		def __init__(self, indent=' > ', flair='| ', transfer=' --> ', colon=': ',
+		             prefix_fmt='{prefix}', suffix_fmt=' (by {suffix!l})', max_num_aliases=3, **kwargs):
+			super().__init__(**kwargs)
+			self.indent = indent
+			self.flair = flair
+			self.transfer = transfer
+			self.colon = colon
+			self.prefix_fmt = prefix_fmt
+			self.suffix_fmt = suffix_fmt
+			self.max_num_aliases = max_num_aliases
+
+		def log(self, *msg, silent=None, **kwargs):
+			if silent is None:
+				silent = self.silent
+			if not silent:
+				return super().log(msg, **kwargs)
+
+		@classmethod
+		def _node_depth(cls, node, _fuel=100):
+			if _fuel <= 0:
+				raise RuntimeError('Depth exceeded 100 (there is probably an infinite loop in the config tree)')
+			if node.parent is None:
+				return 0
+			return cls._node_depth(node.parent, _fuel=_fuel - 1) + 1
+
+		def _extract_prefix(self, search):
+			prefix = getattr(search, 'action', None)
+			if prefix is None:
+				if search.action == 'component':
+					prefix = 'creating'.upper()
+				elif search.action == 'storage':
+					prefix = 'reusing'.upper()
+				elif search.action == 'iterator':
+					prefix = 'iterator'.upper()
+			if prefix is not None:
+				return self.prefix_fmt.format(prefix=prefix)
+
+		def _extract_suffix(self, search):
+			suffix = getattr(search, 'source', None)
+			if suffix is not None:
+				return self.suffix_fmt.format(suffix=suffix)
+
+		def component_creation(self, node, key, cmpn, mods, silent=None):
+			if silent is None:
+				silent = self.silent
+			mod_info = ''
+			if len(mods):
+				mod_info = f' (mods=[{", ".join(mods)}])' if len(mods) > 1 else f' (mod={mods[0]})'
+			key = '' if key is None else key + ' '
+			indent = max(0, self._node_depth(node) - 1) * self.indent
+			return self.log(f'{self.flair}{indent}CREATING {key}type={cmpn}{mod_info}', silent=silent)
+
+		def get_key(self, search: 'ConfigNode.Search') -> str:
+
+			queries = search.query_chain
+
+			if len(search.parent_search):
+				queries = queries.copy()
+				queries[0] = f'({queries[0]})'  # if getattr(search.parent_search[0]
+
+			if len(queries) > self.max_num_aliases:
+				key = self.transfer.join([queries[0], '...', queries[-1]])
+			else:
+				key = self.transfer.join(queries)
+			return key
+
+		def _present_payload(self, search):
+			key = self.get_key(search)
+
+			if search.action == 'primitive':
+				value = repr(search.result_node)
+				return f'{key}{self.colon}{value}'
+
+			elif search.action == 'no-payload' or search.action == 'iterator':  # list or dict
+				node = search.result_node
+				N = len(node)
+
+				t, x = ('list', 'element') if isinstance(node, search.origin.SparseNode) else ('dict', 'item')
+				x = x + 's' if N != 1 else x
+				# return f'{key} has {N} {x}:'
+				return f'{key} [{t} with {N} {x}]'
+
+			# elif search.action == 'component':
+			# 	return self._present_component(key, search)
+
+			# elif search.action == 'storage':
+			# 	return self._present_component(key, search)
+
+			raise ValueError(f'Unknown action: {search.action!r}')
+
+		def search_report(self, search):
+			indent = self._node_depth(search.origin) * self.indent
+
+			prefix = self._extract_prefix(search)
+			result = self._present_payload(search)
+			suffix = self._extract_suffix(search)
+
+			line = f'{self.flair}{indent}{prefix}{result}{suffix}'
+			return self.log(line, silent=search.silent)
+
+		class Silencer:
+			def __init__(self, reporter, silent=True):
+				self.reporter = reporter
+				self.silent = reporter.silent
+				reporter.silent = silent
+
+			def __enter__(self):
+				return self
+
+			def __exit__(self, exc_type, exc_val, exc_tb):
+				self.reporter.silent = self.silent
+
+		def silence(self, silent=True):
+			return self.Silencer(self, silent=silent)
+
+	class Search(SimpleConfigNode.Search):
+		def __init__(self, origin, queries, default=unspecified_argument, silent=None,
+		             ask_parent=True, lazy_iterator=None, parent_search=(), **kwargs):
+			if silent is None:
+				silent = origin.silent
+			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
+			# self.init_origin = origin
+			self.silent = silent
+			self.query_chain = []
+			self._ask_parent = ask_parent
+			self.lazy_iterator = lazy_iterator
+			self.parent_search = parent_search
+
+		_confidential_prefix = '_'
+
+		def _resolve_query(self, src, query, *remainder):
+			try:
+				result = src.get(query)
+			except src.MissingKey:
+				if self._ask_parent and not query.startswith(self._confidential_prefix):
+					parent = src.parent
+					if parent is not None:
+						try:
+							result = self._resolve_query(parent, query)
+						except parent.MissingKey:
+							pass
+						else:
+							self.query_chain.append(f'.{query}')
+							return result
+				if len(remainder):
+					self.query_chain.append(query)
+					return self._resolve_query(src, *remainder)
+				raise self.SearchFailed(f'No such key: {query!r}')
+			else:
+				self.query_chain.append(query)
+				return result
+
+		def find_node(self):
+			if self.queries is None or not len(self.queries):
+				node = self.origin
+			else:
+				node = self._resolve_query(self.origin, *self.queries)
+			# try:
+			# 	node = self._resolve_query(self.origin, *self.queries)
+			# except self.origin.MissingKey:
+			# 	raise self.SearchFailed(self.queries)
+
+			self.query_node = node
+			self.result_node = self.process_node(node)
+			return self.result_node
+
+		# _weak_storage_prefix = '<?>'
+		# _strong_storage_prefix = '<!>'
+		reference_prefix = '<>'
+		origin_reference_prefix = '<o>'
+
+		def process_node(self, node: 'ConfigNode'):  # follows references
+			if node.has_payload:
+				payload = node.payload
+				if isinstance(payload, str):
+					if payload.startswith(self.reference_prefix):
+						ref = payload[len(self.reference_prefix):]
+						out = self._resolve_query(node, ref)
+						return self.process_node(out)
+					elif payload.startswith(self.origin_reference_prefix):
+						ref = payload[len(self.origin_reference_prefix):]
+						out = self._resolve_query(self.origin, ref)
+						return self.process_node(out)
+			return node
+
+		def package_payload(self, node: 'ConfigNode'):  # creates components
+			if node.has_payload:
+				payload = node.payload
+				self.action = 'primitive'
+				return payload
+
+			# complex object - either component or list/dict
+			try:
+				cmpn, mods = node._extract_component_info()
+			except node.NoComponentFound:
+				# check for iterator
+				if self.lazy_iterator is not None:
+					self.action = 'iterator'
+					node.reporter.search_report(self)
+					return self.lazy_iterator(node)
+
+				self.action = 'no-payload'
+				node.reporter.search_report(self)
+
+				# list or dict
+				if isinstance(node, node.SparseNode):
+					self.product_type = 'dict'
+					product = OrderedDict()
+					for key, child in node.children():
+						product[key] = self.sub_search(node, key)
+
+				elif isinstance(node, node.DenseNode):
+					self.product_type = 'list'
+					product = []
+					for key, child in node.children():
+						product.append(self.sub_search(node, key))
+
+				else:
+					raise TypeError(f'Unknown node type: {node!r}')
+
+				return product
+			else:
+				# create component
+				return node._create_component(cmpn, mods, record_key=node.reporter.get_key(self), silent=self.silent)
+
+		def silence(self, silent=True):
+			return self.reporter.silence(silent)
+
+		def sub_search(self, node, key):
+			return self.__class__(node, (key,), parent_search=(*self.parent_search, self),
+			                      silent=self.silent).evaluate()
+
+		def evaluate(self):
+			try:
+				node = self.find_node()
+			except self.SearchFailed:
+				if self.default is not self.origin.empty_default:
+					return self.default
+				raise
+			else:
+				self.product = self.package_payload(node)
+				return self.product
+
+	# _ask_parent = True
+	# _volatile_prefix = '__'
+
+	# class Editor:
+	# 	def __init__(self, readonly=False, **kwargs):
+	# 		super().__init__(**kwargs)
+	# 		self._readonly = readonly
+	#
+	# 	@property
+	# 	def readonly(self):
+	# 		return self._readonly
+	# 	@readonly.setter
+	# 	def readonly(self, value):
+	# 		self._readonly = value
+	#
+	#
+	# def __init__(self, *args, reporter=None, editor=None, **kwargs):
+	# 	if reporter is None:
+	# 		reporter = self.Reporter()
+	# 	if editor is None:
+	# 		editor = self.Editor()
+	# 	super().__init__(*args, **kwargs)
+	# 	del self._readonly
+	# 	self.reporter = reporter
+	# 	self.editor = editor
+
+	def __init__(self, *args, project: Optional[Project] = None, reporter: Optional[Reporter] = None, **kwargs):
+		if reporter is None:
+			reporter = self.Reporter()
+		super().__init__(*args, **kwargs)
+		self.reporter = reporter
+		self._project = project
+
+	_component_type_key = '_type'
+	_component_mod_key = '_mod'
+
+	class UnknownComponentType(ValueError):
+		pass
+
+	class NoComponentFound(ValueError):
+		pass
+
+	def _extract_component_info(self) -> Tuple[str, Sequence[str]]:
+		cmpn = self.pull(self._component_type_key, None, silent=True)
+		if cmpn is None:
+			raise self.NoComponentFound
+
+		mods = self.pull(self._component_mod_key, None, silent=True)
+		if mods is None:
+			mods = []
+		elif isinstance(mods, dict):
+			mods = [mod for mod, _ in sorted(mods.items(), key=lambda x: (x[1], x[0]))]
+		elif isinstance(mods, str):
+			mods = [mods]
+		else:
+			raise ValueError(f'Invalid modifier: {mods!r}')
+		return cmpn, mods
+
+	def _fix_args_and_kwargs(self, fn, args, kwargs, *, silent=None):
+		def default_fn(key, default=Parameter.empty):
+			if default is Parameter.empty:
+				default = unspecified_argument
+			return self.pull(key, default, silent=silent)
+
+		return extract_function_signature(fn, args, kwargs, default_fn=default_fn)
+		if len(args) == 1 and isinstance(args[0], dict):
+			kwargs = args[0]
+			args = ()
+		return args, kwargs
+
+	def _create_component(self, component_type: str, mod_types: Sequence[str],
+	                      args: Tuple = (), kwargs: Dict[str, Any] = None, *,
+	                      record_key: Optional[str] = None, silent: Optional[bool] = None):
+		if kwargs is None:
+			kwargs = {}
+
+		self.reporter.component_creation(self, record_key, component_type, mod_types, silent=silent)
+
+		project = self.project
+		cmpn = project.find_component(component_type)
+		mods = [project.find_modifier(mod).fn for mod in mod_types]
+
+		cls = cmpn.fn
+		if len(mods):
+			bases = (*reversed(mods), cmpn)
+			cls = type('_'.join(base.__name__ for base in bases), bases, {})
+
+		if type(cls) is type:
+			if issubclass(cls, Configurable):
+				return cls.init_from_spec(self, args, kwargs, silent=silent)
+			fixed_args, fixed_kwargs = self._fix_args_and_kwargs(cls.__init__, args, kwargs, silent=silent)
+			return cls(*fixed_args, **fixed_kwargs)
+		else:
+			return cls(self)
+
+	def create(self, *args, **kwargs):
+		return self._create_component(*self._extract_component_info(), args=args, kwargs=kwargs)
 
 	def __repr__(self):
-		info = '[[' + ', '.join(f'{k}' for k in self) + ']]'
-		return f'[{hex(id(self))}]{info}'
+		return f'<{self.__class__.__name__} {len(self)} children>'
 
-	def __str__(self):
-		return '[[' + ', '.join(f'{k}' for k in self) + ']]'
+	def update(self, update: 'ConfigNode'):
+		if update.has_payload:
+			self.payload = update.payload
+		elif self.has_payload:
+			self.payload = unspecified_argument
+		for key, child in update.children():
+			child.reporter = self.reporter
+			child.parent = self
+			if key in self:
+				self[key].update(child)
+			else:
+				self[key] = child
 
-	def replace_vals(self, replacements):
-		for i, x in enumerate(self):
-			if isinstance(x, primitives) and x in replacements:
-				self[i] = replacements[x]
-			elif isinstance(x, ConfigType):
-				x.replace_vals(replacements)
+	def set_project(self, project):
+		self.root._project = project
 
+	# def sub(self, key, **kwargs):
+	# 	return self.peek(key, **kwargs)
 
-	def purge_volatile(self):
-		'''
-		Recursively remove any items where the key starts with "__"
-		
-		:return: None
-		'''
-		for x in self:
-			if isinstance(x, ConfigType):
-				x.purge_volatile()
-		
-	def _str_to_int(self, item):
-		'''Convert the input items to indices of the list'''
-		if isinstance(item, int):
-			return item
+	@property
+	def project(self):
+		if self._project is None:
+			if not self.has_parent:
+				raise ValueError('No project found')
+			return self.parent.project
+		return self._project
 
-		try:
-			return int(item)
-		except (TypeError, ValueError):
-			pass
+	@property
+	def silent(self):
+		return self.reporter.silent
 
-		raise InvalidKeyError(f'failed to convert {item} to an index')
-		
-	def update(self, other):
-		'''Overwrite ``self`` with the provided list ``other``'''
-		for i, x in enumerate(other):
-			isconfig = isinstance(x, ConfigType)
-			if len(self) == i:
-				self.append(x)
-			elif isconfig and (isinstance(x, self[i].__class__) or isinstance(self[i], x.__class__)):
-				self[i].update(x)
-			elif x is not EmptyElement:
-				self[i] = x
-	
+	@silent.setter
+	def silent(self, value):
+		self.reporter.silent = value
 
-	def _single_set(self, key, val):
-		if key == '_':  # append to end of the list
-			key = len(self)
-		key = self._str_to_int(key)
-		if key >= len(self):
-			self.extend([self._empty_fill_value] * (key - len(self) + 1))
-		return super()._single_set(key, val)
-	
-	def _single_get(self, item, *context):
-		
-		if isinstance(item, slice):
-			return super(ConfigType, self).__getitem__(item)
-		
-		if item == '_':  # append to end of the list
-			item = len(self)
-		
-		item = self._str_to_int(item)
-		
-		if item < 0:
-			item += len(self)
-		if item >= len(self):
-			self.extend([self._empty_fill_value] * (item - len(self) + 1))
-			
-		return super()._single_get(item, *context)
+	# @property
+	# def readonly(self):
+	# 	return self.editor.readonly
+	# @readonly.setter
+	# def readonly(self, value):
+	# 	self.editor.readonly = value
 
-	def push(self, first, *rest, overwrite=True, **kwargs):
-		'''
-		When pushing to a list, if you don't provide an index, the value is automatically pushed to the end of the list
-		
-		:param first: if no additional args are provided in `rest`, then this is used as the value and the key is the end of the list, otherwise this is used as key and the first element in `rest` is the value
-		:param rest: optional second argument to specify the key, rather than defaulting to the end of the list
-		:param kwargs: same keyword args as for the ConfigDict
-		:return: same as for ConfigDict
-		'''
-
-		if len(rest):
-			val, *rest = rest
-			return super().push(first, val, *rest, overwrite=overwrite, **kwargs)
-		
-		val = first
-		key = len(self)
-		self.append(None)
-		return super().push(key, val, *rest, overwrite=True, **kwargs) # note that *rest will have no effect
-		
-	def contains_nodefault(self, item):
-		
-		try:
-			idx = self._str_to_int(item)
-		except InvalidKeyError:
-			return isinstance(item, slice)
-		
-		N = len(self)
-		return -N <= idx < N
-		
-	def append(self, item):
-		super().append(item)
-		if isinstance(item, ConfigType):
-			item.set_parent(self)
-			# item.set_project(self.get_project())
-		
-	def extend(self, item):
-		super().extend(item)
-		
-		for x in item:
-			if isinstance(x, ConfigType):
-				x.set_parent(self)
-				# x.set_project(self.get_project())
+	def set(self, addr: str, value: Any, reporter=None, **kwargs) -> 'ConfigNode':
+		# if editor is None:
+		# 	editor = self.editor
+		if reporter is None:
+			reporter = self.reporter
+		node, key = self._evaluate_address(addr, auto_create=True)
+		return super(AddressNode, node).set(key, value, reporter=reporter, **kwargs)
 
 
-class ConfigIter:
-	'''
-	Iterate through a list of parameters, processing each item lazily,
-	ie. only when it is iterated over (with ``next()``)
-	'''
-	
-	def __init__(self, origin, elements=None, auto_pull=True, include_key=None, reversed=False):
-		'''
-		Can be used as a component or created manually (by providing the ``elements`` argument explicitly)
+# region Future stuff
 
-		For dicts, this will behave like ``.items()``, ie. for each entry in the dict it will return
-		a tuple of the key and value.
+class AskParentNode(SimpleConfigNode):
+	_ask_parent = True
+	_confidential_prefix = '_'
 
-		:param origin: config object where the iterator info is
-		:param elements: manually provided elements to iterate over (uses contents of "_elements" in ``origin`` if not provided)
-		'''
-		# self._name = config._ident
-		# assert '_elements' in config, 'No elements found'
-		if elements is None:
-			elements = origin['_elements']
-		self._elms = elements
-		
-		self._keys = [k for k in self._elms.keys()
-		              if k not in {'_elements', '_mod', '_type', '__obj', '__origin_key'}
-		              and self._elms[k] != '__x__'] \
-			if isinstance(self._elms, dict) else None
-		self._include_key = include_key if include_key is not None else self._keys is not None
-		self._prefix = origin.get_prefix().copy()
-		
-		self._reversed = False
-		self._idx = 0
-		self.set_reversed(reversed)
-		self.set_auto_pull(auto_pull)
-	
-	def __len__(self):
-		'''Returns the remaining length of this iterator instance'''
-		return len(self._elms if self._keys is None else self._keys) - self._idx
-	
-	def _next_idx(self):
-		'''Find the next index or key'''
-		
-		if self._keys is None:
-			if 0 > self._idx >= len(self._elms):
-				raise StopIteration
-			return str(self._idx)
-			# if not self._elms.contains_nodefault(self._idx):
-			# 	raise StopIteration
-			# return str(self._idx)
-		
-		while 0 <= self._idx < len(self._elms):
-			idx = self._keys[self._idx]
-			
-			if self._elms.contains_nodefault(idx):
-				return idx
-			self._idx += (-1)**self._reversed
-		
-		raise StopIteration
-	
-	def view(self):
-		'''Returns the next object without processing the item, may throw a StopIteration exception'''
-		idx = self._next_idx()
-		obj = self._elms.pull(idx, raw=True, silent=True)
-		# obj = self._elms[idx]
-		if isinstance(obj, ConfigType):
-			obj.push('_iter_key', idx, silent=True)
-			
-		if isinstance(obj, global_settings['config_type']):
-			obj = self._elms.sub(idx)
-		return (idx, obj) if self._include_key else obj
 
-	def step(self):
-		obj = self.view()
-		self._idx += (-1)**self._reversed
-		return obj
+class VolatileNode(SimpleConfigNode):
+	_volatile_prefix = '__'
 
-	def set_auto_pull(self, auto=True):
-		self._auto_pull = auto
 
-	def set_reversed(self, reversed=True):
-		self._reversed = reversed
-		if reversed:
-			self._idx = len(self)-1
+class StorageNodes(VolatileNode):
+	_weak_storage_prefix = '<?>'
+	_strong_storage_prefix = '<!>'
+	# created components are stored under __obj and can be access with prefix
+	# (where weak creates component when missing)
+	pass
 
-	def has_next(self):
-		return (self._reversed and self._idx >= 0) or (not self._reversed and self._idx < len(self._elms))
- 
-	def __next__(self):
-		
-		if not self.has_next():
-			raise StopIteration
 
-		obj = self.step()
-		key, val = obj if self._include_key else (None,obj)
-		if isinstance(val, global_settings['config_type']):
-			val = val.pull_self(raw=not self._auto_pull, silent=not self._auto_pull)
-		return (key,val) if self._include_key else val
-	
-	def __iter__(self):
-		return self
+class ReferenceNode(SimpleConfigNode):
+	reference_prefix = '<>'
+	origin_reference_prefix = '<o>'
 
-nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
-def configurize_nones(s, recurse):
-	'''Turns strings into None, if they match the expected patterns'''
-	if s in nones:
-		return None
-	raise ConfigurizeFailed
+	def package(self, value):
+		if value is None:
+			return None
+		return self.ref.package(value)
 
-global_settings.update({
-	'config_type': ConfigType,
-	'config_converters': OrderedDict([
-		(str, configurize_nones),
-		(dict, (False, ConfigDict.convert)),
-		(OrderedDict, (False, ConfigDict.convert)),
-		(list, ConfigList.convert),
-		# (tuple, ConfigList.convert),
-		(set, ConfigList.convert),
-	]),
-})
+# endregion
 
+
+class ConfigSparseNode(AutoTreeSparseNode, ConfigNode): pass
+
+
+class ConfigDenseNode(AutoTreeDenseNode, ConfigNode): pass
+
+
+ConfigNode.DefaultNode = ConfigSparseNode
+ConfigNode.SparseNode = ConfigSparseNode
+ConfigNode.DenseNode = ConfigDenseNode
 

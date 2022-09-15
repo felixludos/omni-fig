@@ -19,7 +19,7 @@ from .top import get_project, get_current_project, \
 from .rules import Meta_Rule
 from .modes import Run_Mode
 from . import common
-from .common import Configurable
+# from .common import Configurable
 from .organization import Cerifiable
 from .errors import MissingParameterError
 from . import novo
