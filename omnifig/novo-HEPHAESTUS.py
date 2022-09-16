@@ -421,6 +421,10 @@ class ConfigNode(SimpleConfigNode):
 		return super(AddressNode, node).set(key, value, editor=editor, reporter=reporter, **kwargs)
 
 
+	def push_pull(self, addr: str, value: Any, overwrite: bool = True, silent=None, **kwargs) -> Any:
+		self.push(addr, value, overwrite=overwrite, silent=silent)
+		return self.pull(addr, silent=silent, **kwargs)
+
 
 class AskParentNode(SimpleConfigNode):
 	_ask_parent = True
