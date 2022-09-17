@@ -26,6 +26,9 @@ class ConfigManager:
 	_config_path_delimiter = '/'
 
 	ConfigNode = ConfigNode
+	
+	Config_Registry = Path_Registry
+	
 
 	def __init__(self, project: Project):
 		self.registry = Path_Registry()

@@ -108,7 +108,7 @@ class AbstractRunMode(Activatable):
 		self.cleanup() # (optional) cleanup
 		return out # return output
 
-	def run(self, config, *, script_name=None):
+	def run(self, config, *, script_name=None, **meta):
 		transfer = self.validate_run(config)
 		if transfer is not None:
 			return transfer.run(config, script_name=script_name)
@@ -175,7 +175,7 @@ class ProjectBase(AbstractRunMode, FileInfo): # project that should be extended
 
 class MetaRule_Registry(Function_Registry, components=['priority', 'num_args']):
 	pass
-
+MetaRuleFunction = Callable[[Config, Dict[str, Any]], Config]
 
 
 class ProfileBase(FileInfo): # profile that should be extended
@@ -186,28 +186,30 @@ class ProfileBase(FileInfo): # profile that should be extended
 		cls._profile = None
 
 	# region Class Methods
-
 	Project = ProjectBase
 	@classmethod
-	def get_project_type(cls, ident):
+	def get_project_type(cls, ident: str):
 		return cls.Project.get_project_type(ident)
 
 	@classmethod
-	def replace_profile(cls, profile=None):
+	def replace_profile(cls, profile: 'ProfileBase' = None) -> 'ProfileBase':
 		if profile is None:
 			profile = cls()
 		Profile._profile = profile
+		old = cls._profile
 		cls._profile = profile
+		return old
 
 	@classmethod
-	def get_profile(cls):
+	def get_profile(cls) -> 'ProfileBase':
 		if cls._profile is None:
 			cls._profile = cls()
 			cls._profile.activate()
 		return cls._profile
 
 	@classmethod
-	def register_meta_rule(cls, name, func, priority=0, num_args=0):
+	def register_meta_rule(cls, name: str, func: MetaRuleFunction,
+	                       priority: Optional[int] = 0, num_args: Optional[int] = 0) -> None:
 		cls.meta_rule_registry.new(name, func, priority=priority, num_args=num_args)
 
 	@classmethod
@@ -217,24 +219,21 @@ class ProfileBase(FileInfo): # profile that should be extended
 	@classmethod
 	def iterate_meta_rules(cls):
 		entries = list(cls.meta_rule_registry.values())
-		for entry in sorted(entries, key=lambda e: (e.priority, e.name)):
+		for entry in sorted(entries, key=lambda e: (e.priority, e.name), reverse=True):
 			yield entry
 
 	@classmethod
 	def iterate_meta_rule_fns(cls):
 		for entry in cls.iterate_meta_rules():
 			yield entry.fn
-
 	# endregion
 
-
-	def __init__(self, data=None):
+	def __init__(self, data: Dict = None):
 		super().__init__(data)
 		self._loaded_projects = OrderedDict()
 		self._current_project_key = None
 
 	# region Top Level Methods
-
 	def entry(self, script_name=None):
 		argv = sys.argv[1:]
 		self.main(argv, script_name=script_name)
@@ -251,21 +250,20 @@ class ProfileBase(FileInfo): # profile that should be extended
 	def cleanup(self, *args, **kwargs):
 		return self.get_current_project().cleanup(*args, **kwargs)
 
-	def find_artifact(self, artifact_type, ident, **kwargs):
-		return self.get_current_project().find_artifact(artifact_type, ident, **kwargs)
-
-	def register_artifact(self, artifact_type, ident, artifact, **kwargs):
-		return self.get_current_project().register_artifact(artifact_type, ident, artifact, **kwargs)
-
-	def iterate_artifacts(self, artifact_type):
-		return self.get_current_project().iterate_artifacts(artifact_type)
-
+	# def find_artifact(self, artifact_type, ident, **kwargs):
+	# 	return self.get_current_project().find_artifact(artifact_type, ident, **kwargs)
+	#
+	# def register_artifact(self, artifact_type, ident, artifact, **kwargs):
+	# 	return self.get_current_project().register_artifact(artifact_type, ident, artifact, **kwargs)
+	#
+	# def iterate_artifacts(self, artifact_type):
+	# 	return self.get_current_project().iterate_artifacts(artifact_type)
 	# endregion
 
 	def __str__(self):
 		return f'{self.__class__.__name__}[{self.name}]({", ".join(self._loaded_projects)})'
 
-	def extract_info(self, other: 'ProfileBase'):
+	def extract_info(self, other: 'ProfileBase') -> None:
 		super().extract_info(other)
 		self._loaded_projects = other._loaded_projects#.copy()
 		self._current_project_key = other._current_project_key
@@ -273,12 +271,12 @@ class ProfileBase(FileInfo): # profile that should be extended
 	def get_current_project(self) -> ProjectBase:
 		return self.get_project(self._current_project_key)
 
-	def switch_project(self, ident=None):
+	def switch_project(self, ident=None) -> ProjectBase:
 		proj = self.get_project(ident)
 		self._current_project_key = proj.name
 		return proj
 
-	def iterate_projects(self):
+	def iterate_projects(self) -> Iterator[ProjectBase]:
 		yield from self._loaded_projects.values()
 
 	def get_project(self, ident=None):
@@ -287,8 +285,7 @@ class ProfileBase(FileInfo): # profile that should be extended
 Meta_Rule = ProfileBase.meta_rule_registry.get_decorator(detaults={'priority': 0, 'num_args': 0})
 
 
-class TerminationFlag(KeyboardInterrupt):
-	pass
+class TerminationFlag(KeyboardInterrupt): pass
 
 
 class GeneralProject(ProjectBase, name='simple'):
@@ -312,8 +309,8 @@ class GeneralProject(ProjectBase, name='simple'):
 				p = path / name
 				if p.exists():
 					return p
-		prt.warning(f'Could not infer project path from {path} (using blank project)')
 		# raise FileNotFoundError(f'path does not exist: {path}')
+		prt.warning(f'Could not infer project path from {path} (using blank project)')
 
 
 	class Script_Registry(Class_Registry, components=['description', 'project']): pass
@@ -332,13 +329,13 @@ class GeneralProject(ProjectBase, name='simple'):
 			'script': script_registry,
 		}
 
+	# region Organization
 	def extract_info(self, other: 'GeneralProject'):
 		super().extract_info(other)
 		self._path = other._path
 		self._profile = other._profile
 		self.config_manager = other.config_manager
 		self._artifact_registries = other._artifact_registries#.copy()
-
 
 	def validate(self) -> ProjectBase:
 		requested_type = self.data.get('type', None)
@@ -350,7 +347,6 @@ class GeneralProject(ProjectBase, name='simple'):
 			return proj
 		return self
 
-
 	@property
 	def root(self) -> Path:
 		return self._path.parent
@@ -358,7 +354,9 @@ class GeneralProject(ProjectBase, name='simple'):
 	@property
 	def info_path(self) -> Path:
 		return self._path
-
+	# endregion
+	
+	# region Running/Ops
 	def create_config(self, *parents, **parameters):
 		return self.config_manager.create_config(*parents, **parameters)
 
@@ -395,8 +393,9 @@ class GeneralProject(ProjectBase, name='simple'):
 
 		entry = self.find_script(script_name)
 		return self._run(entry, config)
+	# endregion
 
-
+	# region Registration
 	class UnknownArtifactTypeError(KeyError): pass
 	def find_artifact(self, artifact_type, ident, default=unspecified_argument):
 		if artifact_type == 'config':
@@ -449,17 +448,19 @@ class GeneralProject(ProjectBase, name='simple'):
 
 	def iterate_scripts(self):
 		return self.iterate_artifacts('script')
-
+	# endregion
+	
+	pass
 
 
 class Profile(ProfileBase):
 	class Project(GeneralProject, name='default'):
+		class Creator_Registry(Function_Registry, components=['project']): pass
+		class Component_Registry(Class_Registry, components=['project']): pass
+		class Modifier_Registry(Class_Registry, components=['project']): pass
 
-		Creator_Registry = Function_Registry
-		Component_Registry = Class_Registry
-		Modifier_Registry = Class_Registry
-
-		def __init__(self, path, *, creator_registry=None, component_registry=None, modifier_registry=None, **kwargs):
+		def __init__(self, path, *, creator_registry=None, component_registry=None, modifier_registry=None,
+		             **kwargs):
 			if creator_registry is None:
 				creator_registry = self.Creator_Registry()
 			if component_registry is None:
@@ -467,12 +468,11 @@ class Profile(ProfileBase):
 			if modifier_registry is None:
 				modifier_registry = self.Modifier_Registry()
 			super().__init__(path, **kwargs)
-			self._artifact_registries = {
+			self._artifact_registries.update({
 				'creator': creator_registry,
 				'component': component_registry,
 				'modifier': modifier_registry,
-			}
-
+			})
 
 		def validate_main(self, config: Config) -> 'ProjectBase':
 			runner = config.pull('_meta.main_runner', None, silent=True)
@@ -483,7 +483,6 @@ class Profile(ProfileBase):
 			runner = config.pull('_meta.runner', None, silent=True)
 			if runner is not None:
 				return runner
-
 
 		def run_local(self, config, *, script_name=None, **meta): # derives meta from config under "_meta"
 			config.set_project(self)
@@ -501,8 +500,38 @@ class Profile(ProfileBase):
 
 			entry = self.find_artifact('script', config.pull('_meta.script_name', silent=True))
 			return self._run(entry, config)
+		
+		# region Registration
+		def find_creator(self, name, default=unspecified_argument):
+			return self.find_artifact('creator', name, default=default)
+		
+		def register_creator(self, name, fn, *, description=None):
+			return self.register_artifact('creator', name, fn, description=description)
+		
+		def iterate_creators(self):
+			return self.iterate_artifacts('creator')
 
 
+		def find_component(self, name, default=unspecified_argument):
+			return self.find_artifact('component', name, default=default)
+		
+		def register_component(self, name, cls, *, description=None):
+			return self.register_artifact('component', name, cls, description=description)
+		
+		def iterate_components(self):
+			return self.iterate_artifacts('component')
+		
+		
+		def find_modifier(self, name, default=unspecified_argument):
+			return self.find_artifact('modifier', name, default=default)
+		
+		def register_modifier(self, name, cls, *, description=None):
+			return self.register_artifact('modifier', name, cls, description=description)
+		
+		def iterate_modifiers(self):
+			return self.iterate_artifacts('modifier')
+		# endregion
+		
 		def find_artifact(self, artifact_type, ident, default=unspecified_argument):
 			try:
 				return super().find_artifact(artifact_type, ident)
@@ -518,19 +547,19 @@ class Profile(ProfileBase):
 
 
 	_profile_env_variable = 'FIG_PROFILE'
-	def __init__(self, data=None):
+	def __init__(self, data: Dict = None):
 		if data is None:
 			data = os.environ.get(self._profile_env_variable, None)
 		super().__init__(data)
 
 
-	def _activate(self):
+	def _activate(self) -> None:
 		active_projects = self.data.get('active_projects', [])
 		for project in active_projects:
 			self.get_project(project)
 
 
-	def get_project(self, ident=None):
+	def get_project(self, ident: Union[str, Path] = None) -> Project:
 		if ident is None:
 			if self._current_project_key is not None:
 				return self.get_current_project()
@@ -560,12 +589,38 @@ class Profile(ProfileBase):
 		return proj
 
 
-	def create_config(self, *parents, **parameters):
+	def create_config(self, *parents: str, **parameters: Any) -> Config:
 		return self.get_current_project().create_config(*parents, **parameters)
 
-	def create_component(self, config):
-		return self.get_current_project().create_component(config)
 
+	def find_config(self, name: str, default: Optional[Any] = unspecified_argument) \
+			-> 'GeneralProject.Config_Manager.Config_Registry.entry_cls':
+		return self.get_current_project().find_config(name, default=default)
+
+	def register_config(self, name, path):
+		return self.get_current_project().register_config(name, path)
+
+	def iterate_configs(self):
+		return self.get_current_project().iterate_configs()
+
+	def register_config_dir(self, name, path, *, recursive=True, prefix=None, delimiter='/'):
+		return self.config_manager.register_config_dir(name, path, recursive=recursive, project=self,
+		                                               prefix=prefix, delimiter=delimiter)
+
+
+	def find_script(self, name, default=unspecified_argument):
+		return self.find_artifact('script', name, default=default)
+
+	def register_script(self, name, fn, *, description=None):
+		return self.register_artifact('script', name, fn, description=description)
+
+	def iterate_scripts(self):
+		return self.iterate_artifacts('script')
+	
+
+
+	# def create_component(self, config):
+	# 	return self.get_current_project().create_component(config)
 
 	# def register_rule(self, name, rule):
 	# 	return self.get_current_project().register_rule(name, rule)
