@@ -416,7 +416,7 @@ class GeneralProject(ProjectBase, name='simple'):
 		registry = self._artifact_registries.get(artifact_type)
 		if registry is None:
 			raise self.UnknownArtifactTypeError(artifact_type)
-		return registry.new(ident, artifact, **kwargs)
+		return registry.new(ident, artifact, project=project, **kwargs)
 
 	def iterate_artifacts(self, artifact_type):
 		if artifact_type == 'config':
@@ -593,6 +593,7 @@ class Profile(ProfileBase):
 		return self.get_current_project().create_config(*parents, **parameters)
 
 
+	# region Registration
 	def find_config(self, name: str, default: Optional[Any] = unspecified_argument) \
 			-> 'GeneralProject.Config_Manager.Config_Registry.entry_cls':
 		return self.get_current_project().find_config(name, default=default)
@@ -604,44 +605,48 @@ class Profile(ProfileBase):
 		return self.get_current_project().iterate_configs()
 
 	def register_config_dir(self, name, path, *, recursive=True, prefix=None, delimiter='/'):
-		return self.config_manager.register_config_dir(name, path, recursive=recursive, project=self,
-		                                               prefix=prefix, delimiter=delimiter)
-
+		return self.get_current_project().register_config_dir(name, path, recursive=recursive,
+		                                                      prefix=prefix, delimiter=delimiter)
 
 	def find_script(self, name, default=unspecified_argument):
-		return self.find_artifact('script', name, default=default)
+		return self.get_current_project().find_script(name, default=default)
 
 	def register_script(self, name, fn, *, description=None):
-		return self.register_artifact('script', name, fn, description=description)
+		return self.get_current_project().register_script(name, fn, description=description)
 
 	def iterate_scripts(self):
-		return self.iterate_artifacts('script')
-	
+		return self.get_current_project().iterate_scripts()
 
 
-	# def create_component(self, config):
-	# 	return self.get_current_project().create_component(config)
+	def find_creator(self, name, default=unspecified_argument):
+		return self.get_current_project().find_creator(name, default=default)
 
-	# def register_rule(self, name, rule):
-	# 	return self.get_current_project().register_rule(name, rule)
-	#
-	# def register_script(self, name, fn, description=None, **kwargs):
-	# 	return self.get_current_project().register_script(name, fn, description=description, **kwargs)
-	#
-	# def register_component(self, name, fn, **kwargs):
-	# 	return self.get_current_project().register_component(name, fn, **kwargs)
-	#
-	# def register_modifier(self, name, fn, **kwargs):
-	# 	return self.get_current_project().register_modifier(name, fn, **kwargs)
-	#
-	# def register_config(self, name, path, **kwargs):
-	# 	return self.get_current_project().register_config(name, path, **kwargs)
-	#
-	# def register_config_dir(self, path, recursive=True, prefix=None, delimiter='/', **kwargs):
-	# 	return self.get_current_project().register_config_dir(path, recursive=recursive, prefix=prefix,
-	# 	                                                      delimiter=delimiter, **kwargs)
+	def register_creator(self, name, fn, *, description=None):
+		return self.get_current_project().register_creator(name, fn, description=description)
 
+	def iterate_creators(self):
+		return self.get_current_project().iterate_creators()
 
+	def find_component(self, name, default=unspecified_argument):
+		return self.get_current_project().find_component(name, default=default)
+
+	def register_component(self, name, cls, *, description=None):
+		return self.get_current_project().register_component(name, cls, description=description)
+
+	def iterate_components(self):
+		return self.get_current_project().iterate_components()
+
+	def find_modifier(self, name, default=unspecified_argument):
+		return self.get_current_project().find_modifier(name, default=default)
+
+	def register_modifier(self, name, cls, *, description=None):
+		return self.get_current_project().register_modifier(name, cls, description=description)
+
+	def iterate_modifiers(self):
+		return self.get_current_project().iterate_modifiers()
+	# endregion
+
+	pass
 
 
 
