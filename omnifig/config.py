@@ -15,71 +15,8 @@ import yaml
 from pathlib import Path
 from omnibelt import Path_Registry, load_yaml
 
+from .abstract import Config, Creator
 from .organization import Project
-
-
-class Config: # TODO: copy, deepcopy, etc
-	empty_default = unspecified_argument
-
-	@property
-	# TODO: use @abstractmethod here
-	def project(self):
-		raise NotImplementedError
-	@project.setter
-	def project(self, project):
-		raise NotImplementedError
-
-	def peek(self, query: str, default: Optional[Any] = empty_default) -> 'Config':
-		return self.peeks(query, default=default)
-
-	def peeks(self, *queries, default: Optional[Any] = empty_default) -> 'Config':
-		raise NotImplementedError
-
-	def pull(self, query: str, default: Optional[Any] = empty_default) -> Any:
-		return self.pulls(query, default=default)
-
-	def pulls(self, *queries: str, default: Optional[Any] = empty_default) -> Any:
-		raise NotImplementedError
-
-	def push(self, addr: str, value: Any, overwrite: bool = True) -> bool:
-		raise NotImplementedError
-
-	def push_pull(self, addr: str, value: Any, overwrite: bool = True) -> Any:
-		self.push(addr, value, overwrite=overwrite)
-		return self.pull(addr)
-
-	def update(self, update: 'Config') -> Self:
-		raise NotImplementedError
-
-
-class Creator:
-	# @classmethod
-	# def trigger(cls, config: Config) -> Optional[Dict[str, Any]]:
-	# 	raise NotImplementedError
-
-	@classmethod
-	def from_search(cls, search):
-		raise NotImplementedError
-
-	@classmethod
-	def replace(cls, creator: 'Creator', config: Config, **kwargs):
-		return cls(config, **kwargs)
-
-	def __init__(self, config: Config, **kwargs):
-		super().__init__(**kwargs)
-		# self.config = config
-
-	def validate(self, config) -> Union[Self, 'Creator']:
-		return self
-
-	def report(self, reporter, search=None):
-		pass
-
-	def create(self, config, args=None, kwargs=None) -> Any:
-		raise NotImplementedError
-
-	def silence(self, silent=True):
-		raise NotImplementedError
 
 
 
@@ -309,9 +246,10 @@ class ConfigReporter:
 
 
 class _ConfigNode(Config, AutoTreeNode):
-	def __init__(self, *args, project: Optional[Project] = None, **kwargs):
+	def __init__(self, *args, readonly: bool = False, project: Optional[Project] = None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self._project = project
+		self._readonly = readonly
 
 
 	@property
@@ -337,9 +275,9 @@ class _ConfigNode(Config, AutoTreeNode):
 
 
 # class Editable(_ConfigNode):
-	def __init__(self, *args, readonly=False, **kwargs):
-		super().__init__(*args, **kwargs)
-		self._readonly = readonly
+# 	def __init__(self, *args, **kwargs):
+# 		super().__init__(*args, **kwargs)
+# 		self._readonly = readonly
 
 	@property
 	def readonly(self):

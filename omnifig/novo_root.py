@@ -6,130 +6,12 @@ from collections import OrderedDict
 from omnibelt import get_printer, load_yaml, agnosticmethod, Class_Registry, Function_Registry, Path_Registry
 from omnibelt import unspecified_argument
 
-from .config import ConfigManager, Config
+from .mixins import FileInfo
+from .abstract import AbstractRunMode, Config
+from .config import ConfigManager
 from .external import include_package, include_files
 
-
 prt = get_printer(__name__)
-
-
-class Activatable:
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-		self._is_activated = False
-
-	@property
-	def is_activated(self):
-		return self._is_activated
-
-	def activate(self, *args, **kwargs):
-		if self._is_activated:
-			return
-		self._activate(*args, **kwargs)
-		self._is_activated = True
-
-	def _activate(self, *args, **kwargs):
-		pass
-
-	def deactivate(self, *args, **kwargs):
-		if not self._is_activated:
-			return
-		self._deactivate(*args, **kwargs)
-		self._is_activated = False
-
-	def _deactivate(self, *args, **kwargs):
-		pass
-
-
-
-class FileInfo(Activatable):
-	@staticmethod
-	def load_raw_info(path: Path):
-		'''Loads the info yaml file'''
-		raw = load_yaml(path, ordered=True) if path.exists() else None
-		if raw is None:
-			raw = {}
-		raw['info_path'] = str(path) # automatically set info_path to the path
-		raw['info_dir'] = str(path.parent)
-		return raw
-
-	def __init__(self, data=None, **kwargs):
-		super().__init__(**kwargs)
-		if isinstance(data, str):
-			data = Path(data)
-		if isinstance(data, Path):
-			data = self.load_raw_info(data)
-		if data is None:
-			data = OrderedDict()
-		self.data = data
-
-	@property
-	def name(self):
-		return self.data.get('name', '-no-name-')
-
-	def __repr__(self):
-		return f'{self.__class__.__name__}({self.name})'
-
-	def __str__(self):
-		return f'{self.__class__.__name__}[{self.name}]({", ".join(self.data.keys())})'
-
-	def extract_info(self, other: 'FileInfo'):
-		self.data = other.data
-
-
-
-class AbstractProject:
-	def main(self, argv, script_name=None):
-		raise NotImplementedError
-
-	def run(self, script_name, config, **meta):
-		raise NotImplementedError
-
-	def quick_run(self, script_name, *parents, **args):
-		raise NotImplementedError
-
-	def cleanup(self, *args, **kwargs):
-		raise NotImplementedError
-
-	def get_config(self, *parents, **parameters):
-		raise NotImplementedError
-
-	def create_component(self, config):
-		raise NotImplementedError
-
-
-class AbstractRunMode(Activatable):
-	def main(self, argv, *, script_name=None):
-		config = self.parse_argv(argv, script_name=script_name)
-		transfer = self.validate_main(config) # can update/modify the project based on the config
-		if transfer is not None:
-			return transfer.main(argv, script_name=script_name)
-		self.activate() # load the project
-		out = self.run(config, script_name=script_name) # run based on the config
-		self.cleanup() # (optional) cleanup
-		return out # return output
-
-	def run(self, config, *, script_name=None, **meta):
-		transfer = self.validate_run(config)
-		if transfer is not None:
-			return transfer.run(config, script_name=script_name)
-		return self.run_local(config, script_name=script_name)
-
-	def cleanup(self, *args, **kwargs):
-		pass
-
-	def validate_main(self, config) -> Optional['Run_Mode']:
-		pass
-
-	def validate_run(self, config) -> Optional['Run_Mode']:
-		pass
-
-	def parse_argv(self, argv, *, script_name=None) -> Config:
-		raise NotImplementedError
-
-	def run_local(self, config, *, script_name=None) -> Any:
-		raise NotImplementedError
-
 
 
 class ProjectBase(AbstractRunMode, FileInfo): # project that should be extended
@@ -173,126 +55,6 @@ class ProjectBase(AbstractRunMode, FileInfo): # project that should be extended
 		return self.run(config, script_name=script_name)
 
 
-
-class MetaRule_Registry(Function_Registry, components=['priority', 'num_args']):
-	pass
-MetaRuleFunction = Callable[[Config, Dict[str, Any]], Config]
-
-
-class ProfileBase(FileInfo): # profile that should be extended
-	meta_rule_registry = MetaRule_Registry()
-	_profile = None
-	def __init_subclass__(cls, **kwargs):
-		super().__init_subclass__(**kwargs)
-		cls._profile = None
-
-	# region Class Methods
-	Project = ProjectBase
-	@classmethod
-	def get_project_type(cls, ident: str):
-		return cls.Project.get_project_type(ident)
-
-	@classmethod
-	def replace_profile(cls, profile: 'ProfileBase' = None) -> 'ProfileBase':
-		if profile is None:
-			profile = cls()
-		Profile._profile = profile
-		old = cls._profile
-		cls._profile = profile
-		return old
-
-	@classmethod
-	def get_profile(cls) -> 'ProfileBase':
-		if cls._profile is None:
-			cls._profile = cls()
-			cls._profile.activate()
-		return cls._profile
-
-	@classmethod
-	def register_meta_rule(cls, name: str, func: MetaRuleFunction,
-	                       priority: Optional[int] = 0, num_args: Optional[int] = 0) -> None:
-		cls.meta_rule_registry.new(name, func, priority=priority, num_args=num_args)
-
-	@classmethod
-	def get_meta_rule(cls, name):
-		return cls.meta_rule_registry.find(name)
-
-	@classmethod
-	def iterate_meta_rules(cls):
-		entries = list(cls.meta_rule_registry.values())
-		for entry in sorted(entries, key=lambda e: (e.priority, e.name), reverse=True):
-			yield entry
-
-	@classmethod
-	def iterate_meta_rule_fns(cls):
-		for entry in cls.iterate_meta_rules():
-			yield entry.fn
-	# endregion
-
-	def __init__(self, data: Dict = None):
-		super().__init__(data)
-		self._loaded_projects = OrderedDict()
-		self._current_project_key = None
-
-	# region Top Level Methods
-	def entry(self, script_name=None):
-		argv = sys.argv[1:]
-		self.main(argv, script_name=script_name)
-
-	def initialize(self, *projects, **kwargs):
-		self.activate(**kwargs)
-		for project in projects:
-			self.get_project(project)
-
-	def main(self, argv, *, script_name=None):
-		return self.get_current_project().main(argv, script_name=script_name)
-
-	def run(self, config, *, script_name=None, **meta):
-		return self.get_current_project().run(config, script_name=script_name, **meta)
-
-	def quick_run(self, script_name, *parents, **args):
-		return self.get_current_project().quick_run(script_name, *parents, **args)
-
-	def cleanup(self, *args, **kwargs):
-		return self.get_current_project().cleanup(*args, **kwargs)
-
-	# def find_artifact(self, artifact_type, ident, **kwargs):
-	# 	return self.get_current_project().find_artifact(artifact_type, ident, **kwargs)
-	#
-	# def register_artifact(self, artifact_type, ident, artifact, **kwargs):
-	# 	return self.get_current_project().register_artifact(artifact_type, ident, artifact, **kwargs)
-	#
-	# def iterate_artifacts(self, artifact_type):
-	# 	return self.get_current_project().iterate_artifacts(artifact_type)
-	# endregion
-
-	def __str__(self):
-		return f'{self.__class__.__name__}[{self.name}]({", ".join(self._loaded_projects)})'
-
-	def extract_info(self, other: 'ProfileBase') -> None:
-		super().extract_info(other)
-		self._loaded_projects = other._loaded_projects#.copy()
-		self._current_project_key = other._current_project_key
-
-	def get_current_project(self) -> ProjectBase:
-		return self.get_project(self._current_project_key)
-
-	def switch_project(self, ident=None) -> ProjectBase:
-		proj = self.get_project(ident)
-		self._current_project_key = proj.name
-		return proj
-
-	def iterate_projects(self) -> Iterator[ProjectBase]:
-		yield from self._loaded_projects.values()
-
-	def get_project(self, ident=None):
-		raise NotImplementedError
-
-
-Meta_Rule = ProfileBase.meta_rule_registry.get_decorator(detaults={'priority': 0, 'num_args': 0})
-
-
-class TerminationFlag(KeyboardInterrupt): pass
 
 
 class GeneralProject(ProjectBase, name='general'):
@@ -389,7 +151,7 @@ class GeneralProject(ProjectBase, name='general'):
 	def parse_argv(self, argv, *, script_name=None) -> Config:
 		return self.config_manager.parse_argv(argv, script_name=script_name)
 
-	TerminationFlag = TerminationFlag
+	TerminationFlag = Meta_Rule.TerminationFlag
 	def _check_meta_rules(self, config, meta):
 		for rule in self._profile.iterate_meta_rules():
 			try:
@@ -475,7 +237,6 @@ class GeneralProject(ProjectBase, name='general'):
 	def iterate_scripts(self):
 		return self.iterate_artifacts('script')
 	# endregion
-	
 	pass
 
 
