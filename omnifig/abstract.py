@@ -65,7 +65,7 @@ class AbstractConfigManager:
 	def find_config_path(self, name: str) -> Path:
 		raise NotImplementedError
 
-	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = None) -> AbstractConfig:
+	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> AbstractConfig:
 		raise NotImplementedError
 
 	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None) -> AbstractConfig:
@@ -73,13 +73,17 @@ class AbstractConfigManager:
 	
 	ConfigNode = None
 	
+	def load_config(self, path: Union[str, Path]) -> AbstractConfig:
+		raise NotImplementedError
+	
 	def configurize(self, raw: Any):
 		raise NotImplementedError
 	
 	def merge_configs(self, *configs: AbstractConfig) -> AbstractConfig:
 		raise NotImplementedError
 
-	def update_config(self, base: AbstractConfig, update: AbstractConfig) -> AbstractConfig:
+	@staticmethod
+	def update_config(base: AbstractConfig, update: AbstractConfig) -> AbstractConfig:
 		raise NotImplementedError
 
 

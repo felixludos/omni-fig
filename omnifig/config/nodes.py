@@ -6,7 +6,7 @@ from collections import OrderedDict
 from omnibelt import get_printer, unspecified_argument, extract_function_signature, JSONABLE, Primitive
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
-from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable
+from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager
 from .creator import DefaultCreator
 from .search import ConfigSearchBase, SimpleTrace, SimpleSearch
 from .reporter import ConfigReporter, ConfigReporterBase
@@ -127,7 +127,29 @@ class SimpleConfigNode(_ConfigNode):
 class ConfigNode(_ConfigNode):
 	DummyNode: 'ConfigNode' = None
 	Settings = OrderedDict
-
+	
+	@classmethod
+	def from_raw(cls, raw: Any, *, parent: Optional['ConfigNode'] = unspecified_argument, **kwargs) -> 'ConfigNode':
+		if isinstance(raw, ConfigNode):
+			raw.parent = parent
+			return raw
+		if isinstance(raw, dict):
+			node = cls.SparseNode(parent=parent, **kwargs)
+			for key, value in raw.items():
+				child = cls.from_raw(value, parent=node, **kwargs)
+				if key in node:
+					node.get(key).update(child)
+				else:
+					node.set(key, child, **kwargs)
+		elif isinstance(raw, (tuple, list)):
+			node = cls.DenseNode(parent=parent, **kwargs)
+			for idx, value in enumerate(raw):
+				idx = str(idx)
+				node.set(idx, cls.from_raw(value, parent=node, **kwargs), **kwargs)
+		else:
+			node = cls.DefaultNode(payload=raw, parent=parent, **kwargs)
+		return node
+	
 	class Search(SimpleSearch):
 		def sub_search(self, origin, queries):
 			out = self.__class__(origin=origin, queries=queries, default=origin.empty_default,
@@ -571,11 +593,12 @@ class ConfigNode(_ConfigNode):
 		return out
 
 	def __init__(self, *args, reporter: Optional[Reporter] = None, settings: Optional[Settings] = None,
-	             project: Optional[AbstractProject] = None, **kwargs):
+	             project: Optional[AbstractProject] = None, manager: Optional[AbstractConfigManager] = None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self._project = project
 		self._trace = None
 		self._product = None
+		self._manager = manager
 		self._reporter = reporter
 		self._settings = settings
 		if self.reporter is None:
@@ -598,6 +621,21 @@ class ConfigNode(_ConfigNode):
 		else:
 			parent.project = project
 
+	@property
+	def manager(self):
+		if self._manager is None:
+			parent = self.parent
+			if parent is not None:
+				return parent.manager
+		return self._manager
+	# @manager.setter
+	# def manager(self, manager: AbstractConfigManager):
+	# 	parent = self.parent
+	# 	if parent is None:
+	# 		self._manager = manager
+	# 	else:
+	# 		parent.manager = manager
+	
 	@property
 	def trace(self) -> Optional[Search]:
 		return self._trace
@@ -715,7 +753,11 @@ class ConfigNode(_ConfigNode):
 	def __repr__(self):
 		return f'<{self.__class__.__name__} {len(self)} children>'
 
-	def update(self, update: 'ConfigNode', *, clear_product: bool = True) -> 'ConfigNode':
+	def update(self, update: 'ConfigNode', *, clear_product: bool = True, **kwargs) -> 'ConfigNode':
+		# manager = self.manager
+		# if manager is not None:
+		# 	return manager.update(self, update, clear_product=clear_product, **kwargs)
+		
 		if clear_product:
 			self.clear_product()
 			update.clear_product()

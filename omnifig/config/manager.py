@@ -5,6 +5,7 @@ import io
 import yaml
 from c3linearize import linearize
 from omnibelt import Path_Registry, load_yaml, JSONABLE, unspecified_argument
+from omnibelt.nodes import LocalNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractConfigManager
 from .nodes import ConfigNode
@@ -177,11 +178,8 @@ class ConfigManager(AbstractConfigManager):
 	def _find_config_parents(raw: Dict[str, Any]) -> List[str]:
 		return raw.get('parents', [])
 
-	def _configurize(self, raw: JSONABLE) -> AbstractConfig:
-		return self.ConfigNode.from_raw(raw)
-
 	def _merge_raw_configs(self, raws: List[JSONABLE]) -> AbstractConfig:
-		singles = [self._configurize(raw) for raw in raws]
+		singles = [self.configurize(raw) for raw in raws]
 
 		if not len(singles):
 			return self.ConfigNode.from_raw({})
@@ -244,8 +242,48 @@ class ConfigManager(AbstractConfigManager):
 
 		merged.settings = merged.pull('_meta.settings', {}, silent=True)
 		return merged
+	
+	def load_config(self, path: Union[str, Path]) -> AbstractConfig:
+		if path.suffix in ('.yaml', '.yml'):
+			return load_yaml(path, ordered=True)
+		raise ValueError(f'Unknown config file type: {path}')
 
-
+	def _configurize(self, raw: JSONABLE, parent: Optional[ConfigNode] = None, **kwargs) -> AbstractConfig:
+		return self.ConfigNode.from_raw(raw, parent=parent, **kwargs)
+		# if isinstance(raw, LocalNode):
+		# 	raw.parent = parent
+		# 	return raw
+		# if isinstance(raw, dict):
+		# 	node = self.ConfigNode.SparseNode(parent=parent, **kwargs)
+		# 	for key, value in raw.items():
+		# 		if key in node:
+		# 			node.get(key).update(self._configurize(value, parent=node, **kwargs))
+		# 		else:
+		# 			node.set(key, self._configurize(value, parent=node, **kwargs), **kwargs)
+		# elif isinstance(raw, (tuple, list)):
+		# 	node = self.ConfigNode.DenseNode(parent=parent, **kwargs)
+		# 	for idx, value in enumerate(raw):
+		# 		idx = str(idx)
+		# 		node.set(idx, self._configurize(value, parent=node, **kwargs), **kwargs)
+		# else:
+		# 	node = self.ConfigNode.DefaultNode(payload=raw, parent=parent, **kwargs)
+		# return node
+		
+	def configurize(self, raw: JSONABLE):
+		return self._configurize(raw)
+	
+	def merge_configs(self, *configs: AbstractConfig) -> AbstractConfig:
+		merged = self.create_config()
+		
+		todo = list(configs)
+		while len(todo):
+			self.update_config(merged, todo.pop())
+		return merged
+	
+	@staticmethod
+	def update_config(base: AbstractConfig, update: AbstractConfig, *, clear_product=True) -> AbstractConfig:
+		return base.update(update)
+		
 
 
 
