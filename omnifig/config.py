@@ -3,7 +3,7 @@
 from omnibelt import primitive
 
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator
+	Iterator, Self
 from collections import OrderedDict
 from c3linearize import linearize
 from omnibelt import unspecified_argument, Singleton, extract_function_signature
@@ -18,8 +18,69 @@ from omnibelt import Path_Registry, load_yaml
 from .organization import Project
 
 
-class Config: # TODO: abstract class that defines the config interface/ops
-	pass
+class Config: # TODO: copy, deepcopy, etc
+	empty_default = unspecified_argument
+
+	@property
+	# TODO: use @abstractmethod here
+	def project(self):
+		raise NotImplementedError
+	@project.setter
+	def project(self, project):
+		raise NotImplementedError
+
+	def peek(self, query: str, default: Optional[Any] = empty_default) -> 'Config':
+		return self.peeks(query, default=default)
+
+	def peeks(self, *queries, default: Optional[Any] = empty_default) -> 'Config':
+		raise NotImplementedError
+
+	def pull(self, query: str, default: Optional[Any] = empty_default) -> Any:
+		return self.pulls(query, default=default)
+
+	def pulls(self, *queries: str, default: Optional[Any] = empty_default) -> Any:
+		raise NotImplementedError
+
+	def push(self, addr: str, value: Any, overwrite: bool = True) -> bool:
+		raise NotImplementedError
+
+	def push_pull(self, addr: str, value: Any, overwrite: bool = True) -> Any:
+		self.push(addr, value, overwrite=overwrite)
+		return self.pull(addr)
+
+	def update(self, update: 'Config') -> Self:
+		raise NotImplementedError
+
+
+class Creator:
+	# @classmethod
+	# def trigger(cls, config: Config) -> Optional[Dict[str, Any]]:
+	# 	raise NotImplementedError
+
+	@classmethod
+	def from_search(cls, search):
+		raise NotImplementedError
+
+	@classmethod
+	def replace(cls, creator: 'Creator', config: Config, **kwargs):
+		return cls(config, **kwargs)
+
+	def __init__(self, config: Config, **kwargs):
+		super().__init__(**kwargs)
+		# self.config = config
+
+	def validate(self, config) -> Union[Self, 'Creator']:
+		return self
+
+	def report(self, reporter, search=None):
+		pass
+
+	def create(self, config, args=None, kwargs=None) -> Any:
+		raise NotImplementedError
+
+	def silence(self, silent=True):
+		raise NotImplementedError
+
 
 
 class ConfigManager:
@@ -247,7 +308,64 @@ class ConfigReporter:
 		return msg
 
 
-class SimpleConfigNode(AutoTreeNode):
+class _ConfigNode(Config, AutoTreeNode):
+	def __init__(self, *args, project: Optional[Project] = None, **kwargs):
+		super().__init__(*args, **kwargs)
+		self._project = project
+
+
+	@property
+	def root(self) -> '_ConfigNode':
+		parent = self.parent
+		if parent is None:
+			return self
+		return parent.root
+
+	@property
+	def project(self):
+		return self.root._project
+	@project.setter
+	def project(self, value):
+		self.root._project = value
+
+	@property
+	def silent(self):
+		raise NotImplementedError
+	@silent.setter
+	def silent(self, value):
+		raise NotImplementedError
+
+
+# class Editable(_ConfigNode):
+	def __init__(self, *args, readonly=False, **kwargs):
+		super().__init__(*args, **kwargs)
+		self._readonly = readonly
+
+	@property
+	def readonly(self):
+		return self.root._readonly
+	@readonly.setter
+	def readonly(self, value):
+		self.root._readonly = value
+
+	class ReadOnlyError(Exception):
+		pass
+
+	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
+		if self.readonly:
+			raise self.ReadOnlyError('Cannot push to read-only node')
+		try:
+			existing = self.get(addr)
+		except self.MissingKey:
+			existing = None
+
+		if existing is None or overwrite:
+			self.set(addr, value)
+			return True
+		return False
+
+
+class SimpleConfigNode(_ConfigNode):
 	class Search:
 		def __init__(self, origin, queries, default=unspecified_argument, **kwargs):
 			super().__init__(**kwargs)
@@ -291,35 +409,23 @@ class SimpleConfigNode(AutoTreeNode):
 				return self.default
 			return self.result_node.payload
 
-	def __init__(self, *args, readonly=False, **kwargs):
+	def __init__(self, *args, silent=False, **kwargs):
 		super().__init__(*args, **kwargs)
-		self._readonly = readonly
+		self._silent = silent
 
 	@property
-	def root(self):
-		parent = self.parent
-		if parent is None:
-			return self
-		return parent.root
+	def silent(self):
+		return self.root._silent
+	@silent.setter
+	def silent(self, value):
+		self.root._silent = value
 
-	@property
-	def readonly(self):
-		return self._readonly
-
-	@readonly.setter
-	def readonly(self, value):
-		self._readonly = value
-
-	empty_default = unspecified_argument
-
-	class ReadOnlyError(Exception):
-		pass
 
 	def search(self, *queries, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
 	           **kwargs) -> Search:
 		return self.Search(origin=self, queries=queries, default=default, **kwargs)
 
-	def peek(self, *queries, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
+	def peeks(self, *queries, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
 	         **kwargs) -> 'SimpleConfigNode':
 		return self.search(*queries, default=default, **kwargs).find_node()
 
@@ -331,25 +437,16 @@ class SimpleConfigNode(AutoTreeNode):
 	          **kwargs) -> Any:
 		return self.search(*queries, default=default, silent=silent, **kwargs).evaluate()
 
-	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
-		if self.readonly:
-			raise self.ReadOnlyError('Cannot push to read-only node')
-		try:
-			existing = self.get(addr)
-		except self.MissingKey:
-			existing = None
-
-		if existing is None or overwrite:
-			self.set(addr, value)
-			return True
-		return False
-
 	def push_pull(self, addr: str, value: Any, overwrite: bool = True, **kwargs) -> Any:
 		self.push(addr, value, overwrite=overwrite)
 		return self.pull(addr, **kwargs)
 
+	def create(self, config, args=None, kwargs=None) -> Any:
+		raise NotImplementedError
 
-class ConfigNode(SimpleConfigNode):
+
+
+class ConfigNode(_ConfigNode):
 	class Reporter(ConfigReporter):
 		def __init__(self, indent=' > ', flair='| ', transfer=' --> ', colon=': ',
 		             prefix_fmt='{prefix}', suffix_fmt=' (by {suffix!l})', max_num_aliases=3, **kwargs):
@@ -466,6 +563,106 @@ class ConfigNode(SimpleConfigNode):
 		def silence(self, silent=True):
 			return self.Silencer(self, silent=silent)
 
+	def silence(self, silent=True):
+		return self.reporter.silence(silent)
+
+	class DefaultCreator(Creator):
+		_config_component_key = '_type'
+		_config_modifier_key = '_mod'
+		_config_creator_key = '_creator'
+
+		@classmethod
+		def replace(cls, creator: 'ConfigNode.DefaultCreator', component_type=None, modifiers=None,
+		            project=unspecified_argument, component_entry=unspecified_argument, search=unspecified_argument,
+		            **kwargs):
+			if component_type is None:
+				component_type = creator.component_type
+			if modifiers is None:
+				modifiers = creator.modifiers
+			if project is unspecified_argument:
+				project = creator.project
+			if component_entry is unspecified_argument:
+				component_entry = creator.component_entry
+			if search is unspecified_argument:
+				search = creator.search
+			return super().replace(creator, component_type=component_type, modifiers=modifiers, search=search,
+			                       project=project, component_entry=component_entry, **kwargs)
+
+		def __init__(self, config: Config, *, component_type: str = None, modifiers: Optional[Sequence[str]] = None,
+		             project: Optional[Project] = None, component_entry: Optional = None, search: Optional = None,
+		             **kwargs):
+			if component_type is None:
+				component_type = config.pull(self._config_component_key, None, silent=True)
+			if modifiers is None:
+				modifiers = config.pull(self._config_modifier_key, None, silent=True)
+				if modifiers is None:
+					modifiers = []
+				elif isinstance(modifiers, dict):
+					modifiers = [mod for mod, _ in sorted(modifiers.items(), key=lambda x: (x[1], x[0]))]
+				elif isinstance(modifiers, str):
+					modifiers = [modifiers]
+				else:
+					raise ValueError(f'Invalid modifier: {modifiers!r}')
+			if project is None:
+				project = config.project
+			super().__init__(config, **kwargs)
+			if project is None:
+				project = get_current_project()
+			self.project = project
+			self.component_type = component_type
+			self.modifiers = modifiers
+			self.component_entry = component_entry
+			self.search = search
+
+		def validate(self, config) -> 'DefaultCreator':
+			if self.component_entry is None:
+				self.component_entry = self.project.find_component(self.component_type)
+			creator = config.pull(self._config_creator_key, self.component_entry.creator, silent=True)
+			if creator is not None:
+				entry = self.project.find_creator(creator)
+				if type(self) != entry.cls:
+					return entry.cls.replace(self, config).validate(config)
+			return self
+
+		def _create_component(self, config, args=(), kwargs=None, *, silent=None) -> None:
+			pass
+
+		def create(self, config, args=(), kwargs=None, *, silent=None) -> Any:
+			if kwargs is None:
+				kwargs = {}
+
+			if self.component_type is None:
+				raise NotImplementedError
+
+
+			if self.component_entry is None:
+				self.component_entry = self.project.find_component(self.component_type)
+			cls = self.component_entry.cls
+			assert isinstance(cls, type), f'This creator can only be used for components that are classes: {cls!r}'
+
+			mods = [self.project.find_modifier(mod).cls for mod in self.modifiers]
+			if len(mods):
+				bases = (*reversed(mods), cls)
+				cls = type('_'.join(base.__name__ for base in bases), bases, {})
+
+			if issubclass(cls, ConfigurableBase):
+				return cls.init_from_config(config, args, kwargs, silent=silent)
+			fixed_args, fixed_kwargs = self._fix_args_and_kwargs(cls.__init__, args, kwargs, silent=silent)
+			return cls(*fixed_args, **fixed_kwargs)
+
+		def _fix_args_and_kwargs(self, fn, args, kwargs, *, silent=None):
+			def default_fn(key, default=Parameter.empty):
+				if default is Parameter.empty:
+					default = unspecified_argument
+				return self.pull(key, default, silent=silent)
+
+			return extract_function_signature(fn, args, kwargs, default_fn=default_fn)
+			if len(args) == 1 and isinstance(args[0], dict):
+				kwargs = args[0]
+				args = ()
+			return args, kwargs
+
+
 	class Search(SimpleConfigNode.Search):
 		def __init__(self, origin, queries, default=unspecified_argument, silent=None,
 		             ask_parent=True, lazy_iterator=None, parent_search=(), **kwargs):
@@ -477,11 +674,12 @@ class ConfigNode(SimpleConfigNode):
 			self.query_chain = []
 			self._ask_parent = ask_parent
 			self.lazy_iterator = lazy_iterator
+			self.remaining_queries = iter(queries)
 			self.parent_search = parent_search
 
 		_confidential_prefix = '_'
 
-		def _resolve_query(self, src, query, *remainder):
+		def _resolve_query(self, src, query=None):
 			try:
 				result = src.get(query)
 			except src.MissingKey:
@@ -495,10 +693,13 @@ class ConfigNode(SimpleConfigNode):
 						else:
 							self.query_chain.append(f'.{query}')
 							return result
-				if len(remainder):
-					self.query_chain.append(query)
-					return self._resolve_query(src, *remainder)
-				raise self.SearchFailed(f'No such key: {query!r}')
+				self.query_chain.append(query)
+				try:
+					next_query = next(self.remaining_queries)
+				except StopIteration:
+					raise self.SearchFailed(f'No such key: {query!r}')
+				else:
+					return self._resolve_query(src, next_query)
 			else:
 				self.query_chain.append(query)
 				return result
@@ -537,6 +738,8 @@ class ConfigNode(SimpleConfigNode):
 			return node
 
 		def package_payload(self, node: 'ConfigNode'):  # creates components
+			return node._create(search=self)
+
 			if node.has_payload:
 				payload = node.payload
 				self.action = 'primitive'
@@ -575,9 +778,6 @@ class ConfigNode(SimpleConfigNode):
 			else:
 				# create component
 				return node._create_component(cmpn, mods, record_key=node.reporter.get_key(self), silent=self.silent)
-
-		def silence(self, silent=True):
-			return self.reporter.silence(silent)
 
 		def sub_search(self, node, key):
 			return self.__class__(node, (key,), parent_search=(*self.parent_search, self),
@@ -620,77 +820,19 @@ class ConfigNode(SimpleConfigNode):
 	# 	self.reporter = reporter
 	# 	self.editor = editor
 
-	def __init__(self, *args, project: Optional[Project] = None, reporter: Optional[Reporter] = None, **kwargs):
+	def __init__(self, *args, reporter: Optional[Reporter] = None, **kwargs):
 		if reporter is None:
 			reporter = self.Reporter()
 		super().__init__(*args, **kwargs)
 		self.reporter = reporter
-		self._project = project
 
-	_component_type_key = '_type'
-	_component_mod_key = '_mod'
-
-	class UnknownComponentType(ValueError):
-		pass
-
-	class NoComponentFound(ValueError):
-		pass
-
-	def _extract_component_info(self) -> Tuple[str, Sequence[str]]:
-		cmpn = self.pull(self._component_type_key, None, silent=True)
-		if cmpn is None:
-			raise self.NoComponentFound
-
-		mods = self.pull(self._component_mod_key, None, silent=True)
-		if mods is None:
-			mods = []
-		elif isinstance(mods, dict):
-			mods = [mod for mod, _ in sorted(mods.items(), key=lambda x: (x[1], x[0]))]
-		elif isinstance(mods, str):
-			mods = [mods]
-		else:
-			raise ValueError(f'Invalid modifier: {mods!r}')
-		return cmpn, mods
-
-	def _fix_args_and_kwargs(self, fn, args, kwargs, *, silent=None):
-		def default_fn(key, default=Parameter.empty):
-			if default is Parameter.empty:
-				default = unspecified_argument
-			return self.pull(key, default, silent=silent)
-
-		return extract_function_signature(fn, args, kwargs, default_fn=default_fn)
-		if len(args) == 1 and isinstance(args[0], dict):
-			kwargs = args[0]
-			args = ()
-		return args, kwargs
-
-	def _create_component(self, component_type: str, mod_types: Sequence[str],
-	                      args: Tuple = (), kwargs: Dict[str, Any] = None, *,
-	                      record_key: Optional[str] = None, silent: Optional[bool] = None):
-		if kwargs is None:
-			kwargs = {}
-
-		self.reporter.component_creation(self, record_key, component_type, mod_types, silent=silent)
-
-		project = self.project
-		cmpn = project.find_component(component_type)
-		mods = [project.find_modifier(mod).fn for mod in mod_types]
-
-		cls = cmpn.fn
-		if len(mods):
-			bases = (*reversed(mods), cmpn)
-			cls = type('_'.join(base.__name__ for base in bases), bases, {})
-
-		if type(cls) is type:
-			if issubclass(cls, Configurable):
-				return cls.init_from_spec(self, args, kwargs, silent=silent)
-			fixed_args, fixed_kwargs = self._fix_args_and_kwargs(cls.__init__, args, kwargs, silent=silent)
-			return cls(*fixed_args, **fixed_kwargs)
-		else:
-			return cls(self)
+	def _create(self, component_args=(), component_kwargs=None, **kwargs):
+		return self.DefaultCreator(self, **kwargs).validate(self)\
+			.create(self, args=component_args, kwargs=component_kwargs)
 
 	def create(self, *args, **kwargs):
-		return self._create_component(*self._extract_component_info(), args=args, kwargs=kwargs)
+		# return self._create_component(*self._extract_component_info(), args=args, kwargs=kwargs)
+		return self._create(args, kwargs)
 
 	def __repr__(self):
 		return f'<{self.__class__.__name__} {len(self)} children>'
@@ -708,34 +850,12 @@ class ConfigNode(SimpleConfigNode):
 			else:
 				self[key] = child
 
-	def set_project(self, project):
-		self.root._project = project
-
-	# def sub(self, key, **kwargs):
-	# 	return self.peek(key, **kwargs)
-
-	@property
-	def project(self):
-		if self._project is None:
-			if not self.has_parent:
-				raise ValueError('No project found')
-			return self.parent.project
-		return self._project
-
 	@property
 	def silent(self):
 		return self.reporter.silent
-
 	@silent.setter
 	def silent(self, value):
 		self.reporter.silent = value
-
-	# @property
-	# def readonly(self):
-	# 	return self.editor.readonly
-	# @readonly.setter
-	# def readonly(self, value):
-	# 	self.editor.readonly = value
 
 	def set(self, addr: str, value: Any, reporter=None, **kwargs) -> 'ConfigNode':
 		# if editor is None:

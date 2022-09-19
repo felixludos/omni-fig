@@ -1,5 +1,8 @@
 
 import sys, os
+from pathlib import Path
+from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
+	Iterator
 
 from omnibelt import get_printer, resolve_order, monkey_patch
 
@@ -7,20 +10,34 @@ from .external import include_files
 
 from .util import global_settings
 
+from .novo_root import get_profile, ProjectBase
 
 prt = get_printer(__name__)
 
 # region Projects
 
-from .loading import get_profile
+# from .loading import get_profile
 
-def get_current_project():
+def get_current_project() -> ProjectBase:
 	'''Get the current project, assuming a profile is loaded, otherwise returns None'''
 	return get_profile().get_current_project()
 
-def get_project(ident=None):
+
+def get_project(ident: Union[str, Path]  = None) -> ProjectBase:
 	'''Checks the profile to return (and possibly load) a project given the name or path ``ident``'''
 	return get_profile().get_project(ident)
+
+
+def switch_project(ident: Union[str, Path] = None) -> ProjectBase:
+	'''Switches the current project to the one of thegiven the project name or path ``ident``'''
+	return get_profile().switch_project(ident)
+
+
+def iterate_projects() -> Iterator[ProjectBase]:
+	'''Iterate over all loaded projects'''
+	return get_profile().iterate_projects()
+
+
 
 # endregion
 
@@ -38,11 +55,10 @@ def entry(script_name=None):
 	:param script_name: script to be run (may be set with arguments) (overrides other arguments if provided)
 	:return: None
 	'''
-	argv = sys.argv[1:]
-	main(*argv, script_name=script_name)
+	get_profile().entry(script_name=script_name)
 
 
-def main(*argv, script_name=None):
+def main(argv, *, script_name=None):
 	'''
 	Runs the desired script using the provided ``argv`` which are treated as command line arguments
 
@@ -53,20 +69,10 @@ def main(*argv, script_name=None):
 	:param script_name: name of registered script to be run (may be set with arguments) (overrides other arguments if provided)
 	:return: output of script that is run
 	'''
-	
-	initialize()
-	
-	project = get_current_project()
-	
-	config = project.process_argv(argv, script_name=script_name)
-	out = project.run(config=config)
-	
-	cleanup()
-	
-	return out
+	get_profile().main(argv, script_name=script_name)
 
 
-def run(script_name, config, **meta):
+def run(config, *, script_name=None, **meta):
 	'''
 	Runs the specified script registered with ``script_name`` using the current project.
 	
@@ -75,7 +81,7 @@ def run(script_name, config, **meta):
 	:param meta: any meta rules that modify the way the script is run
 	:return: output of the script, raises MissingScriptError if the script is not found
 	'''
-	return get_current_project().run(script_name=script_name, config=config, **meta)
+	return get_profile().run(config, script_name=script_name, **meta)
 
 
 def quick_run(script_name, *parents, **args):
@@ -88,11 +94,10 @@ def quick_run(script_name, *parents, **args):
 	:param args: any additional arguments to be provided manually
 	:return: script output
 	'''
-	config = get_config(*parents, **args)
-	return run(script_name, config)
+	return get_profile().quick_run(script_name, *parents, **args)
 
 
-def initialize(*projects, **overrides):
+def intialize(*projects, **overrides):
 	'''
 	Initializes omni-fig by running the "princeps" file (if one exists),
 	loading the profile, and any active projects. Additionally loads the
@@ -108,27 +113,29 @@ def initialize(*projects, **overrides):
 	:param overrides: settings to be checked before defaulting to ``os.environ`` or global settings
 	:return: None
 	'''
-	
-	# princeps script
-	princeps_path = resolve_order(global_settings['princeps_path'], overrides, os.environ)
-	if not global_settings['disable_princeps'] and princeps_path is not None:
-		try:
-			include_files(princeps_path)
-		except Exception as e:
-			prt.critical(f'Failed to run princeps: {princeps_path}')
-			raise e
-	
-	# load profile
-	profile = get_profile(**overrides)
-	
-	# load project/s
-	profile.initialize()
-	
-	for proj in projects:
-		profile.load_project(proj)
+
+	# # princeps script
+	# princeps_path = resolve_order(global_settings['princeps_path'], overrides, os.environ)
+	# if not global_settings['disable_princeps'] and princeps_path is not None:
+	# 	try:
+	# 		include_files(princeps_path)
+	# 	except Exception as e:
+	# 		prt.critical(f'Failed to run princeps: {princeps_path}')
+	# 		raise e
+	#
+	# # load profile
+	# profile = get_profile(**overrides)
+	#
+	# # load project/s
+	# profile.initialize()
+	#
+	# for proj in projects:
+	# 	profile.load_project(proj)
+
+	return get_profile().initialize(*projects, **overrides)
 
 
-def cleanup(**overrides):
+def cleanup(*args, **kwargs):
 	'''
 	Cleans up the projects and profile, which by default just updates the project/profile info
 	yaml file if new information was added to the project/profile.
@@ -138,7 +145,7 @@ def cleanup(**overrides):
 	:param overrides: settings to check before defaulting to global settings or ``os.environ``
 	:return: None
 	'''
-	get_profile(**overrides).cleanup()
+	return get_profile().cleanup(*args, **kwargs)
 
 # endregion
 

@@ -1,12 +1,15 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
 	Iterator, NewType
 from inspect import Parameter
-from omnibelt import extract_function_signature, duplicate_class
-from .top import register_script, register_component, register_modifier, register_creator
+from omnibelt import extract_function_signature, get_printer
+# from .top import register_script, register_component, register_modifier, register_creator
 from .config import Config
+from .novo_root import get_current_project, ProjectBase, GeneralProject, Profile
 # from .util import autofill_args
 
-Product = NewType('Product', Any)
+prt = get_printer(__name__)
+
+Product = Any
 RawCallableItem = Callable[[...], Product]
 ConfigCallableItem = Callable[[Config], Product]
 ModifierCallableItem = Callable[[ConfigCallableItem], ConfigCallableItem]
@@ -35,19 +38,35 @@ class _Registration_Decorator:
 		raise NotImplementedError
 
 
+class _Project_Registration_Decorator(_Registration_Decorator):
+	'''Registration decorator which registers the item with the current project'''
+	def register(self, name: str, item: ConfigCallableItem, project=None, **kwargs) -> None:
+		if project is None:
+			project = get_current_project()
+		self.register_project(project, name, item, **kwargs)
+
+	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem, **kwargs) -> None:
+		raise NotImplementedError
+
+
 
 class Script(_Registration_Decorator):
 	'''Decorator to register a script'''
 
-	def __init__(self, name: Optional[str] = None, description: Optional[str] = None):
+	def __init__(self, name: Optional[str] = None, description: Optional[str] = None) -> None:
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
-		:param description: a short description of what the script does
+		:param description: a short description of what the script does (defaults to first line of its docstring)
 		'''
 		super().__init__(name=name, description=description)
 
-	def register(self, name: str, item: ConfigCallableItem, **kwargs) -> None:
-		register_script(name, item, **self.kwargs)
+	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem,
+	                     description: Optional[str] = None, **kwargs) -> None:
+		if description is None and item.__doc__ is not None:
+			description = item.__doc__.split('\n')[0]
+		if not isinstance(project, GeneralProject):
+			prt.error(f'Cannot register script {name} for project {project} (not a "general" project)')
+		project.register_script(name, item, description=description, **kwargs)
 
 
 
@@ -58,29 +77,36 @@ class Creator(_Registration_Decorator):
 		'''
 		super().__init__(name=name)
 
-	def register(self, name: str, item: ConfigCallableItem, **kwargs) -> None:
-		register_creator(name, item, **kwargs)
+	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem, **kwargs) -> None:
+		if not isinstance(project, Profile.Project):
+			prt.error(f'Cannot register creator {name} for project {project} (not a "default" project)')
+		project.register_creator(name, item, **kwargs)
 
 
 
 class Component(_Registration_Decorator):
 	'''Decorator to register a component (expected to be a type)'''
 
-	def __init__(self, name: Optional[str] = None, creator: Optional[Union[str, Creator]] = None):
+	def __init__(self, name: Optional[str] = None, creator: Optional[str] = None):
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
 		'''
 		super().__init__(name=name, creator=creator)
 
-	def register(self, name: str, item: ConfigCallableItem, **kwargs) -> None:
-		register_component(name, item, **kwargs)
+	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem,
+	                     creator: Optional[Union[str, Creator]] = None, **kwargs) -> None:
+		if not isinstance(project, Profile.Project):
+			prt.error(f'Cannot register component {name} for project {project} (not a "default" project)')
+		project.register_component(name, item, creator=creator, **kwargs)
 
 
 
 class Modifier(_Registration_Decorator):
 	'''Decorator to register a modifier (expected be a type)
 
-	Modifiers are used as dynamic mixins for components. They are specified using the `_mod` key in the config.
+	Modifiers are "runtime mixins" for components. When specifying a component to be modified with the `_mod` key
+	in the config, a new type is dynamically created which is a child of all the specified modifiers as well as
+	the original component.
 	'''
 	def __init__(self, name: Optional[str] = None):
 		'''
@@ -88,9 +114,10 @@ class Modifier(_Registration_Decorator):
 		'''
 		super().__init__(name=name)
 
-	def register(self, name: str, item: ConfigCallableItem, **kwargs) -> None:
-		register_modifier(name, item, **kwargs)
-
+	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem, **kwargs) -> None:
+		if not isinstance(project, Profile.Project):
+			prt.error(f'Cannot register modifier {name} for project {project} (not a "default" project)')
+		project.register_modifier(name, item, **kwargs)
 
 
 

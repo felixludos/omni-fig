@@ -7,6 +7,7 @@ from omnibelt import get_printer, load_yaml, agnosticmethod, Class_Registry, Fun
 from omnibelt import unspecified_argument
 
 from .config import ConfigManager, Config
+from .external import include_package, include_files
 
 
 prt = get_printer(__name__)
@@ -238,6 +239,11 @@ class ProfileBase(FileInfo): # profile that should be extended
 		argv = sys.argv[1:]
 		self.main(argv, script_name=script_name)
 
+	def initialize(self, *projects, **kwargs):
+		self.activate(**kwargs)
+		for project in projects:
+			self.get_project(project)
+
 	def main(self, argv, *, script_name=None):
 		return self.get_current_project().main(argv, script_name=script_name)
 
@@ -282,13 +288,14 @@ class ProfileBase(FileInfo): # profile that should be extended
 	def get_project(self, ident=None):
 		raise NotImplementedError
 
+
 Meta_Rule = ProfileBase.meta_rule_registry.get_decorator(detaults={'priority': 0, 'num_args': 0})
 
 
 class TerminationFlag(KeyboardInterrupt): pass
 
 
-class GeneralProject(ProjectBase, name='simple'):
+class GeneralProject(ProjectBase, name='general'):
 	_info_file_names = {
 		'omni.fig', 'info.fig', '.omni.fig', '.info.fig',
 		'fig.yaml', 'fig.yml', '.fig.yaml', '.fig.yml',
@@ -328,6 +335,25 @@ class GeneralProject(ProjectBase, name='simple'):
 		self._artifact_registries = {
 			'script': script_registry,
 		}
+
+	def _activate(self, *args, **kwargs):
+		super()._activate(*args, **kwargs)
+		self.load_configs(self.data.get('configs', []))
+		self.load_src(self.data.get('src', []), self.data.get('packages', []))
+
+	def load_configs(self, paths: Sequence[Union[str,Path]] = ()):
+		'''Registers all specified config files and directories'''
+		for path in paths:
+			path = Path(path)
+			if path.is_file():
+				raise NotImplementedError
+			elif path.is_dir():
+				self.register_config_dir(path, recursive=True)
+
+	def load_src(self, srcs: Optional[Sequence[Union[str,Path]]] = (), packages: Optional[Sequence[str]]=()):
+		'''Imports all specified packages and runs the specified python files'''
+		include_package(*packages)
+		include_files(*[src for src in srcs], )  # project_name=self.get_name())
 
 	# region Organization
 	def extract_info(self, other: 'GeneralProject'):
@@ -435,8 +461,8 @@ class GeneralProject(ProjectBase, name='simple'):
 	def iterate_configs(self):
 		return self.iterate_artifacts('config')
 
-	def register_config_dir(self, name, path, *, recursive=True, prefix=None, delimiter='/'):
-		return self.config_manager.register_config_dir(name, path, recursive=recursive, project=self,
+	def register_config_dir(self, path, *, recursive=True, prefix=None, delimiter='/'):
+		return self.config_manager.register_config_dir(path, recursive=recursive, project=self,
 		                                               prefix=prefix, delimiter=delimiter)
 
 
@@ -473,6 +499,9 @@ class Profile(ProfileBase):
 				'component': component_registry,
 				'modifier': modifier_registry,
 			})
+
+		def _activate(self, *args, **kwargs):
+			raise NotImplementedError
 
 		def validate_main(self, config: Config) -> 'ProjectBase':
 			runner = config.pull('_meta.main_runner', None, silent=True)
@@ -515,8 +544,8 @@ class Profile(ProfileBase):
 		def find_component(self, name, default=unspecified_argument):
 			return self.find_artifact('component', name, default=default)
 		
-		def register_component(self, name, cls, *, description=None):
-			return self.register_artifact('component', name, cls, description=description)
+		def register_component(self, name, cls, *, creator=None):
+			return self.register_artifact('component', name, cls, creator=creator)
 		
 		def iterate_components(self):
 			return self.iterate_artifacts('component')
@@ -650,11 +679,8 @@ class Profile(ProfileBase):
 
 
 
-
-
-
-
-
+def get_profile():
+	return ProfileBase.get_profile()
 
 
 
