@@ -1,20 +1,19 @@
 
 import sys, os
 from pathlib import Path
-from collections import defaultdict, OrderedDict
 from c3linearize import linearize
 import importlib.util
 
 from omnibelt import get_printer, load_yaml
 
-from .containers import Container
-from .rules import view_meta_rules, meta_rule_fns
-from .errors import UnknownArtifactError, artifact_errors, MissingModifierError, AmbiguousRuleError, \
+from omnifig.old.containers import Container
+from omnifig.old.rules import view_meta_rules, meta_rule_fns
+from omnifig.old.errors import UnknownArtifactError, artifact_errors, MissingModifierError, AmbiguousRuleError, \
 	MissingConfigError, MissingArtifactError
-from .registry import Script_Registry, Component_Registry, Modifier_Registry, Config_Registry
-from .external import include_files, include_package, register_project_type
-from .util import global_settings, configurize, parse_arg
-from . import projects as projects_module
+from omnifig.old.registry import Script_Registry, Component_Registry, Modifier_Registry, Config_Registry
+from omnifig.organization.external import include_files, include_package, register_project_type
+from omnifig.old.util import configurize, parse_arg
+from omnifig import projects as projects_module
 
 prt = get_printer(__name__)
 

@@ -5,10 +5,10 @@ from omnibelt import unspecified_argument, InitWall
 
 import multiprocessing
 
-from .decorators import Component
-from .config import configurize, pythonize, ConfigType
-from .top import get_config, run
-from .common import Configurable
+from omnifig.decorators import Component
+from omnifig.config import configurize, pythonize, ConfigType
+from omnifig.top import get_config, run
+from omnifig.common import Configurable
 
 
 class ExceptionWrapper(object):

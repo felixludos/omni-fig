@@ -9,7 +9,7 @@ from omnibelt import primitives, get_printer, \
 	spawn_path_options
 from omnibelt.logging import global_settings as belt_global_settings
 
-from .errors import PythonizeError, ConfigurizeFailed
+from omnifig.old.errors import PythonizeError, ConfigurizeFailed
 
 LIB_PATH = os.path.dirname(__file__)
 

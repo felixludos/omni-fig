@@ -3,21 +3,25 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 from inspect import Parameter
 from omnibelt import extract_function_signature, get_printer
 # from .top import register_script, register_component, register_modifier, register_creator
-from .config import Config
-from .novo_root import get_current_project, ProjectBase, GeneralProject, Profile
+# from .config import Config
+# from .novo_root import get_current_project, ProjectBase, GeneralProject, Profile
 # from .util import autofill_args
+
+from .abstract import AbstractScript, AbstractCreator, AbstractComponent, AbstractModifier, \
+	AbstractConfig, AbstractProject
+from .organization import GeneralProject, Profile
+from .top import get_current_project
 
 prt = get_printer(__name__)
 
 Product = Any
 RawCallableItem = Callable[[...], Product]
-ConfigCallableItem = Callable[[Config], Product]
+ConfigCallableItem = Callable[[AbstractConfig], Product]
 ModifierCallableItem = Callable[[ConfigCallableItem], ConfigCallableItem]
 
 
 class _Registration_Decorator:
 	'''Base class for all registration decorators'''
-
 	def __init__(self, name: Optional[str] = None, **kwargs):
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
@@ -34,25 +38,29 @@ class _Registration_Decorator:
 		self.register(self.name, item, **self.kwargs)
 		return item
 
-	def register(self, name: str, item: ConfigCallableItem, **kwargs) -> None:
+	@staticmethod
+	def register(name: str, item: ConfigCallableItem, **kwargs) -> None:
 		raise NotImplementedError
 
 
 class _Project_Registration_Decorator(_Registration_Decorator):
 	'''Registration decorator which registers the item with the current project'''
-	def register(self, name: str, item: ConfigCallableItem, project=None, **kwargs) -> None:
+
+	@classmethod
+	def register(cls, name: str, item: ConfigCallableItem, project: Optional[AbstractProject] = None,
+	             **kwargs) -> None:
 		if project is None:
 			project = get_current_project()
-		self.register_project(project, name, item, **kwargs)
+		cls.register_project(project, name, item, **kwargs)
 
-	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem, **kwargs) -> None:
+	@staticmethod
+	def register_project(self, project: AbstractProject, name: str, item: ConfigCallableItem, **kwargs) -> None:
 		raise NotImplementedError
 
 
 
-class Script(_Registration_Decorator):
+class register_script(_Registration_Decorator):
 	'''Decorator to register a script'''
-
 	def __init__(self, name: Optional[str] = None, description: Optional[str] = None) -> None:
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
@@ -60,7 +68,8 @@ class Script(_Registration_Decorator):
 		'''
 		super().__init__(name=name, description=description)
 
-	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem,
+	@staticmethod
+	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem,
 	                     description: Optional[str] = None, **kwargs) -> None:
 		if description is None and item.__doc__ is not None:
 			description = item.__doc__.split('\n')[0]
@@ -70,38 +79,63 @@ class Script(_Registration_Decorator):
 
 
 
-class Creator(_Registration_Decorator):
+class Script(AbstractScript):
+	def __init_subclass__(cls, script_name: str = None, description: Optional[str] = None, **kwargs):
+		super().__init_subclass__(**kwargs)
+		if script_name is not None:
+			register_script(script_name, description=description)(cls)
+
+
+
+class register_creator(_Registration_Decorator):
 	def __init__(self, name: Optional[str] = None):
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
 		'''
 		super().__init__(name=name)
 
-	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem, **kwargs) -> None:
+	@staticmethod
+	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem, **kwargs) -> None:
 		if not isinstance(project, Profile.Project):
 			prt.error(f'Cannot register creator {name} for project {project} (not a "default" project)')
 		project.register_creator(name, item, **kwargs)
 
 
 
-class Component(_Registration_Decorator):
-	'''Decorator to register a component (expected to be a type)'''
+class Creator(AbstractCreator):
+	def __init_subclass__(cls, creator_name: str = None, **kwargs):
+		super().__init_subclass__(**kwargs)
+		if creator_name is not None:
+			register_creator(creator_name)(cls)
 
-	def __init__(self, name: Optional[str] = None, creator: Optional[str] = None):
+
+
+class register_component(_Registration_Decorator):
+	'''Decorator to register a component (expected to be a type)'''
+	def __init__(self, name: Optional[str] = None, creator: Optional[str, AbstractCreator] = None):
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
 		'''
 		super().__init__(name=name, creator=creator)
 
-	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem,
-	                     creator: Optional[Union[str, Creator]] = None, **kwargs) -> None:
+	@staticmethod
+	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem,
+	                     creator: Optional[Union[str, AbstractCreator]] = None, **kwargs) -> None:
 		if not isinstance(project, Profile.Project):
 			prt.error(f'Cannot register component {name} for project {project} (not a "default" project)')
 		project.register_component(name, item, creator=creator, **kwargs)
 
 
 
-class Modifier(_Registration_Decorator):
+class Component(AbstractComponent):
+	def __init_subclass__(cls, component_name: str = None, creator: Optional[str] = None, **kwargs):
+		super().__init_subclass__(**kwargs)
+		if component_name is not None:
+			register_component(component_name, creator=creator)(cls)
+
+
+
+class register_modifier(_Registration_Decorator):
 	'''Decorator to register a modifier (expected be a type)
 
 	Modifiers are "runtime mixins" for components. When specifying a component to be modified with the `_mod` key
@@ -114,10 +148,19 @@ class Modifier(_Registration_Decorator):
 		'''
 		super().__init__(name=name)
 
-	def register_project(self, project: ProjectBase, name: str, item: ConfigCallableItem, **kwargs) -> None:
+	@staticmethod
+	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem, **kwargs) -> None:
 		if not isinstance(project, Profile.Project):
 			prt.error(f'Cannot register modifier {name} for project {project} (not a "default" project)')
 		project.register_modifier(name, item, **kwargs)
+
+
+
+class Modifier(AbstractModifier):
+	def __init_subclass__(cls, modifier_name: str = None, **kwargs):
+		super().__init_subclass__(**kwargs)
+		if modifier_name is not None:
+			register_component(modifier_name)(cls)
 
 
 
@@ -136,7 +179,7 @@ class _AutofillMixin(_Registration_Decorator):
 		super().__init__(name=name, **kwargs)
 		self.aliases = aliases
 
-	def autofill(self, config: Config) -> Tuple[List[Any], Dict[str, Any]]:
+	def autofill(self, config: AbstractConfig) -> Tuple[List[Any], Dict[str, Any]]:
 		def default_fn(key, default):
 			if default is Parameter.empty:
 				default = config.empty_default
@@ -146,7 +189,7 @@ class _AutofillMixin(_Registration_Decorator):
 			return config.pulls(key, *aliases, default=default)
 		return extract_function_signature(self.item, default_fn=default_fn)
 
-	def top(self, config: Config) -> Product:
+	def top(self, config: AbstractConfig) -> Product:
 		args, kwargs = self.autofill(config)
 		return self.item(*args, **kwargs)
 
@@ -154,7 +197,8 @@ class _AutofillMixin(_Registration_Decorator):
 		super().register(name, self.top, **kwargs)
 
 
-class AutoScript(_AutofillMixin, Script):
+
+class register_autoscript(_AutofillMixin, register_script):
 	'''Convienence decorator to register scripts where the arguments are automatically extracted from the config'''
 	def __init__(self, name: Optional[str] = None, description: Optional[str] = None,
 	             aliases: Optional[Dict[str, Union[str, Sequence[str]]]] = None, **kwargs):
@@ -164,6 +208,15 @@ class AutoScript(_AutofillMixin, Script):
 		:param aliases: alternative names for arguments (can have multiple aliases per argument)
 		'''
 		super().__init__(name, description=description, aliases=aliases, **kwargs)
+
+
+
+class AutoScript(AbstractScript):
+	def __init_subclass__(cls, script_name: str = None, description: Optional[str] = None,
+	                      aliases: Optional[Dict[str, Union[str, Sequence[str]]]] = None, **kwargs):
+		super().__init_subclass__(**kwargs)
+		if script_name is not None:
+			register_autoscript(script_name, description=description, aliases=aliases)(cls)
 
 
 
@@ -206,7 +259,7 @@ class autofill_with_config:  # TODO: generally not recommended for types, use Co
 	class _Autofill_Init:
 		_autofill_aliases = None
 
-		def _autofill_init(self, config: Config, kwargs: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
+		def _autofill_init(self, config: AbstractConfig, kwargs: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
 			def default_fn(key, default):
 				if default is Parameter.empty:
 					default = config.empty_default
@@ -220,12 +273,12 @@ class autofill_with_config:  # TODO: generally not recommended for types, use Co
 
 			return extract_function_signature(super().__init__, kwargs=kwargs, default_fn=default_fn)
 
-		def __init__(self, config: Config, **kwargs):
+		def __init__(self, config: AbstractConfig, **kwargs):
 			args, kwargs = self._autofill_init(config, **kwargs)
 			super().__init__(*args, **kwargs)
 
-	def autofill(self, config: Config, args: Optional[Tuple[...]] = None, kwargs: Optional[Dict[str, Any]] = None) \
-			-> Tuple[List[Any], Dict[str, Any]]:
+	def autofill(self, config: AbstractConfig, args: Optional[Tuple[...]] = None,
+	             kwargs: Optional[Dict[str, Any]] = None) -> Tuple[List[Any], Dict[str, Any]]:
 		def default_fn(key, default):
 			if default is Parameter.empty:
 				default = config.empty_default
@@ -236,7 +289,7 @@ class autofill_with_config:  # TODO: generally not recommended for types, use Co
 
 		return extract_function_signature(self.fn, args=args, kwargs=kwargs, default_fn=default_fn)
 
-	def top(self, config: Config, *args, **kwargs) -> Product:
+	def top(self, config: AbstractConfig, *args, **kwargs) -> Product:
 		fixed_args, fixed_kwargs = self.autofill(config, args=args, kwargs=kwargs)
 		return self.fn(*fixed_args, **fixed_kwargs)
 

@@ -2,11 +2,15 @@ import sys, os
 import importlib
 import importlib.util
 
-from omnibelt import get_printer, Registry, Entry_Registry
+from omnibelt import get_printer
 
 prt = get_printer(__name__)
 
-# region Source files
+
+LIB_PATH = os.path.dirname(__file__)
+
+
+# region Source Files
 
 _loaded_files = {}
 def include_files(*paths):
@@ -34,6 +38,8 @@ def include_files(*paths):
 				del sys.path[1]
 				os.chdir(old)
 
+
+
 def include_package(*packages):
 	'''
 	Imports packages based on their names
@@ -44,35 +50,9 @@ def include_package(*packages):
 	for pkg in packages:
 		importlib.import_module(pkg)
 
-# endregion
-
-
-# region project types
-
-_ptype_registry = Registry()
-
-
-def register_project_type(name, cls):
-	'''
-	Project types allow users to customize the behavior of project objects
-
-	:param name: identifier of this project type
-	:param cls: project type class
-	:return: None
-	'''
-
-	_ptype_registry.new(name, cls)
-
-
-def get_project_type(name):
-	'''Gets the project type associated with that name, otherwise returns None'''
-	if name not in _ptype_registry:
-		prt.error(f'Project type: {name} not found')
-	return _ptype_registry.get(name, None)
-
-
-def view_project_types():
-	'''Returns a copy of the full project type registry'''
-	return _ptype_registry.copy()
 
 # endregion
+
+
+
+

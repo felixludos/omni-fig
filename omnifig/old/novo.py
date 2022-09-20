@@ -1,6 +1,6 @@
 from omnibelt import Class_Registry, Function_Registry
-from .organization import Project
-from .config import ConfigManager
+from omnifig.organization import Project
+from omnifig.config import ConfigManager
 
 
 

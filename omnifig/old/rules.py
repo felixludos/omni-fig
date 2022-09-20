@@ -1,9 +1,9 @@
 
 from heapq import heapify, heappop
 
-from omnibelt import get_printer, Entry_Registry
+from omnibelt import get_printer
 
-from .registry import Rules_Registry
+from omnifig.old.registry import Rules_Registry
 
 prt = get_printer(__name__)
 

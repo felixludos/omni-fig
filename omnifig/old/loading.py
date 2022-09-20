@@ -1,8 +1,8 @@
 
-import sys, os
+import os
 
-from .profiles import Profile
-from .util import global_settings
+from omnifig.organization.profiles import Profile
+from omnifig.old.util import global_settings
 
 from omnibelt import get_printer, resolve_order
 

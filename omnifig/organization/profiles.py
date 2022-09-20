@@ -3,32 +3,38 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 import sys, os
 from pathlib import Path
 from collections import OrderedDict
-from omnibelt import get_printer, Registry, Function_Registry
+from omnibelt import get_printer, Function_Registry
 
-from .abstract import Config
-from .mixins import FileInfo
+from ..abstract import AbstractConfig, AbstractProject, AbstractProfile, AbstractMetaRule, MetaRuleFunction
+from .workspaces import ProjectBase
+from ..mixins import Activatable, FileInfo
 
 prt = get_printer(__name__)
 
 
-class _MetaRule_Registry(Function_Registry, components=['code', 'priority', 'num_args']):
+
+class _MetaRule_Registry(Function_Registry, components=['code', 'priority', 'num_args', 'description']):
 	pass
-MetaRuleFunction = Callable[[Config, Dict[str, Any]], Config]
+# MetaRuleFunction = Callable[[Config, Dict[str, Any]], Config]
 
 
-class ProfileBase(FileInfo):  # profile that should be extended
+
+class ProfileBase(AbstractProfile):  # profile that should be extended
 	meta_rule_registry = _MetaRule_Registry()
+	_default_profile_cls = None
 	_profile = None
 	
-	def __init_subclass__(cls, **kwargs):
+	def __init_subclass__(cls, default=False, **kwargs):
 		super().__init_subclass__(**kwargs)
 		cls._profile = None
+		if default is not None:
+			ProfileBase._default_profile_cls = cls
 	
 	# region Class Methods
-	Project = ProjectBase
+	Project: ProjectBase = ProjectBase
 	
 	@classmethod
-	def get_project_type(cls, ident: str):
+	def get_project_type(cls, ident: str) -> ProjectBase.global_type_registry.entry_cls:
 		return cls.Project.get_project_type(ident)
 	
 	@classmethod
@@ -48,43 +54,44 @@ class ProfileBase(FileInfo):  # profile that should be extended
 		return cls._profile
 	
 	@classmethod
-	def register_meta_rule(cls, name: str, func: MetaRuleFunction, code: str,
+	def register_meta_rule(cls, name: str, func: MetaRuleFunction, code: str, description: Optional[str] = None,
 	                       priority: Optional[int] = 0, num_args: Optional[int] = 0) -> None:
-		cls.meta_rule_registry.new(name, func, priority=priority, num_args=num_args)
+		cls.meta_rule_registry.new(name, func, code=code, priority=priority, num_args=num_args,
+		                           description=description)
 	
 	@classmethod
-	def get_meta_rule(cls, name):
+	def get_meta_rule(cls, name) -> _MetaRule_Registry.entry_cls:
 		return cls.meta_rule_registry.find(name)
 	
 	@classmethod
-	def iterate_meta_rules(cls):
+	def iterate_meta_rules(cls) -> Iterator[_MetaRule_Registry.entry_cls]:
 		entries = list(cls.meta_rule_registry.values())
 		for entry in sorted(entries, key=lambda e: (e.priority, e.name), reverse=True):
 			yield entry
 	
-	@classmethod
-	def iterate_meta_rule_fns(cls):
-		for entry in cls.iterate_meta_rules():
-			yield entry.fn
+	# @classmethod
+	# def iterate_meta_rule_fns(cls):
+	# 	for entry in cls.iterate_meta_rules():
+	# 		yield entry.fn
 	
 	# endregion
 	
-	def __init__(self, data: Dict = None):
+	def __init__(self, data: Dict[str, Any] = None) -> None:
 		super().__init__(data)
 		self._loaded_projects = OrderedDict()
 		self._current_project_key = None
 	
 	# region Top Level Methods
-	def entry(self, script_name=None):
+	def entry(self, script_name: Optional[str] = None) -> None:
 		argv = sys.argv[1:]
 		self.main(argv, script_name=script_name)
 	
-	def initialize(self, *projects, **kwargs):
+	def initialize(self, *projects: str, **kwargs: Any) -> None:
 		self.activate(**kwargs)
 		for project in projects:
 			self.get_project(project)
 	
-	def main(self, argv, *, script_name=None):
+	def main(self, argv: Sequence[str], *, script_name: str = None) -> None:
 		return self.get_current_project().main(argv, script_name=script_name)
 	
 	def run(self, config, *, script_name=None, **meta):
@@ -93,7 +100,7 @@ class ProfileBase(FileInfo):  # profile that should be extended
 	def quick_run(self, script_name, *parents, **args):
 		return self.get_current_project().quick_run(script_name, *parents, **args)
 	
-	def cleanup(self, *args, **kwargs):
+	def cleanup(self, *args: Any, **kwargs: Any) -> None:
 		return self.get_current_project().cleanup(*args, **kwargs)
 	
 	# def find_artifact(self, artifact_type, ident, **kwargs):
@@ -124,30 +131,31 @@ class ProfileBase(FileInfo):  # profile that should be extended
 	
 	def iterate_projects(self) -> Iterator[ProjectBase]:
 		yield from self._loaded_projects.values()
-	
-	def get_project(self, ident=None):
-		raise NotImplementedError
 
 
-register_meta_rule = ProfileBase.meta_rule_registry.get_decorator(detaults={'priority': 0, 'num_args': 0})
+register_meta_rule = ProfileBase.meta_rule_registry.get_decorator(
+	detaults={'priority': 0, 'num_args': 0, 'description': ''})
 
 
-class Meta_Rule:
+class Meta_Rule(AbstractMetaRule):
 	def __init_subclass__(cls, code=None, name=None, priority=0, num_args=0, **kwargs):
 		super().__init_subclass__(**kwargs)
 		if code is not None and name is None:
-			prt.warning(f'No name for Meta_Rule {cls.__name__} provided, will default to {cls.__name__!r}')
+			prt.warning(f'No name for {Meta_Rule.__name__} {cls.__name__} provided, will default to {cls.__name__!r}')
 			name = cls.__name__
 		if code is None and name is not None:
-			prt.error(f'No code for Meta_Rule {name!r} provided, cannot register a Meta_Rule without a code')
+			prt.error(f'No code for {Meta_Rule.__name__} {name!r} provided, '
+			          f'cannot register a {Meta_Rule.__name__} without a code')
 		if code is not None and name is not None:
 			register_meta_rule(name, cls, code=code, priority=priority, num_args=num_args)
-	
-	class TerminationFlag(KeyboardInterrupt):
+
+	def __call__(self, config: AbstractConfig, meta: AbstractConfig):
 		pass
-	
-	def __call__(self, config: Config, meta: Dict[str, Any]):
-		pass
+
+
+
+def get_profile():
+	return ProfileBase.get_profile()
 
 
 

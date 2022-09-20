@@ -1,9 +1,6 @@
-import sys
-import traceback
-
 from omnibelt import get_printer
 
-from ..rules import Meta_Rule
+from omnifig.old.rules import Meta_Rule
 
 CODE = 'q'
 NAME = 'quiet'

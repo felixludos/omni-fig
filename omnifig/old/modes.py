@@ -1,9 +1,9 @@
 
-from .errors import MissingScriptError
+from omnifig.old.errors import MissingScriptError
 # from .registry import Component, get_script
-from .top import find_script
-from .decorators import Component
-from .util import autofill_args
+from omnifig.top import find_script
+from omnifig.decorators import Component
+from omnifig.old.util import autofill_args
 
 from omnibelt import get_printer
 

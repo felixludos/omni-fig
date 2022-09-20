@@ -1,31 +1,20 @@
+from .organization import get_profile, Profile, ProfileBase, ProjectBase, GeneralProject, register_meta_rule, Meta_Rule
+from .registration import autofill_with_config, register_script, register_component, register_modifier, \
+	register_creator, register_autoscript, Script, Component, Modifier, Creator, AutoScript
+from .top import get_current_project, get_project, switch_project, iterate_projects, \
+	entry, main, run, quick_run, initialize, cleanup, create_config
 
-from .loading import get_profile
+# from .config import ConfigIter
+from .config import ConfigNode, ConfigManager
 
-from .decorators import AutoScript, Script, Component, AutoComponent, Modifier, AutoModifier, Modification
+# Component('iter')(ConfigIter)
+# del ConfigIter
 
-from .config import ConfigIter, EmptyElement, ConfigType
-Component('iter')(ConfigIter)
-del ConfigIter
-
-from .top import get_project, get_current_project, \
-	entry, main, run, quick_run, initialize, cleanup, \
-	get_config, create_component, quick_create, \
-	register_script, register_config, register_component, \
-	register_config_dir, register_modifier, resolve_order, \
-	find_script, find_component, find_modifier, find_config, \
-	has_script, has_component, has_config, has_modifier, \
-	view_configs, view_components, view_scripts, view_modifiers
-
-from .rules import Meta_Rule
-from .modes import Run_Mode
 from . import common
 # from .common import Configurable
-from .organization import Cerifiable
-from .errors import MissingParameterError
-from . import novo
+from omnifig.old.errors import MissingParameterError
+from .old import novo
 # from .farming import Farmer, Worker
-
-from omnibelt import AbortTransaction
 
 import os
 __info__ = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py')}

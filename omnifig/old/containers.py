@@ -1,10 +1,9 @@
 
-import sys, os
-import yaml
+import os
 
 from omnibelt import get_printer, get_now, save_yaml, load_yaml
 
-from .errors import WrongInfoContainerType
+from omnifig.old.errors import WrongInfoContainerType
 
 prt = get_printer(__name__)
 

@@ -1,14 +1,12 @@
-
-import sys, os
 from pathlib import Path
 from copy import deepcopy, copy
 import omnibelt as belt
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict
 
-from omnibelt import save_yaml, load_yaml, get_printer
+from omnibelt import save_yaml, get_printer
 
-from .util import primitives, global_settings, configurize, pythonize, ConfigurizeFailed
-from .errors import PythonizeError, MissingParameterError, UnknownActionError, InvalidKeyError
+from omnifig.old.util import primitives, global_settings, configurize, pythonize, ConfigurizeFailed
+from omnifig.old.errors import MissingParameterError, UnknownActionError, InvalidKeyError
 
 prt = get_printer(__name__)
 
