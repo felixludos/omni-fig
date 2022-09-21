@@ -1,13 +1,14 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
 	Iterator, Self, NamedTuple
-from omnibelt import unspecified_argument, extract_function_signature, JSONABLE
+from omnibelt import get_printer, unspecified_argument, extract_function_signature, JSONABLE
 from inspect import Parameter
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
-from ..abstract import AbstractConfig, AbstractProject, Creator
+from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable
 from .search import ConfigSearch
 from .reporter import ConfigReporter
 
+prt = get_printer(__name__)
 
 
 class _ConfigNode(AbstractConfig, AutoTreeNode):
@@ -15,7 +16,6 @@ class _ConfigNode(AbstractConfig, AutoTreeNode):
 		super().__init__(*args, **kwargs)
 		self._project = project
 		self._readonly = readonly
-
 
 	@property
 	def root(self) -> '_ConfigNode':
@@ -111,7 +111,7 @@ class SimpleConfigNode(_ConfigNode):
 class ConfigNode(_ConfigNode):
 	Reporter = ConfigReporter
 
-	class DefaultCreator(Creator):
+	class DefaultCreator(AbstractCreator):
 		_config_component_key = '_type'
 		_config_modifier_key = '_mod'
 		_config_creator_key = '_creator'
@@ -133,9 +133,9 @@ class ConfigNode(_ConfigNode):
 			return super().replace(creator, component_type=component_type, modifiers=modifiers, search=search,
 			                       project=project, component_entry=component_entry, **kwargs)
 
-		def __init__(self, config: AbstractConfig, *, component_type: str = None, modifiers: Optional[Sequence[str]] = None,
-		             project: Optional[Project] = None, component_entry: Optional = None, search: Optional = None,
-		             **kwargs):
+		def __init__(self, config: AbstractConfig, *, component_type: str = None,
+		             modifiers: Optional[Sequence[str]] = None, project: Optional[AbstractProject] = None,
+		             component_entry: Optional = None, search: Optional = None, **kwargs):
 			if component_type is None:
 				component_type = config.pull(self._config_component_key, None, silent=True)
 			if modifiers is None:
@@ -152,14 +152,14 @@ class ConfigNode(_ConfigNode):
 				project = config.project
 			super().__init__(config, **kwargs)
 			if project is None:
-				project = get_current_project()
+				prt.warning('No project specified for creator')
 			self.project = project
 			self.component_type = component_type
 			self.modifiers = modifiers
 			self.component_entry = component_entry
 			self.search = search
 
-		def validate(self, config) -> 'DefaultCreator':
+		def validate(self, config) -> Union[Self, 'DefaultCreator']:
 			if self.component_entry is None:
 				self.component_entry = self.project.find_component(self.component_type)
 			creator = config.pull(self._config_creator_key, self.component_entry.creator, silent=True)
@@ -190,7 +190,7 @@ class ConfigNode(_ConfigNode):
 				bases = (*reversed(mods), cls)
 				cls = type('_'.join(base.__name__ for base in bases), bases, {})
 
-			if issubclass(cls, ConfigurableBase):
+			if issubclass(cls, AbstractConfigurable):
 				return cls.init_from_config(config, args, kwargs, silent=silent)
 			fixed_args, fixed_kwargs = self._fix_args_and_kwargs(cls.__init__, args, kwargs, silent=silent)
 			return cls(*fixed_args, **fixed_kwargs)
@@ -239,6 +239,27 @@ class ConfigNode(_ConfigNode):
 			reporter = self.Reporter()
 		super().__init__(*args, **kwargs)
 		self.reporter = reporter
+		self._product = None
+		self._settings = None
+		if self.settings is None:
+			self.root.settings = {}
+
+	class DummyNode: # output of peek if default is not unspecified_argument but node does not exist
+		raise NotImplementedError
+
+	@property
+	def settings(self): # global settings for config object,
+		# including: ask_parent, prefer_product, product_only, silent, readonly, etc.
+		if self._settings is None:
+			return self.root._settings
+		return self._settings
+	@settings.setter
+	def settings(self, value):
+		self._settings = value
+		
+	def using(self, **settings):
+		raise NotImplementedError # TODO: context manager to temporarily change settings
+		
 
 	def _create(self, component_args=(), component_kwargs=None, **kwargs):
 		return self.DefaultCreator(self, **kwargs).validate(self)\
@@ -247,6 +268,22 @@ class ConfigNode(_ConfigNode):
 	def create(self, *args, **kwargs):
 		# return self._create_component(*self._extract_component_info(), args=args, kwargs=kwargs)
 		return self._create(args, kwargs)
+	
+	def clear_product(self, recursive=True):
+		self._product = None
+		if recursive:
+			for child in self.children():
+				child.clear_product(recursive=recursive)
+	
+	@property
+	def product(self):
+		if self._product is None:
+			self._product = self.create()
+		return self._product
+
+	@property
+	def product_exists(self):
+		return self._product is not None
 
 	def __repr__(self):
 		return f'<{self.__class__.__name__} {len(self)} children>'

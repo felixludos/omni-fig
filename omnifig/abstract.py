@@ -1,11 +1,10 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator, NamedTuple, Self
+	Iterator, NamedTuple, Self, ContextManager
 import abc
 from pathlib import Path
 from omnibelt import unspecified_argument, Class_Registry, Primitive, JSONABLE
 
 from .mixins import Activatable, FileInfo
-
 
 class AbstractConfig: # TODO: copy, deepcopy, etc
 	empty_default = unspecified_argument
@@ -19,8 +18,8 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 	def project(self, project: 'AbstractProject'):
 		raise NotImplementedError
 
-	def peek(self, query: str, default: Optional[Any] = empty_default,
-	         *, silent: Optional[bool] = False) -> 'AbstractConfig':
+	def peek(self, query: str, default: Optional[Any] = empty_default, *,
+	         silent: Optional[bool] = False) -> 'AbstractConfig':
 		return self.peeks(query, default=default, silent=silent)
 
 	def pull(self, query: str, default: Optional[Any] = empty_default, *, silent: Optional[bool] = False) -> Any:
@@ -42,7 +41,15 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 	def update(self, update: 'AbstractConfig') -> Self:
 		raise NotImplementedError
+	
+	def silence(self, silent: bool = True) -> ContextManager:
+		raise NotImplementedError
 
+
+class AbstractConfigurable:
+	@classmethod
+	def init_from_config(cls, config: AbstractConfig, args=None, kwargs=None, *, silent=None):
+		raise NotImplementedError
 
 
 class AbstractConfigManager:

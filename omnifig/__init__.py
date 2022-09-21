@@ -4,16 +4,15 @@ from .registration import autofill_with_config, register_script, register_compon
 from .top import get_current_project, get_project, switch_project, iterate_projects, \
 	entry, main, run, quick_run, initialize, cleanup, create_config
 
-# from .config import ConfigIter
-from .config import ConfigNode, ConfigManager
+# from .config import ConfigNode, ConfigManager
+from . import config
 
+# from .config import ConfigIter
 # Component('iter')(ConfigIter)
 # del ConfigIter
 
-from . import common
-# from .common import Configurable
-from omnifig.old.errors import MissingParameterError
-from .old import novo
+# from . import common
+from .configurable import Configurable
 # from .farming import Farmer, Worker
 
 import os

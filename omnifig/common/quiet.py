@@ -1,15 +1,16 @@
+from typing import Optional
 from omnibelt import get_printer
 
-from omnifig.old.rules import Meta_Rule
+from ..abstract import AbstractConfig
+from .. import Meta_Rule
 
-CODE = 'q'
-NAME = 'quiet'
 
 prt = get_printer(__name__)
 
 
-@Meta_Rule(NAME, priority=10, code=NAME, description='Set config to silent')
-def quiet_rule(meta, config):
+# @Meta_Rule(NAME, priority=10, code=NAME, description='Set config to silent')
+# def quiet_rule(meta, config):
+class Debug_Rule(Meta_Rule, name='quiet', code='q', priority=10, num_args=0, description='Set config to silent'):
 	'''
 	When activated, this rule sets the config object to silent mode, which means pulls/pushes are not printed to stdout
 
@@ -18,8 +19,7 @@ def quiet_rule(meta, config):
 	:return: possibly silenced config object
 	'''
 	
-	quiet = meta.pull(NAME, False, silent=True)
-	if quiet:
-		config.set_silent()
-	return config
-
+	def __call__(self, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
+		quiet = meta.pull('quiet', False, silent=True)
+		if quiet:
+			config.silent = True

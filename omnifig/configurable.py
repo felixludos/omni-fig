@@ -2,20 +2,15 @@ from typing import Any, Dict, List, Optional, Tuple, Union, Type, Sequence, Call
 from omnibelt import auto_init
 import inspect
 
-from ..config import Config
+from .abstract import AbstractConfig, AbstractConfigurable
 
 
-class ConfigurableBase:
-	@classmethod
-	def init_from_config(cls, config: Config, args=None, kwargs=None, *, silent=None):
-		raise NotImplementedError
 
-
-class Configurable(ConfigurableBase, auto_init):
+class Configurable(AbstractConfigurable, auto_init):
 	_my_config = None
 
 	@property
-	def my_config(self) -> Config:
+	def my_config(self) -> AbstractConfig:
 		return self._my_config
 
 	class _auto_method_arg_fixer(auto_init._auto_method_arg_fixer):
@@ -33,8 +28,8 @@ class Configurable(ConfigurableBase, auto_init):
 			return self.config.pulls(key, *aliases, default=default)
 
 	@classmethod
-	def init_from_config(cls, config: Config,
-	                     args: Optional[Tuple[...]] = None, kwargs: Optional[Dict[str, Any]] = None, *,
+	def init_from_config(cls, config: AbstractConfig,
+	                     args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
 	                     silent: Optional[bool] = None):
 		if args is None:
 			args = ()
