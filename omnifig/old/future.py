@@ -1,4 +1,4 @@
-from .nodes import SimpleConfigNode
+from omnifig.config.nodes import SimpleConfigNode
 
 
 class AskParentNode(SimpleConfigNode):

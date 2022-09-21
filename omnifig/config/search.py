@@ -1,4 +1,79 @@
+from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
+	Iterator, Self, NamedTuple, ContextManager
 from omnibelt import unspecified_argument
+
+from ..abstract import AbstractConfig
+
+
+class AbstractSearch:
+	def __init__(self, origin: AbstractConfig, queries: Optional[Sequence[str]], default: Optional[Any], **kwargs):
+		super().__init__(**kwargs)
+
+	def find_node(self):
+		raise NotImplementedError
+
+
+
+class SimpleSearch(AbstractSearch):
+	def __init__(self, origin: AbstractConfig, queries: Optional[Sequence[str]], default: Optional[Any], **kwargs):
+		super().__init__(origin=origin, queries=queries, default=default, **kwargs)
+		self.origin = origin
+		self.queries = queries
+		self.default = default
+		self.result_node = None
+		self.query_chain = None
+
+	class SearchFailed(KeyError):
+		def __init__(self, queries):
+			super().__init__(', '.join(map(repr,queries)))
+
+	def find_node(self):
+		for query in self.queries:
+			try:
+				out = self.get(query)
+			except KeyError:
+				pass
+			else:
+				self.result_node = out
+				return out
+		else:
+			if self.default is self.origin.empty_default:
+				raise self.SearchFailed(self.queries)
+			return self.origin.DummyNode(self.default)
+
+
+class AbstractTrace:
+	@classmethod
+	def from_search(cls, search: AbstractSearch, previous: Optional['AbstractTrace'] = None) -> 'AbstractTrace':
+		raise NotImplementedError
+
+	def __init__(self, *, origin: AbstractConfig, chain: List[str],
+	             previous: Optional['AbstractTrace'] = None, **kwargs):
+		super().__init__(**kwargs)
+
+
+
+class SimpleTrace:
+	@classmethod
+	def from_search(cls, search: AbstractSearch, previous: Optional['AbstractTrace'] = None) -> 'AbstractTrace':
+		return cls(origin=search.origin, chain=search.chain, previous=previous)
+
+	def __init__(self, *, origin: AbstractConfig, chain: List[str], previous: Optional['AbstractTrace'] = None):
+		self.origin = origin
+		self.chain = chain
+		self.previous = previous
+		self.component_type = None
+		self.modifiers = None
+		self.creator_type = None
+
+	_query_connection = ' -> '
+
+	@property
+	def query(self) -> str:
+		return self._query_connection.join(self.chain)
+
+
+
 
 
 class ConfigSearchBase:
@@ -6,9 +81,6 @@ class ConfigSearchBase:
 		super().__init__(**kwargs)
 		self.origin = origin
 		self.queries = queries
-		self.default = default
-		self.result_node = None
-		self.final_query = None
 
 	class SearchFailed(KeyError):
 		def __init__(self, queries):
@@ -101,10 +173,9 @@ class ConfigSearch(ConfigSearchBase):
 		self.result_node = self.process_node(node)
 		return self.result_node
 
-	# _weak_storage_prefix = '<?>'
-	# _strong_storage_prefix = '<!>'
-	reference_prefix = '<>'
-	origin_reference_prefix = '<o>'
+	force_create_prefix = '<!>' # force create (overwrite product if it exists)
+	reference_prefix = '<>' # get reference to product (create if no product)
+	origin_reference_prefix = '<o>' # get reference to product (create if no product) from origin
 
 	def process_node(self, node: 'ConfigNode'):  # follows references
 		if node.has_payload:
@@ -117,6 +188,12 @@ class ConfigSearch(ConfigSearchBase):
 				elif payload.startswith(self.origin_reference_prefix):
 					ref = payload[len(self.origin_reference_prefix):]
 					out = self._resolve_query(self.origin, ref)
+					return self.process_node(out)
+				elif payload.startswith(self.force_create_prefix):
+					ref = payload[len(self.force_create_prefix):]
+					out = self._resolve_query(node, ref)
+					# out.clear_product(False)
+					self.force_create = True
 					return self.process_node(out)
 		return node
 

@@ -8,13 +8,12 @@ class ConfigReporterBase:
 	@property
 	def silent(self):
 		return self._silent
-
 	@silent.setter
 	def silent(self, value):
 		self._silent = value
 
 	@staticmethod
-	def log(*msg, end='\n', sep=' ') -> None:
+	def log(*msg, end='\n', sep=' ') -> str:
 		msg = sep.join(str(m) for m in msg) + end
 		print(msg, end='')
 		return msg
@@ -33,7 +32,7 @@ class ConfigReporter(ConfigReporterBase):
 		self.suffix_fmt = suffix_fmt
 		self.max_num_aliases = max_num_aliases
 
-	def log(self, *msg, silent=None, **kwargs):
+	def log(self, *msg, silent=None, **kwargs) -> str:
 		if silent is None:
 			silent = self.silent
 		if not silent:
@@ -137,8 +136,7 @@ class ConfigReporter(ConfigReporterBase):
 	def silence(self, silent=True):
 		return self.Silencer(self, silent=silent)
 
-def silence(self, silent=True):
-	return self.reporter.silence(silent)
+
 
 
 
