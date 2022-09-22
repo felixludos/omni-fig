@@ -98,11 +98,13 @@ class register_creator(_Registration_Decorator):
 	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem, **kwargs) -> None:
 		if not isinstance(project, Profile.Project):
 			prt.error(f'Cannot register creator {name} for project {project} (not a "default" project)')
+		item._creator_name = name
 		project.register_creator(name, item, **kwargs)
 
 
 
 class Creator(AbstractCreator):
+	_creator_name = None
 	def __init_subclass__(cls, creator_name: str = None, **kwargs):
 		super().__init_subclass__(**kwargs)
 		if creator_name is not None:

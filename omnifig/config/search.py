@@ -15,13 +15,13 @@ class AbstractSearch:
 
 
 class SimpleSearch(AbstractSearch):
-	def __init__(self, origin: AbstractConfig, queries: Optional[Sequence[str]], default: Optional[Any], **kwargs):
+	def __init__(self, origin: AbstractConfig, queries: Optional[Sequence[str]], default: Any, **kwargs):
 		super().__init__(origin=origin, queries=queries, default=default, **kwargs)
 		self.origin = origin
 		self.queries = queries
 		self.default = default
+		self.query_chain = []
 		self.result_node = None
-		self.query_chain = None
 
 	class SearchFailed(KeyError):
 		def __init__(self, queries):
@@ -29,6 +29,7 @@ class SimpleSearch(AbstractSearch):
 
 	def find_node(self):
 		for query in self.queries:
+			self.query_chain.append(query)
 			try:
 				out = self.get(query)
 			except KeyError:
@@ -53,26 +54,23 @@ class AbstractTrace:
 
 
 
-class SimpleTrace:
+class SimpleTrace(AbstractTrace):
 	@classmethod
 	def from_search(cls, search: AbstractSearch, previous: Optional['AbstractTrace'] = None) -> 'AbstractTrace':
-		return cls(origin=search.origin, chain=search.chain, previous=previous)
+		return cls(origin=search.origin, chain=search.query_chain, previous=previous)
 
-	def __init__(self, *, origin: AbstractConfig, chain: List[str], previous: Optional['AbstractTrace'] = None):
+	def __init__(self, *, origin: AbstractConfig, chain: List[str],
+	             previous: Optional['AbstractTrace'] = None, **kwargs):
+		super().__init__(origin=origin, chain=chain, previous=previous, **kwargs)
 		self.origin = origin
 		self.chain = chain
 		self.previous = previous
-		self.component_type = None
-		self.modifiers = None
-		self.creator_type = None
 
 	_query_connection = ' -> '
 
 	@property
 	def query(self) -> str:
 		return self._query_connection.join(self.chain)
-
-
 
 
 

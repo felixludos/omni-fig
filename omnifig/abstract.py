@@ -84,14 +84,7 @@ class AbstractModifier:
 
 
 class AbstractCreator:
-	# @classmethod
-	# def trigger(cls, config: Config) -> Optional[Dict[str, Any]]:
-	# 	raise NotImplementedError
-
-	# @classmethod
-	# def from_search(cls, search):
-	# 	raise NotImplementedError
-
+	_creator_name = None
 	@classmethod
 	def replace(cls, creator: 'AbstractCreator', config: AbstractConfig, **kwargs):
 		return cls(config, **kwargs)
@@ -100,17 +93,12 @@ class AbstractCreator:
 		super().__init__(**kwargs)
 		# self.config = config
 
-	def validate(self, config) -> Union[Self, 'AbstractCreator']:
-		return self
-
 	def report(self, reporter, search=None):
 		pass
 
 	def create(self, config, args=None, kwargs=None) -> Any:
 		raise NotImplementedError
 
-	def silence(self, silent=True):
-		raise NotImplementedError
 
 
 class AbstractRunMode(Activatable):
