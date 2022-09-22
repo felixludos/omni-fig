@@ -24,10 +24,10 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 	_default_profile_cls = None
 	_profile = None
 	
-	def __init_subclass__(cls, default=False, **kwargs):
+	def __init_subclass__(cls, default_profile=False, **kwargs):
 		super().__init_subclass__(**kwargs)
 		cls._profile = None
-		if default is not None:
+		if default_profile is not None:
 			ProfileBase._default_profile_cls = cls
 	
 	# region Class Methods
@@ -49,12 +49,12 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 	@classmethod
 	def get_profile(cls) -> 'ProfileBase':
 		if cls._profile is None:
-			cls._profile = cls()
+			cls._profile = cls._default_profile_cls()
 			cls._profile.activate()
 		return cls._profile
 	
 	@classmethod
-	def register_meta_rule(cls, name: str, func: MetaRuleFunction, code: str, description: Optional[str] = None,
+	def register_meta_rule(cls, name: str, func: MetaRuleFunction, *, code: str, description: Optional[str] = None,
 	                       priority: Optional[int] = 0, num_args: Optional[int] = 0) -> None:
 		cls.meta_rule_registry.new(name, func, code=code, priority=priority, num_args=num_args,
 		                           description=description)
@@ -133,24 +133,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		yield from self._loaded_projects.values()
 
 
-register_meta_rule = ProfileBase.meta_rule_registry.get_decorator(
-	detaults={'priority': 0, 'num_args': 0, 'description': ''})
-
-
-class Meta_Rule(AbstractMetaRule):
-	def __init_subclass__(cls, code=None, name=None, priority=0, num_args=0, **kwargs):
-		super().__init_subclass__(**kwargs)
-		if code is not None and name is None:
-			prt.warning(f'No name for {Meta_Rule.__name__} {cls.__name__} provided, will default to {cls.__name__!r}')
-			name = cls.__name__
-		if code is None and name is not None:
-			prt.error(f'No code for {Meta_Rule.__name__} {name!r} provided, '
-			          f'cannot register a {Meta_Rule.__name__} without a code')
-		if code is not None and name is not None:
-			register_meta_rule(name, cls, code=code, priority=priority, num_args=num_args)
-
-	def __call__(self, config: AbstractConfig, meta: AbstractConfig):
-		pass
+# register_meta_rule = ProfileBase.meta_rule_registry.get_decorator(
+# 	defaults={'priority': 0, 'num_args': 0, 'description': None})
 
 
 

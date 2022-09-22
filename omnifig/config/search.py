@@ -1,5 +1,5 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator, Self, NamedTuple, ContextManager
+	Iterator, NamedTuple, ContextManager
 from omnibelt import unspecified_argument
 
 from ..abstract import AbstractConfig
@@ -24,8 +24,9 @@ class SimpleSearch(AbstractSearch):
 		self.result_node = None
 
 	class SearchFailed(KeyError):
-		def __init__(self, queries):
-			super().__init__(', '.join(map(repr,queries)))
+		def __init__(self, *queries):
+			super().__init__(', '.join(queries))
+			self.queries = queries
 
 	def find_node(self):
 		for query in self.queries:

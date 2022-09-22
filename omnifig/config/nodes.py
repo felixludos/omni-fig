@@ -1,5 +1,5 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator, Self, NamedTuple, ContextManager
+	Iterator, NamedTuple, ContextManager
 import abc
 import inspect
 from collections import OrderedDict
@@ -15,10 +15,10 @@ prt = get_printer(__name__)
 
 
 class _ConfigNode(AbstractConfig, AutoTreeNode):
-	def __init__(self, *args, readonly: bool = False, project: Optional[AbstractProject] = None, **kwargs):
+	def __init__(self, *args, project: Optional[AbstractProject] = None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.project = project
-		self.readonly = readonly
+		# self.readonly = readonly
 
 	@property
 	def root(self) -> '_ConfigNode':
@@ -44,37 +44,37 @@ class _ConfigNode(AbstractConfig, AutoTreeNode):
 	def silent(self, value):
 		raise NotImplementedError
 
-	@property
-	def readonly(self):
-		return self.root._readonly
-	@readonly.setter
-	def readonly(self, value):
-		self.root._readonly = value
+	# @property
+	# def readonly(self):
+	# 	return self.root._readonly
+	# @readonly.setter
+	# def readonly(self, value):
+	# 	self.root._readonly = value
 
 	class ReadOnlyError(Exception): pass
 
 
-	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
-		if self.readonly:
-			raise self.ReadOnlyError('Cannot push to read-only node')
-		try:
-			existing = self.get(addr)
-		except self.MissingKey:
-			existing = None
+	# def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
+	# 	if self.readonly:
+	# 		raise self.ReadOnlyError('Cannot push to read-only node')
+	# 	try:
+	# 		existing = self.get(addr)
+	# 	except self.MissingKey:
+	# 		existing = None
+	#
+	# 	if existing is None or overwrite:
+	# 		self.set(addr, value)
+	# 		return True
+	# 	return False
 
-		if existing is None or overwrite:
-			self.set(addr, value)
-			return True
-		return False
 
-
-	LazyIterator = None
-	def as_iterator(self, *queries, product: bool = False, include_key: bool = False, silent: Optional[bool] = None,
-	                **kwargs) -> Iterator[Union['ConfigNode', Tuple['ConfigNode', str]]]:
-		if len(queries):
-			return self.peeks(*queries, silent=silent).as_iterator(product=product, include_key=include_key,
-			                                                       silent=silent, **kwargs)
-		return self.LazyIterator(self, product=product, include_key=include_key, silent=silent, **kwargs)
+	# LazyIterator = None
+	# def as_iterator(self, *queries, product: bool = False, include_key: bool = False, silent: Optional[bool] = None,
+	#                 **kwargs) -> Iterator[Union['ConfigNode', Tuple['ConfigNode', str]]]:
+	# 	if len(queries):
+	# 		return self.peeks(*queries, silent=silent).as_iterator(product=product, include_key=include_key,
+	# 		                                                       silent=silent, **kwargs)
+	# 	return self.LazyIterator(self, product=product, include_key=include_key, silent=silent, **kwargs)
 
 
 
@@ -160,7 +160,7 @@ class ConfigNode(_ConfigNode):
 				try:
 					next_query = next(self.remaining_queries)
 				except StopIteration:
-					raise self.SearchFailed(f'No such key: {query!r}')
+					raise self.SearchFailed(query)
 				else:
 					return self._resolve_query(src, next_query)
 			else:
@@ -173,7 +173,14 @@ class ConfigNode(_ConfigNode):
 			except StopIteration:
 				result = self.origin
 			else:
-				result = self._resolve_query(self.origin, query)
+				# result = self._resolve_query(self.origin, query)
+				try:
+					result = self._resolve_query(self.origin, query)
+				except self.SearchFailed:
+					if self.default is self.origin.empty_default:
+						raise self.SearchFailed(self.query_chain)
+					result = self.origin.DummyNode(payload=self.default, parent=self.origin)
+
 
 			self.query_node = result
 			self.result_node = self.process_node(result)
@@ -260,11 +267,29 @@ class ConfigNode(_ConfigNode):
 			key = '' if key is None else f'{key} '
 			return f'{key}type={component_type}{mod_info}'
 
+		def _format_value(self, value: Any) -> str:
+			return repr(value)
+
 		def report_node(self, node: 'ConfigNode', *, silent: bool = None) -> Optional[str]:
 			pass
 
+		def report_product(self, node: 'ConfigNode', *, silent: bool = None) -> Optional[str]:
+			pass
+
 		def report_default(self, node: 'ConfigNode', default: Any, *, silent: bool = None) -> Optional[str]:
-			raise NotImplementedError
+			trace = node.trace
+			key = self.get_key(trace)
+
+			line = f'{key}{self.colon}{self._format_value(default)} (by default)'
+			return self.log(self._stylize(node, line), silent=silent)
+
+		def report_iterator(self, node: 'ConfigNode', product: bool = False, include_key: bool = False,
+		                    silent: bool = None) -> Optional[str]:
+			trace = node.trace
+			key = self.get_key(trace)
+			N = len(node)
+			size = f' [{N} element{"s" if N == 0 or N > 1 else ""}]'
+			return self.log(self._stylize(node, f'ITERATOR {key}{size}'), silent=silent)
 
 		def reuse_product(self, node: 'ConfigNode', product: Any, *, component_type: str = None,
 		                  modifiers: Optional[Sequence[str]] = None, creator_type: str = None,
@@ -274,18 +299,14 @@ class ConfigNode(_ConfigNode):
 			line = f'REUSING {self._format_component(key, component_type, modifiers, creator_type)}'
 			return self.log(self._stylize(node, line), silent=silent)
 
-		def report_iterator(self, node: 'ConfigNode', product: bool = False, include_key: bool = False,
-		                    silent: bool = None) -> Optional[str]:
-			raise NotImplementedError
-
 		def create_primitive(self, node: 'ConfigNode', value: Primitive = unspecified_argument, *,
 		                     silent: bool = None) -> Optional[str]:
 			trace = node.trace
 			key = self.get_key(trace)
 
 			if value is unspecified_argument:
-				value = repr(node.payload)
-			line = f'{key}{self.colon}{value}'
+				value = node.payload
+			line = f'{key}{self.colon}{self._format_value(value)}'
 			return self.log(self._stylize(node, line), silent=silent)
 
 		def create_container(self, node: 'ConfigNode', *, silent: bool = None) -> Optional[str]:
@@ -334,12 +355,13 @@ class ConfigNode(_ConfigNode):
 			return super().replace(creator, component_type=component_type, modifiers=modifiers, project=project,
 			                       component_entry=component_entry, silent=silent, **kwargs)
 		
-		def __init__(self, config: AbstractConfig, *, component_type: str = None,
+		def __init__(self, config: AbstractConfig, *, component_type: str = unspecified_argument,
 		             modifiers: Optional[Sequence[str]] = None, project: Optional[AbstractProject] = None,
 		             component_entry: Optional = None, silent: Optional[bool] = None, **kwargs):
-			if component_type is None:
-				component_type = config.pull(self._config_component_key, None, silent=True)
-			if modifiers is None:
+			if component_type is unspecified_argument:
+				component_type = None if isinstance(config, config.DummyNode) \
+					else config.pull(self._config_component_key, None, silent=True)
+			if component_type is not None and modifiers is None:
 				modifiers = config.pull(self._config_modifier_key, None, silent=True)
 				if modifiers is None:
 					modifiers = []
@@ -360,7 +382,7 @@ class ConfigNode(_ConfigNode):
 			self.modifiers = modifiers
 			self.component_entry = component_entry
 		
-		def validate(self, config) -> Union[Self, 'DefaultCreator']:
+		def validate(self, config) -> 'DefaultCreator':
 			if self.component_entry is None:
 				self.component_entry = self.project.find_artifact('component', self.component_type)
 			creator = config.pull(self._config_creator_key, self.component_entry.creator, silent=True)
@@ -467,21 +489,21 @@ class ConfigNode(_ConfigNode):
 			return value
 			
 
-	def search(self, *queries: str, default: Optional[Any] = unspecified_argument, **kwargs) -> Search:
+	def search(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default, **kwargs) -> Search:
 		return self.Search(origin=self, queries=queries, default=default, **kwargs)
 
-	def peeks(self, *queries: str, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
+	def peeks(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default, silent: Optional[bool] = None,
 	         **kwargs) -> 'ConfigNode':
 		search = self.search(*queries, default=default, **kwargs)
 		node = search.find_node()
 		node.reporter.report_node(node)
 		return node
 
-	def pulls(self, *queries: str, default: Optional[Any] = unspecified_argument, *,
+	def pulls(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default,
 	          silent: Optional[bool] = None) -> Any:
 		search = self.search(*queries, default=default)
 		node = search.find_node()
-		out = node.create()
+		out = node.get_product()
 		return out
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
@@ -498,16 +520,16 @@ class ConfigNode(_ConfigNode):
 		return False
 
 
-	class LazyIterator:
-		def __init__(self):
-			raise NotImplementedError
-		
-	
 	def peek_children(self, *, include_key: bool = False, silent: Optional[bool] = None):
-		raise NotImplementedError
+		self.reporter.report_iterator(self, include_key=include_key, product=False, silent=silent)
+		for key, _ in self.children(keys=True):
+			child = self.search(key, silent=silent).find_node()
+			yield (key, child) if include_key else child
 	
 	def pull_children(self, *, include_key: bool = False, silent: Optional[bool] = None):
-		raise NotImplementedError
+		for key, child in self.peek_children(include_key=True, silent=silent):
+			product = child.get_product()
+			yield (key, product) if include_key else product
 		
 
 	def push_pull(self, addr: str, value: Any, overwrite: bool = True, **kwargs) -> Any:
@@ -631,6 +653,8 @@ class ConfigNode(_ConfigNode):
 		assert not (force_create and not allow_create), f'Cannot force create without allowing create: {self}'
 		if (allow_create and self._product is None) or force_create:
 			self._product = self._create(args, kwargs)
+		# else:
+		# 	self.reporter.report_product(self)
 		return self._product
 
 	@property
@@ -647,7 +671,7 @@ class ConfigNode(_ConfigNode):
 	def __repr__(self):
 		return f'<{self.__class__.__name__} {len(self)} children>'
 
-	def update(self, update: 'ConfigNode', *, clear_product: bool = True) -> Self:
+	def update(self, update: 'ConfigNode', *, clear_product: bool = True) -> 'ConfigNode':
 		if clear_product:
 			self.clear_product()
 			update.clear_product()
@@ -668,16 +692,6 @@ class ConfigNode(_ConfigNode):
 	def silence(self, silent: bool = True) -> ContextManager:
 		# return self.reporter.silence(silent)
 		return self.context(silent=silent)
-
-
-	# def set(self, addr: str, value: Any, reporter=None, **kwargs) -> 'ConfigNode':
-	# 	# if editor is None:
-	# 	# 	editor = self.editor
-	# 	if reporter is None:
-	# 		reporter = self.reporter
-	# 	node, key = self._evaluate_address(addr, auto_create=True)
-	# 	return super(AddressNode, node).set(key, value, reporter=reporter, **kwargs)
-
 
 
 	# _ask_parent = True
@@ -709,8 +723,15 @@ class ConfigNode(_ConfigNode):
 
 
 class ConfigDummyNode(ConfigNode): # output of peek if default is not unspecified_argument but node does not exist
+	ChildrenStructure = list
 	def __init__(self, payload: Any, parent: ConfigNode, **kwargs):
 		super().__init__(payload=payload, parent=parent, **kwargs)
+
+	def _get(self, addr: Hashable):
+		raise self.MissingKey(addr)
+
+	def __repr__(self):
+		return f'{self.__class__.__name__}({self.payload!r})'
 
 
 

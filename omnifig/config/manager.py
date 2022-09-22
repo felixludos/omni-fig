@@ -1,5 +1,5 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator, Self, NamedTuple
+	Iterator, NamedTuple
 from pathlib import Path
 import io
 import yaml

@@ -2,9 +2,10 @@ from typing import Optional, Union, Sequence
 from pathlib import Path
 from omnibelt import unspecified_argument, get_printer, Class_Registry
 
-from ..abstract import AbstractConfig, AbstractProject
+from ..abstract import AbstractConfig, AbstractProject, AbstractMetaRule
 from .external import include_package, include_files
-from .profiles import Meta_Rule
+from ..config import ConfigManager
+# from .profiles import Meta_Rule
 
 prt = get_printer(__name__)
 
@@ -49,8 +50,8 @@ class GeneralProject(ProjectBase, name='general'):
 		prt.warning(f'Could not infer project path from {path} (using blank project)')
 
 
-	class Script_Registry(Class_Registry, components=['description', 'project']): pass
-	Config_Manager = None#ConfigManager
+	class Script_Registry(Class_Registry, components=['description', 'hidden', 'project']): pass
+	Config_Manager = ConfigManager
 
 	def __init__(self, path, *, script_registry=None, config_manager=None, **kwargs):
 		if script_registry is None:
@@ -118,7 +119,7 @@ class GeneralProject(ProjectBase, name='general'):
 	def parse_argv(self, argv, *, script_name=None) -> AbstractConfig:
 		return self.config_manager.parse_argv(argv, script_name=script_name)
 
-	TerminationFlag = Meta_Rule.TerminationFlag
+	TerminationFlag = AbstractMetaRule.TerminationFlag
 	def _check_meta_rules(self, config, meta):
 		for rule in self._profile.iterate_meta_rules():
 			try:
@@ -203,8 +204,8 @@ class GeneralProject(ProjectBase, name='general'):
 	def find_script(self, name, default=unspecified_argument):
 		return self.find_artifact('script', name, default=default)
 
-	def register_script(self, name, fn, *, description=None):
-		return self.register_artifact('script', name, fn, description=description)
+	def register_script(self, name, fn, *, description=None, hidden=None):
+		return self.register_artifact('script', name, fn, description=description, hidden=hidden)
 
 	def iterate_scripts(self):
 		return self.iterate_artifacts('script')

@@ -1,5 +1,5 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator, NamedTuple, Self, ContextManager
+	Iterator, NamedTuple, ContextManager
 import abc
 from pathlib import Path
 from omnibelt import unspecified_argument, Class_Registry, Primitive, JSONABLE
@@ -39,7 +39,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 	def push(self, addr: str, value: Any, overwrite: bool = True, *, silent: Optional[bool] = False) -> bool:
 		raise NotImplementedError
 
-	def update(self, update: 'AbstractConfig') -> Self:
+	def update(self, update: 'AbstractConfig') -> 'AbstractConfig':
 		raise NotImplementedError
 	
 	def silence(self, silent: bool = True) -> ContextManager:
@@ -137,7 +137,7 @@ class AbstractRunMode(Activatable):
 
 _ArtifactEntry = NamedTuple('ArtifactEntry', [('name', str), ('value', Type)])
 MetaRuleFunction = Callable[[AbstractConfig, Dict[str, Any]], Optional[AbstractConfig]]
-_MetaRuleEntry = NamedTuple('MetaRuleEntry', 'fn:MetaRuleFunction code:str priority:int num_args:int')
+# _MetaRuleEntry = NamedTuple('MetaRuleEntry', 'fn:MetaRuleFunction code:str priority:int num_args:int')
 
 
 
@@ -151,7 +151,7 @@ class AbstractProject(AbstractRunMode, FileInfo): # generally you should extend 
 		return self._profile
 
 
-	def iterate_meta_rules(self) -> Iterator[_MetaRuleEntry]:
+	def iterate_meta_rules(self) -> Iterator:
 		return self._profile.iterate_meta_rules()
 
 
@@ -186,7 +186,7 @@ _ProjectTypeEntry = NamedTuple('ProjectTypeEntry', [('name', str), ('cls', Type[
 
 
 
-class AbstractProfile(Activatable, FileInfo): # generally you should extend organization.workspaces.ProfileBase
+class AbstractProfile(FileInfo): # generally you should extend organization.workspaces.ProfileBase
 	@classmethod
 	def get_project_type(cls, ident: str) -> _ProjectTypeEntry:
 		raise NotImplementedError
@@ -205,11 +205,11 @@ class AbstractProfile(Activatable, FileInfo): # generally you should extend orga
 		raise NotImplementedError
 
 	@classmethod
-	def get_meta_rule(cls, name: str) -> _MetaRuleEntry:
+	def get_meta_rule(cls, name: str):
 		raise NotImplementedError
 
 	@classmethod
-	def iterate_meta_rules(cls) -> Iterator[_MetaRuleEntry]:
+	def iterate_meta_rules(cls) -> Iterator:
 		raise NotImplementedError
 
 

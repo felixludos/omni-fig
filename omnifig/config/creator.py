@@ -1,5 +1,5 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator, Self, NamedTuple
+	Iterator, NamedTuple
 import inspect
 from omnibelt import get_printer, unspecified_argument, extract_function_signature
 
@@ -57,7 +57,7 @@ class DefaultCreator(AbstractCreator):
 		self.component_entry = component_entry
 		self.search = search
 
-	def validate(self, config) -> Union[Self, 'DefaultCreator']:
+	def validate(self, config) -> 'DefaultCreator':
 		if self.component_entry is None:
 			self.component_entry = self.project.find_artifact('component', self.component_type)
 		creator = config.pull(self._config_creator_key, self.component_entry.creator, silent=True)

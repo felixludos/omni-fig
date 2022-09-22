@@ -4,12 +4,13 @@ import traceback
 from omnibelt import get_printer
 
 from ..abstract import AbstractConfig
-from .. import Meta_Rule, create_config
+from .. import meta_rule, create_config
 
 prt = get_printer(__name__)
 
 
-class Debug_Rule(Meta_Rule, name='debug', code='d', priority=100, num_args=0, description='Switch to debug mode'):
+@meta_rule(name='debug', code='d', priority=100, num_args=0, description='Switch to debug mode')
+class Debug_Rule:
 	'''
 	When activated, this rule changes the run mode to ``run_mode/debug`` and updates the config to include
 

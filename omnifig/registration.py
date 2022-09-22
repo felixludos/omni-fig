@@ -10,12 +10,12 @@ from omnibelt import extract_function_signature, get_printer
 from .abstract import AbstractScript, AbstractCreator, AbstractComponent, AbstractModifier, \
 	AbstractConfig, AbstractProject
 from .organization import GeneralProject, Profile
-from .top import get_current_project
+from .top import get_current_project, get_profile
 
 prt = get_printer(__name__)
 
 Product = Any
-RawCallableItem = Callable[[...], Product]
+RawCallableItem = Callable[[Any], Product]
 ConfigCallableItem = Callable[[AbstractConfig], Product]
 ModifierCallableItem = Callable[[ConfigCallableItem], ConfigCallableItem]
 
@@ -59,35 +59,39 @@ class _Project_Registration_Decorator(_Registration_Decorator):
 
 
 
-class register_script(_Registration_Decorator):
+class script(_Project_Registration_Decorator):
 	'''Decorator to register a script'''
-	def __init__(self, name: Optional[str] = None, description: Optional[str] = None) -> None:
+	def __init__(self, name: Optional[str] = None, description: Optional[str] = None, *,
+	             hidden: bool = None) -> None:
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
 		:param description: a short description of what the script does (defaults to first line of its docstring)
+		:param hidden: if True, the script will not be listed in the help menu
 		'''
-		super().__init__(name=name, description=description)
+		super().__init__(name=name, description=description, hidden=hidden)
 
 	@staticmethod
 	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem,
-	                     description: Optional[str] = None, **kwargs) -> None:
+	                     description: Optional[str] = None, hidden: Optional[bool] = None, **kwargs) -> None:
 		if description is None and item.__doc__ is not None:
 			description = item.__doc__.split('\n')[0]
+		if hidden is None:
+			hidden = name.startswith('_')
 		if not isinstance(project, GeneralProject):
 			prt.error(f'Cannot register script {name} for project {project} (not a "general" project)')
-		project.register_script(name, item, description=description, **kwargs)
+		project.register_script(name, item, description=description, hidden=hidden, **kwargs)
 
 
 
-class Script(AbstractScript):
-	def __init_subclass__(cls, script_name: str = None, description: Optional[str] = None, **kwargs):
-		super().__init_subclass__(**kwargs)
-		if script_name is not None:
-			register_script(script_name, description=description)(cls)
+# class Script(AbstractScript):
+# 	def __init_subclass__(cls, script_name: str = None, description: Optional[str] = None, **kwargs):
+# 		super().__init_subclass__(**kwargs)
+# 		if script_name is not None:
+# 			script(script_name, description=description)(cls)
 
 
 
-class register_creator(_Registration_Decorator):
+class creator(_Project_Registration_Decorator):
 	def __init__(self, name: Optional[str] = None):
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
@@ -103,18 +107,18 @@ class register_creator(_Registration_Decorator):
 
 
 
-class Creator(AbstractCreator):
-	_creator_name = None
-	def __init_subclass__(cls, creator_name: str = None, **kwargs):
-		super().__init_subclass__(**kwargs)
-		if creator_name is not None:
-			register_creator(creator_name)(cls)
+# class Creator(AbstractCreator):
+# 	_creator_name = None
+# 	def __init_subclass__(cls, creator_name: str = None, **kwargs):
+# 		super().__init_subclass__(**kwargs)
+# 		if creator_name is not None:
+# 			creator(creator_name)(cls)
 
 
 
-class register_component(_Registration_Decorator):
+class component(_Project_Registration_Decorator):
 	'''Decorator to register a component (expected to be a type)'''
-	def __init__(self, name: Optional[str] = None, creator: Optional[str, AbstractCreator] = None):
+	def __init__(self, name: Optional[str] = None, creator: Optional[Union[str, AbstractCreator]] = None):
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
 		'''
@@ -129,15 +133,15 @@ class register_component(_Registration_Decorator):
 
 
 
-class Component(AbstractComponent):
-	def __init_subclass__(cls, component_name: str = None, creator: Optional[str] = None, **kwargs):
-		super().__init_subclass__(**kwargs)
-		if component_name is not None:
-			register_component(component_name, creator=creator)(cls)
+# class Component(AbstractComponent):
+# 	def __init_subclass__(cls, component_name: str = None, creator: Optional[str] = None, **kwargs):
+# 		super().__init_subclass__(**kwargs)
+# 		if component_name is not None:
+# 			component(component_name, creator=creator)(cls)
 
 
 
-class register_modifier(_Registration_Decorator):
+class modifier(_Project_Registration_Decorator):
 	'''Decorator to register a modifier (expected be a type)
 
 	Modifiers are "runtime mixins" for components. When specifying a component to be modified with the `_mod` key
@@ -158,11 +162,11 @@ class register_modifier(_Registration_Decorator):
 
 
 
-class Modifier(AbstractModifier):
-	def __init_subclass__(cls, modifier_name: str = None, **kwargs):
-		super().__init_subclass__(**kwargs)
-		if modifier_name is not None:
-			register_component(modifier_name)(cls)
+# class Modifier(AbstractModifier):
+# 	def __init_subclass__(cls, modifier_name: str = None, **kwargs):
+# 		super().__init_subclass__(**kwargs)
+# 		if modifier_name is not None:
+# 			component(modifier_name)(cls)
 
 
 
@@ -200,7 +204,7 @@ class _AutofillMixin(_Registration_Decorator):
 
 
 
-class register_autoscript(_AutofillMixin, register_script):
+class autoscript(_AutofillMixin, script):
 	'''Convienence decorator to register scripts where the arguments are automatically extracted from the config'''
 	def __init__(self, name: Optional[str] = None, description: Optional[str] = None,
 	             aliases: Optional[Dict[str, Union[str, Sequence[str]]]] = None, **kwargs):
@@ -213,12 +217,54 @@ class register_autoscript(_AutofillMixin, register_script):
 
 
 
-class AutoScript(AbstractScript):
-	def __init_subclass__(cls, script_name: str = None, description: Optional[str] = None,
-	                      aliases: Optional[Dict[str, Union[str, Sequence[str]]]] = None, **kwargs):
-		super().__init_subclass__(**kwargs)
-		if script_name is not None:
-			register_autoscript(script_name, description=description, aliases=aliases)(cls)
+# class AutoScript(AbstractScript):
+# 	def __init_subclass__(cls, script_name: str = None, description: Optional[str] = None,
+# 	                      aliases: Optional[Dict[str, Union[str, Sequence[str]]]] = None, **kwargs):
+# 		super().__init_subclass__(**kwargs)
+# 		if script_name is not None:
+# 			autoscript(script_name, description=description, aliases=aliases)(cls)
+
+
+
+class meta_rule(_Registration_Decorator):
+	'''Decorator to register a modifier (expected be a type)
+
+	Modifiers are "runtime mixins" for components. When specifying a component to be modified with the `_mod` key
+	in the config, a new type is dynamically created which is a child of all the specified modifiers as well as
+	the original component.
+	'''
+	def __init__(self, name: str, code: str, description: Optional[str] = None,
+	             priority: Optional[int] = 0, num_args: Optional[int] = 0, **kwargs):
+		'''
+		:param name: name of item to be registered (defaults to its __name__)
+		'''
+		super().__init__(name=name, code=code, description=description, priority=priority, num_args=num_args, **kwargs)
+
+	@staticmethod
+	def register(name: str, func: Callable, *, code: str, description: Optional[str] = None,
+	                       priority: Optional[int] = 0, num_args: Optional[int] = 0) -> None:
+		get_profile().register_meta_rule(name, func, code=code, description=description,
+		                                 priority=priority, num_args=num_args)
+
+
+
+
+# class Meta_Rule(AbstractMetaRule):
+# 	def __init_subclass__(cls, code=None, name=None, priority=0, num_args=0, description=None, **kwargs):
+# 		super().__init_subclass__(**kwargs)
+# 		if code is not None and name is None:
+# 			prt.warning(f'No name for {Meta_Rule.__name__} {cls.__name__} provided, will default to {cls.__name__!r}')
+# 			name = cls.__name__
+# 		if code is None and name is not None:
+# 			prt.error(f'No code for {Meta_Rule.__name__} {name!r} provided, '
+# 			          f'cannot register a {Meta_Rule.__name__} without a code')
+# 		if code is not None and name is not None:
+# 			get_profile().register_meta_rule(name, cls, code=code, priority=priority, num_args=num_args, description=description)
+#
+# 	def __call__(self, config: AbstractConfig, meta: AbstractConfig):
+# 		pass
+
+
 
 
 
@@ -279,7 +325,7 @@ class autofill_with_config:  # TODO: generally not recommended for types, use Co
 			args, kwargs = self._autofill_init(config, **kwargs)
 			super().__init__(*args, **kwargs)
 
-	def autofill(self, config: AbstractConfig, args: Optional[Tuple[...]] = None,
+	def autofill(self, config: AbstractConfig, args: Optional[Tuple] = None,
 	             kwargs: Optional[Dict[str, Any]] = None) -> Tuple[List[Any], Dict[str, Any]]:
 		def default_fn(key, default):
 			if default is Parameter.empty:

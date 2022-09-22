@@ -4,14 +4,15 @@ from tabulate import tabulate
 from omnibelt import get_printer
 
 from ..abstract import AbstractConfig
-from .. import Meta_Rule, create_config, get_current_project
+from .. import meta_rule, create_config, get_current_project
 
 
 prt = get_printer(__name__)
 
 
 
-class Help_Rule(Meta_Rule, name='help', code='h', priority=99, num_args=0, description='Display this help message'):
+@meta_rule(name='help', code='h', priority=99, num_args=0, description='Display this help message')
+class Help_Rule:
 	_default_help_msg = '''
 	Usage: fig [-<meta>] {script} [<configs>...] [--<args>]
 
@@ -66,7 +67,7 @@ class Help_Rule(Meta_Rule, name='help', code='h', priority=99, num_args=0, descr
 		minfo = tabulate(metas, headers=['Code', 'Name', 'Description'], )  # tablefmt="plain"
 
 		scripts = [(s.name, '-' if s.description is None else s.description)
-		           for s in project.iterate_artifacts('script') if not s.name.startswith('_')]  # [:num]
+		           for s in project.iterate_artifacts('script') if not s.hidden]  # [:num]
 
 		configs = [c.name for c in project.iterate_artifacts('config')]
 

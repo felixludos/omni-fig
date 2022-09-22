@@ -61,7 +61,7 @@ def main(argv: Sequence[str], *, script_name: str = None) -> Any:
 	return get_profile().main(argv, script_name=script_name)
 
 
-def run(config: AbstractConfig, *, script_name: str = None, **meta: JSONABLE) -> Any:
+def run(script_name: str, config: AbstractConfig, **meta: JSONABLE) -> Any:
 	'''
 	Runs the specified script registered with ``script_name`` using the current project.
 	

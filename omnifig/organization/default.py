@@ -119,10 +119,10 @@ class Profile(ProfileBase, default_profile=True):
 	def _activate(self) -> None:
 		active_projects = self.data.get('active_projects', [])
 		for project in active_projects:
-			self.get_project(project)
+			self.get_project(project, is_current=False)
 
 
-	def get_project(self, ident: Union[str, Path] = None) -> Project:
+	def get_project(self, ident: Union[str, Path] = None, is_current: bool = True) -> Project:
 		if ident is None:
 			if self._current_project_key is not None:
 				return self.get_current_project()
@@ -139,15 +139,17 @@ class Profile(ProfileBase, default_profile=True):
 			if ident in self.data.get('projects', {}):
 				path = self.data['projects'][ident]
 
-			proj = self.Project(path)
+			proj = self.Project(path, profile=self)
 			proj = proj.validate()
 			if proj.name in self._loaded_projects:
 				prt.warning('project name already loaded: %s (will now overwrite)', proj.name)
 
-		assert proj.name == ident, 'project name does not match profiles name for it: %s != %s' % (proj.name, ident)
+		if ident is not None:
+			assert proj.name == ident, 'project name does not match profiles name for it: ' \
+			                           '%s != %s' % (proj.name, ident)
 		# self._loaded_projects[ident] = proj.name
 		self._loaded_projects[proj.name] = proj
-		if self._current_project_key is None:
+		if is_current:
 			self._current_project_key = ident
 		return proj
 
@@ -175,7 +177,7 @@ class Profile(ProfileBase, default_profile=True):
 		return self.get_current_project().find_script(name, default=default)
 
 	def register_script(self, name, fn, *, description=None):
-		return self.get_current_project().register_script(name, fn, description=description)
+		return self.get_current_project().script(name, fn, description=description)
 
 	def iterate_scripts(self):
 		return self.get_current_project().iterate_scripts()
@@ -185,7 +187,7 @@ class Profile(ProfileBase, default_profile=True):
 		return self.get_current_project().find_creator(name, default=default)
 
 	def register_creator(self, name, fn, *, description=None):
-		return self.get_current_project().register_creator(name, fn, description=description)
+		return self.get_current_project().creator(name, fn, description=description)
 
 	def iterate_creators(self):
 		return self.get_current_project().iterate_creators()
@@ -194,7 +196,7 @@ class Profile(ProfileBase, default_profile=True):
 		return self.get_current_project().find_component(name, default=default)
 
 	def register_component(self, name, cls, *, description=None):
-		return self.get_current_project().register_component(name, cls, description=description)
+		return self.get_current_project().component(name, cls, description=description)
 
 	def iterate_components(self):
 		return self.get_current_project().iterate_components()
@@ -203,7 +205,7 @@ class Profile(ProfileBase, default_profile=True):
 		return self.get_current_project().find_modifier(name, default=default)
 
 	def register_modifier(self, name, cls, *, description=None):
-		return self.get_current_project().register_modifier(name, cls, description=description)
+		return self.get_current_project().modifier(name, cls, description=description)
 
 	def iterate_modifiers(self):
 		return self.get_current_project().iterate_modifiers()
