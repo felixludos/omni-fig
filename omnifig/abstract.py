@@ -112,11 +112,12 @@ class AbstractRunMode(Activatable):
 		self.cleanup() # (optional) cleanup
 		return out # return output
 
-	def run(self, config, *, script_name=None, **meta):
+	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
+	        kwargs: Optional[Dict[str, Any]] = None, **meta: Any) -> Any:
 		transfer = self.validate_run(config)
 		if transfer is not None:
 			return transfer.run(config, script_name=script_name)
-		return self.run_local(config, script_name=script_name)
+		return self.run_local(config, script_name=script_name, args=args, kwargs=kwargs, meta=meta)
 
 	def cleanup(self, *args, **kwargs):
 		pass
@@ -130,7 +131,8 @@ class AbstractRunMode(Activatable):
 	def parse_argv(self, argv, *, script_name=None) -> AbstractConfig:
 		raise NotImplementedError
 
-	def run_local(self, config, *, script_name=None) -> Any:
+	def run_local(self, config, *, script_name=None, args: Optional[Tuple] = None,
+	        kwargs: Optional[Dict[str, Any]] = None, meta: Optional[Dict[str, Any]] = None) -> Any:
 		raise NotImplementedError
 
 
@@ -224,7 +226,8 @@ class AbstractProfile(FileInfo): # generally you should extend organization.work
 	def main(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
 		raise NotImplementedError
 
-	def run(self, config: AbstractConfig, *, script_name: Optional[str] = None, **meta: Any) -> Any:
+	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
+	        kwargs: Optional[Dict[str, Any]] = None, meta: Optional[Dict[str, Any]] = None) -> Any:
 		raise NotImplementedError
 
 	def quick_run(self, script_name: str, *parents: str, **args: Any) -> Any:

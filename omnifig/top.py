@@ -61,7 +61,7 @@ def main(argv: Sequence[str], *, script_name: str = None) -> Any:
 	return get_profile().main(argv, script_name=script_name)
 
 
-def run(script_name: str, config: AbstractConfig, **meta: JSONABLE) -> Any:
+def run(script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 	'''
 	Runs the specified script registered with ``script_name`` using the current project.
 	
@@ -70,7 +70,7 @@ def run(script_name: str, config: AbstractConfig, **meta: JSONABLE) -> Any:
 	:param meta: any meta rules that modify the way the script is run
 	:return: output of the script, raises MissingScriptError if the script is not found
 	'''
-	return get_profile().run(config, script_name=script_name, **meta)
+	return get_profile().run(config, script_name=script_name, args=args, kwargs=kwargs)
 
 
 def quick_run(script_name: str, *parents: str, **args: JSONABLE) -> Any:

@@ -153,12 +153,17 @@ class GeneralProject(ProjectBase, name='general'):
 					config = out
 		return config
 
-	def _run(self, script_entry, config):
-		return script_entry.fn(config)
+	def _run(self, script_entry, config, args=None, kwargs=None):
+		if args is None:
+			args = []
+		if kwargs is None:
+			kwargs = {}
+		return script_entry.fn(config, *args, **kwargs)
 
-	def run_local(self, config, *, script_name=None, **meta):
+	def run_local(self, config, *, script_name=None, args=None, kwargs=None, meta=None):
 		config.set_project(self)
-		config.push('_meta', meta, silent=True)
+		if meta is not None:
+			config.push('_meta', meta, silent=True)
 		if script_name is not None:
 			config.push('_meta.script_name', script_name, overwrite=True, silent=True)
 
@@ -172,7 +177,7 @@ class GeneralProject(ProjectBase, name='general'):
 			return
 
 		entry = self.find_script(script_name)
-		return self._run(entry, config)
+		return self._run(entry, config, args, kwargs)
 	# endregion
 
 	# region Registration

@@ -45,13 +45,14 @@ class Profile(ProfileBase, default_profile=True):
 			if runner is not None:
 				return runner
 
-		def run_local(self, config, *, script_name=None, **meta): # derives meta from config under "_meta"
+		def run_local(self, config, *, script_name=None, args=None, kwargs=None, meta=None): # derives meta from config under "_meta"
 			config.project = self
 
 			if script_name is not None:
 				config.push('_meta.script_name', script_name, overwrite=True, silent=True)
-			for k, v in meta.items():
-				config.push(f'_meta.{k}', v, overwrite=True, silent=True)
+			if meta is not None:
+				for k, v in meta.items():
+					config.push(f'_meta.{k}', v, overwrite=True, silent=True)
 
 			meta = config.peek('_meta', {}, silent=True)
 			try:
@@ -60,7 +61,7 @@ class Profile(ProfileBase, default_profile=True):
 				return
 
 			entry = self.find_artifact('script', config.pull('_meta.script_name', silent=True))
-			return self._run(entry, config)
+			return self._run(entry, config, args, kwargs)
 
 		# region Registration
 		def find_creator(self, name, default=unspecified_argument):

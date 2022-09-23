@@ -2,10 +2,15 @@
 import omnifig as fig
 
 @fig.script('build-model', description='Build model')
-def build_model(config): # un registered helper function
+def build_model(config, input_dim=None, output_dim=None): # un registered helper function
 
-	# automatically creates the component "model" refers to based on "model._type"
-	model = config.pull('model')
+	if input_dim is None:
+		input_dim = config.pull('input_dim')
+	if output_dim is None:
+		output_dim = config.pull('output_dim')
+
+	# automatically creates the component "model" specified with "model._type", and pass arguments with process
+	model = config.peek_process('model', input_dim=input_dim, output_dim=output_dim)
 
 	config.push('optim._type', 'sgd-optim', overwrite=False) # add new arguments (with/out overwriting existing ones)
 	# if the "optim" node doesn't exist, it will automatically be created
@@ -23,10 +28,11 @@ def build_model(config): # un registered helper function
 def run_train_model(config): # config object containing all necessary config info
 	print('Running train!')
 
-	model, optim = fig.run('build-model', config) # run the "build-model" script
-
 	config.push('dataset._type', 'mnist', overwrite=False)
 	dataset = config.pull('dataset') # pull without a default value -> required argument
+
+	model, optim = fig.run('build-model', config, # run the "build-model" script including arguments
+	                       input_dim=dataset.input_dim, output_dim=dataset.output_dim)
 
 	print(f'Using dataset: {dataset.name} (len={len(dataset)})')
 	print(f'Using Model: {model.name}')

@@ -131,18 +131,15 @@ class ConfigNode(_ConfigNode):
 	class Search(SimpleSearch):
 		def sub_search(self, origin, queries):
 			out = self.__class__(origin=origin, queries=queries, default=origin.empty_default,
-			                      parent_search=self, silent=origin.silent)
+			                      parent_search=self)
 			out.query_chain = out.queries
 			return out
 		
 		def __init__(self, origin: 'ConfigNode', queries: Optional[Sequence[str]], default: Any,
-		             parent_search: Optional['ConfigNode.Search'] = None, silent: Optional[bool] = None, **kwargs):
+		             parent_search: Optional['ConfigNode.Search'] = None, **kwargs):
 			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
-			self.remaining_queries = iter([] if queries is None else queries)
 			self.force_create = False
-			self.ask_parents = origin.settings.get('ask_parents', True)
 			self.parent_search = parent_search
-			self.silent = silent
 
 		confidential_prefix = '_'
 
@@ -150,7 +147,7 @@ class ConfigNode(_ConfigNode):
 			try:
 				result = src.get(query)
 			except src.MissingKey:
-				if self.ask_parents and not query.startswith(self.confidential_prefix):
+				if src.settings.get('ask_parents', True) and not query.startswith(self.confidential_prefix):
 					parent = src.parent
 					if parent is not None:
 						try:
@@ -172,6 +169,7 @@ class ConfigNode(_ConfigNode):
 				return result
 
 		def _find_node(self) -> 'ConfigNode':
+			self.remaining_queries = iter([] if self.queries is None else self.queries)
 			try:
 				query = next(self.remaining_queries)
 			except StopIteration:
@@ -181,10 +179,11 @@ class ConfigNode(_ConfigNode):
 
 			self.query_node = result
 			self.result_node = self.process_node(result)
+			self.key = self.result_node.reporter.get_key(self)
 			self.result_node._trace = self
 			return self.result_node
 		
-		def find_node(self) -> 'ConfigNode':
+		def find_node(self, silent: Optional[bool] = None) -> 'ConfigNode':
 			try:
 				result = self._find_node()
 			except self.SearchFailed:
@@ -193,7 +192,7 @@ class ConfigNode(_ConfigNode):
 				result = self.origin.DummyNode(payload=self.default, parent=self.origin)
 			return result
 
-		def find_product(self) -> Any:
+		def find_product(self, silent: Optional[bool] = None) -> Any:
 			try:
 				node = self._find_node()
 			except self.SearchFailed:
@@ -201,8 +200,8 @@ class ConfigNode(_ConfigNode):
 					raise
 				result = self.default
 			else:
-				result = node._create(silent=self.silent) if self.force_create \
-					else node._get_product(silent=self.silent)
+				result = node._create(silent=silent) if self.force_create \
+					else node._process(silent=silent)
 				node._trace = None
 			return result
 
@@ -272,7 +271,10 @@ class ConfigNode(_ConfigNode):
 			return key
 
 		def _stylize(self, node: 'ConfigNode', line: str) -> str:
-			indent = max(0, self._node_depth(node) - 1) * self.indent
+			trace = node.trace
+			if trace is not None:
+				node = trace.origin
+			indent = self._node_depth(node) * self.indent
 			return f'{self.flair}{indent}{line}'
 
 		def _format_component(self, key: str, component_type: str, modifiers: Sequence[str],
@@ -333,11 +335,7 @@ class ConfigNode(_ConfigNode):
 			key = self.get_key(trace)
 			N = len(node)
 
-			# if value is unspecified_argument:
-			# 	t, x = ('list', 'element') if isinstance(node, trace.origin.SparseNode) else ('dict', 'item')
-			# else:
-			# 	t, x = ('list', 'element') if isinstance(value, list) else ('dict', 'item')
-			t, x = ('list', 'element') if isinstance(node, trace.origin.SparseNode) else ('dict', 'item')
+			t, x = ('dict', 'item') if isinstance(node, trace.origin.SparseNode) else ('list', 'element')
 			x = f'{x}s' if N != 1 else x
 			line = f'{key} [{t} with {N} {x}]'
 			return self.log(self._stylize(node, line), silent=silent)
@@ -446,14 +444,14 @@ class ConfigNode(_ConfigNode):
 				product = {}
 				for key, child in config.children():
 					child._trace = None if trace is None else trace.sub_search(config, [key])
-					product[key] = child._get_product(silent=silent)
+					product[key] = child._process(silent=silent)
 					child._trace = None
 			
 			elif isinstance(config, config.DenseNode):
 				product = []
 				for key, child in config.children():
 					child._trace = None if trace is None else trace.sub_search(config, [key])
-					product.append(child._get_product(silent=silent))
+					product.append(child._process(silent=silent))
 					child._trace = None
 					
 			else:
@@ -499,29 +497,24 @@ class ConfigNode(_ConfigNode):
 			return value
 			
 
-	def search(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default,
-	           silent: Optional[bool] = None, **kwargs) -> Search:
-		return self.Search(origin=self, queries=queries, default=default, silent=silent, **kwargs)
+	def search(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default, **kwargs) -> Search:
+		return self.Search(origin=self, queries=queries, default=default, **kwargs)
 
 	def peeks(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default, silent: Optional[bool] = None,
 	         **kwargs) -> 'ConfigNode':
-		search = self.search(*queries, default=default, silent=silent, **kwargs)
-		return search.find_node()
+		search = self.search(*queries, default=default, **kwargs)
+		return search.find_node(silent=silent)
 
 	def pulls(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default,
 	          silent: Optional[bool] = None, **kwargs) -> Any:
-		search = self.search(*queries, default=default, silent=silent, **kwargs)
-		return search.find_product()
+		search = self.search(*queries, default=default, **kwargs)
+		return search.find_product(silent=silent)
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
 		if self.settings.get('readonly', False):
 			raise self.ReadOnlyError('Cannot push to read-only node')
-		try:
-			existing = self.get(addr)
-		except self.MissingKey:
-			existing = None
 
-		if existing is None or overwrite:
+		if not self.has(addr) or overwrite:
 			self.set(addr, value)
 			return True
 		return False
@@ -535,7 +528,7 @@ class ConfigNode(_ConfigNode):
 	
 	def pull_children(self, *, include_key: bool = False, silent: Optional[bool] = None):
 		for key, child in self.peek_children(include_key=True, silent=silent):
-			product = child.get_product()
+			product = child.process()
 			yield (key, product) if include_key else product
 		
 
@@ -543,6 +536,8 @@ class ConfigNode(_ConfigNode):
 		self.push(addr, value, overwrite=overwrite)
 		return self.pull(addr, **kwargs)
 
+	def peek_process(self, query, default: Optional[Any] = AbstractConfig.empty_default, *args, **kwargs):
+		return self.peek(query, default=default).process(*args, **kwargs)
 
 	def __init__(self, *args, reporter: Optional[Reporter] = None, settings: Optional[Settings] = None,
 	             project: Optional[AbstractProject] = None, **kwargs):
@@ -649,8 +644,8 @@ class ConfigNode(_ConfigNode):
 		self._trace = None
 		return out
 
-	def _get_product(self, component_args: Optional[Tuple] = None, component_kwargs: Optional[Dict[str,Any]] = None,
-	            silent: Optional[bool] = None, **kwargs: Any) -> Any:
+	def _process(self, component_args: Optional[Tuple] = None, component_kwargs: Optional[Dict[str, Any]] = None,
+	             silent: Optional[bool] = None, **kwargs: Any) -> Any:
 		settings = self.settings
 		force_create = settings.get('force_create', False)
 		allow_create = settings.get('allow_create', True)
@@ -666,8 +661,11 @@ class ConfigNode(_ConfigNode):
 	def create_silent(self, *args: Any, **kwargs: Any) -> Any:
 		return self._create(args, kwargs, silent=True)
 	
-	def get_product(self, *args: Any, **kwargs: Any) -> Any:
-		return self._get_product(args, kwargs, silent=self.settings.get('silent', None))
+	def process(self, *args: Any, **kwargs: Any) -> Any:
+		return self._process(args, kwargs, silent=self.settings.get('silent', None))
+
+	def process_silent(self, *args: Any, **kwargs: Any) -> Any:
+		return self._process(args, kwargs, silent=True)
 
 	@property
 	def product_exists(self) -> bool:
@@ -747,7 +745,8 @@ class ConfigDummyNode(ConfigNode): # output of peek if default is not unspecifie
 
 
 
-class ConfigSparseNode(AutoTreeSparseNode, ConfigNode): pass
+class ConfigSparseNode(AutoTreeSparseNode, ConfigNode):
+	_python_structure = dict
 
 
 class ConfigDenseNode(AutoTreeDenseNode, ConfigNode): pass

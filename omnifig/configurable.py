@@ -11,7 +11,26 @@ class Configurable(AbstractConfigurable, auto_init):
 
 	@property
 	def my_config(self) -> AbstractConfig:
-		return self._my_config
+		return getattr(self, '_my_config', None)
+
+	class MissingConfigError(Exception):
+		def __init__(self, product, missing, config=None, msg=None):
+			config_key = ''
+			if config is not None:
+				trace = config.trace
+				if trace is not None:
+					config_key = f'{config.reporter.get_key(trace)}: '
+			missing = [repr(p.name) for p in missing]
+			if msg is None:
+				msg = f'{config_key}{product.__name__} is missing {", ".join(missing)}'
+			super().__init__(msg)
+			self.product = product
+			self.missing = missing
+			self.config = config
+
+	def _fix_missing_args(self, missing: List[inspect.Parameter], src: Type, method: Callable,
+	                      args: Tuple, kwargs: Dict[str, Any]):
+		raise self.MissingConfigError(type(self), missing, self.my_config)
 
 	class _auto_method_arg_fixer(auto_init._auto_method_arg_fixer):
 		def __init__(self, method: Callable, src: Type['Configurable'], obj: 'Configurable', **kwargs):

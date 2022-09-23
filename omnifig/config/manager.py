@@ -222,6 +222,8 @@ class ConfigManager(AbstractConfigManager):
 			order = [data]
 
 		merged = self._merge_raw_configs(order)
+
+		merged.settings = merged.pull('_meta.settings', {}, silent=True)
 		return merged
 
 

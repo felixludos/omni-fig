@@ -94,8 +94,9 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 	def main(self, argv: Sequence[str], *, script_name: str = None) -> None:
 		return self.get_current_project().main(argv, script_name=script_name)
 	
-	def run(self, config, *, script_name=None, **meta):
-		return self.get_current_project().run(config, script_name=script_name, **meta)
+	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
+	        kwargs: Optional[Dict[str, Any]] = None):
+		return self.get_current_project().run(config, script_name=script_name, args=args, kwargs=kwargs)
 	
 	def quick_run(self, script_name, *parents, **args):
 		return self.get_current_project().quick_run(script_name, *parents, **args)
