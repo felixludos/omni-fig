@@ -161,7 +161,16 @@ class ConfigManager(AbstractConfigManager):
 	def find_config_path(self, name: str) -> Path:
 		# if name not in self.registry:
 		# 	raise ValueError(f'Unknown config: {name}')
-		return self.registry.get_path(name)
+		return self.find_config(name).path
+
+	class ConfigNotRegistered(KeyError): pass
+
+	def find_config(self, name: str) -> AbstractConfig:
+		try:
+			return self.registry.find(name)
+		except self.registry.NotFoundError:
+			pass
+		raise self.ConfigNotRegistered(name)
 
 	@staticmethod
 	def _find_config_parents(raw: Dict[str, Any]) -> List[str]:
@@ -209,7 +218,7 @@ class ConfigManager(AbstractConfigManager):
 			if path not in raws:
 				if not path.exists():
 					raise FileNotFoundError(path)
-				raws[path] = load_yaml(path)
+				raws[path] = load_yaml(path, ordered=True)
 				todo.extend(self._find_config_parents(raws[path]))
 				used_paths[name] = path
 		if len(used_paths) != len(todo):

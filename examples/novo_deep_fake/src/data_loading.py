@@ -56,11 +56,13 @@ class Toy_Dataset(fig.Configurable):
 	def __iter__(self):
 		self.idx = 0
 		return self
-		
+
+
 @fig.component('mnist')
 class MNIST(Toy_Dataset):
 	def __init__(self, name='mnist', input_dim=(28, 28, 1), output_dim=10, **kwargs):
 		super().__init__(name=name, input_dim=input_dim, output_dim=output_dim, **kwargs)
+
 
 @fig.component('cifar')
 class CIFAR(Toy_Dataset):
@@ -83,7 +85,8 @@ class Even(Toy_Dataset):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.samples = [x for x in self.samples if x % 2 == 0]
-		
+
+
 @fig.modifier('noisy')
 class Noisy(Toy_Dataset):
 	def __init__(self, *args, noise_weight=None, **kwargs):
@@ -98,8 +101,10 @@ class Noisy(Toy_Dataset):
 
 		return x, y
 
+
 @fig.modifier('rotate')
 class Rotated(Toy_Dataset):
+	@fig.config_aliases(rotation_prob='prob')
 	def __init__(self, *args, rotation_prob=0.5, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.rotation_prob = rotation_prob
@@ -109,13 +114,15 @@ class Rotated(Toy_Dataset):
 		if random.random() < self.rotation_prob:
 			x = x * 1j
 		return x, y
-	
+
+
 @fig.modifier('shuffled')
 class Shuffled(Toy_Dataset):
 	def __init__(self, *args, shuffle=True, **kwargs):
 		super().__init__(*args, **kwargs)
 		if shuffle:
 			random.shuffle(self.samples)
+
 
 @fig.modifier('subset')
 class Subset(Toy_Dataset):
@@ -124,16 +131,6 @@ class Subset(Toy_Dataset):
 		if limit < len(self):
 			self.samples = self.samples[:limit]
 
-
-# @fig.Modification('subset')
-# def get_subset(dataset, A):
-#
-# 	limit = A.pull('limit', len(dataset))
-#
-# 	if limit < len(dataset):
-# 		dataset.samples = dataset.samples[:limit]
-#
-# 	return dataset
 
 
 

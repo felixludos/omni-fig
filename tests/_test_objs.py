@@ -4,7 +4,7 @@ import omnifig as fig
 
 
 
-@fig.Component('c1')
+@fig.component('c1')
 class C1:
 	def __init__(self, A):
 

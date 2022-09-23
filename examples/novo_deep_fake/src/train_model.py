@@ -3,7 +3,6 @@ import omnifig as fig
 
 @fig.script('build-model', description='Build model')
 def build_model(config, input_dim=None, output_dim=None): # un registered helper function
-
 	if input_dim is None:
 		input_dim = config.pull('input_dim')
 	if output_dim is None:
@@ -24,6 +23,15 @@ def build_model(config, input_dim=None, output_dim=None): # un registered helper
 	return model, optim
 
 
+@fig.script('test', description='Creates and trains a model') # registers a new script called "train"
+def run_train_model(config): # config object containing all necessary config info
+	print('Running test!')
+
+	print(config.pull('dataset'))
+
+	print('done')
+
+
 @fig.script('train', description='Creates and trains a model') # registers a new script called "train"
 def run_train_model(config): # config object containing all necessary config info
 	print('Running train!')
@@ -31,10 +39,10 @@ def run_train_model(config): # config object containing all necessary config inf
 	config.push('dataset._type', 'mnist', overwrite=False)
 	dataset = config.pull('dataset') # pull without a default value -> required argument
 
+	print(f'Using dataset: {dataset.name} (len={len(dataset)})')
+
 	model, optim = fig.run('build-model', config, # run the "build-model" script including arguments
 	                       input_dim=dataset.input_dim, output_dim=dataset.output_dim)
-
-	print(f'Using dataset: {dataset.name} (len={len(dataset)})')
 	print(f'Using Model: {model.name}')
 
 	for x,y in dataset:

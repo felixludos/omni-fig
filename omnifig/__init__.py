@@ -6,7 +6,7 @@ from .top import get_current_project, get_project, switch_project, iterate_proje
 	entry, main, run, quick_run, initialize, cleanup, create_config
 
 # from .config import ConfigNode, ConfigManager
-from . import config
+from . import config as _config
 
 # from .config import ConfigIter
 # Component('iter')(ConfigIter)

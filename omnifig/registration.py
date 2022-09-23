@@ -31,7 +31,7 @@ class _Registration_Decorator:
 		self.kwargs = kwargs
 		self.item = None
 
-	def __call__(self, item: RawCallableItem) -> RawCallableItem:
+	def __call__(self, item: Callable) -> Callable:
 		if self.name is None:
 			self.name = item.__name__
 		self.item = item

@@ -161,7 +161,7 @@ class GeneralProject(ProjectBase, name='general'):
 		return script_entry.fn(config, *args, **kwargs)
 
 	def run_local(self, config, *, script_name=None, args=None, kwargs=None, meta=None):
-		config.set_project(self)
+		config.project = self
 		if meta is not None:
 			config.push('_meta', meta, silent=True)
 		if script_name is not None:

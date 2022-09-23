@@ -24,11 +24,13 @@ def debug_rule(config: AbstractConfig, meta: AbstractConfig) -> Optional[Abstrac
 	silent = meta.pull('silent', True, silent=True)
 	if debug is not None and debug and not _debug_done:
 		try:
-			debug_config = create_config('debug')
+			config.project.find_artifact('config', 'debug')
 		except KeyError:
+			raise
 			if not silent:
 				prt.warning('No config "debug" was found')
 		else:
+			debug_config = create_config('debug')
 			config.update(debug_config)
 			meta.push('_debug_done', True, silent=True)
 			prt.info('Using debug mode')

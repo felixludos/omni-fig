@@ -16,6 +16,7 @@ class Module:
 
 @fig.component('nn')
 class NeuralNetwork(fig.Configurable, Module):
+	@fig.config_aliases(input_dim='input_shape', output_dim='output_shape')
 	def __init__(self, input_dim, output_dim, layers, nonlin='relu', use_gpu=True):
 		on_gpu = ' (on gpu)' if use_gpu else ''
 		self.info = f'Net({input_dim} -> {nonlin} layers:{layers}{on_gpu} -> {output_dim})'
@@ -31,7 +32,7 @@ class NeuralNetwork(fig.Configurable, Module):
 @fig.component('net')
 class DeepModel(fig.Configurable, Module):
 	@fig.config_aliases(input_dim='input_shape', output_dim='output_shape')
-	def __init__(self, input_dim, output_dim,  # arguments without a default must appear in the config object
+	def __init__(self, input_dim, output_dim, # arguments without a default must appear in the config object
 	             layers=[64, 64], name=None, use_gpu=False, nonlin='relu',
 	             logger=None, **kwargs):  # some arguments may include subcomponents that are automatically created
 		super().__init__(**kwargs)
@@ -40,16 +41,15 @@ class DeepModel(fig.Configurable, Module):
 
 		# although it is not recommended, you can of course also manually create components
 		# (but this will hard code their use)
-		self.net = NeuralNetwork(input_dim, output_dim, layers,
-		                             nonlin=nonlin, use_gpu=use_gpu)
-		
+		self.net = NeuralNetwork(input_dim, output_dim, layers, nonlin=nonlin, use_gpu=use_gpu)
+
 		self.logger = logger
 	
 	def forward(self, x):
 		return self.net(x)
 	
 	def parameters(self):
-		return ['layer1 parameters', 'layer2 parameters', 'etc...']
+		return self.net.parameters()
 
 
 @fig.component('sgd-optim')
@@ -62,5 +62,5 @@ class Optim(fig.Configurable):
 		self.parameters.extend(parameters)
 
 	def step(self, y, pred):
-		return 0.5
+		return 0.001
 
