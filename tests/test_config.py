@@ -6,25 +6,23 @@ import _test_util as tu
 import _test_objs
 
 def test_create_obj():
-	
-	A = fig.get_config()
-	
-	A['a.b.c'] = 10
+	A = fig.create_config()
+	A.set('a.b.c', 10)
 	
 	assert 'a' in A
-	assert 'b' in A['a']
-	assert 'c' in A['a.b']
-	assert type(A) == type(A['a'])
-	assert A['a.b.c'] == 10
+	assert 'b' in A.get('a')
+	assert 'c' in A.get('a.b')
+	assert type(A) == type(A.get('a'))
+	assert A.get('a.b.c') == 10
 
 def test_register_load_config():
 	
-	fig.register_config_dir(os.path.join(tu.TEST_PATH, 'example', 'config'), recursive=True)
+	fig.get_current_project().register_config_dir(os.path.join(tu.TEST_PATH, 'example', 'config'), recursive=True)
 
-	C = fig.get_config('test1')
+	C = fig.create_config('test1')
 	assert C['arg1'] == 'test'
 	
-	C = fig.get_config('t/h/e')
+	C = fig.create_config('t/h/e')
 	assert C['nothing'] == 'special'
 	
 def test_raw_param():

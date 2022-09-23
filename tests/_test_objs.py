@@ -25,7 +25,7 @@ class C1:
 		return self.x
 
 
-@fig.AutoComponent('c2')
+@fig.autocomponent('c2')
 class C2:
 	def __init__(self, a1, a2, a3, b2=16):
 		
@@ -36,7 +36,7 @@ class C2:
 		self.b2 = b2
 
 
-@fig.AutoModifier('m1')
+@fig.modifier('m1')
 class M1:
 	def __init__(self, A):
 		super().__init__(A)
@@ -50,7 +50,7 @@ class M1:
 	def g(self, y):
 		return self.a - y
 
-@fig.AutoModifier('m2')
+@fig.modifier('m2')
 class M2:
 	def __init__(self, A):
 		super().__init__(A)
@@ -61,7 +61,7 @@ class M2:
 		return self.a * y
 
 
-@fig.Modification('m3')
-def m3(obj, A):
-	obj.a = 'still ' + A.pull('a2')
-	return obj
+# @fig.Modification('m3')
+# def m3(obj, A):
+# 	obj.a = 'still ' + A.pull('a2')
+# 	return obj

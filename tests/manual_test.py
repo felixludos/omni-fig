@@ -8,9 +8,9 @@ if __name__ == '__main__':
 	import _test_util as tu
 	
 	
-	fig.register_config_dir(os.path.join(tu.TEST_PATH, 'example', 'config'), recursive=True)
+	fig.get_current_project().register_config_dir(os.path.join(tu.TEST_PATH, 'example', 'config'), recursive=True)
 	
-	A = fig.get_config('test1')
+	A = fig.create_config('test1')
 	
 	# child pushes
 	a = A.push('arg2.a.b', [-1, 10])
