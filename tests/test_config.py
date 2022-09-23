@@ -1,6 +1,6 @@
 import sys, os
 import omnifig as fig
-from omnifig.config import EmptyElement, ConfigType
+# from omnifig.config import EmptyElement, ConfigType
 
 import _test_util as tu
 import _test_objs
@@ -13,35 +13,36 @@ def test_create_obj():
 	assert 'b' in A.get('a')
 	assert 'c' in A.get('a.b')
 	assert type(A) == type(A.get('a'))
-	assert A.get('a.b.c') == 10
+	assert A.pull('a.b.c') == 10
 
 def test_register_load_config():
 	
 	fig.get_current_project().register_config_dir(os.path.join(tu.TEST_PATH, 'example', 'config'), recursive=True)
 
 	C = fig.create_config('test1')
-	assert C['arg1'] == 'test'
+	assert C.pull('arg1') == 'test'
 	
 	C = fig.create_config('t/h/e')
-	assert C['nothing'] == 'special'
+	assert C.pull('nothing') == 'special'
 	
 def test_raw_param():
 	
-	C = fig.get_config('--b', 'baba', '--a', '''{"r":10, "b":100}''', '--c', '''["asdf", 10, 4.e-4]''')
+	C = fig.get_current_project().parse_argv(['--b', 'baba', '--a', '''{"r":10, "b":100}''',
+	                                          '--c', '''["asdf", 10, 4.e-4]'''], script_name='some-script')
 	
-	assert id(C['a'].get_parent()) == id(C)
+	assert id(C['a'].parent) == id(C)
 	
-	assert C['b'] == 'baba'
-	assert C['a.b'] == 100
-	assert C['a.r'] == 10
-	assert C['c'][0] == 'asdf'
-	assert C['c'][-1] == 4e-4
+	assert C.pull('b') == 'baba'
+	assert C.pull('a.b') == 100
+	assert C.pull('a.r') == 10
+	assert C.pull('c')[0] == 'asdf'
+	assert C.pull('c')[-1] == 4e-4
 
 
 def test_hierarchy():
 	
 	
-	A = fig.get_config('test2', abc=10.0)
+	A = fig.create_config('test2', abc=10.0)
 	
 	assert A['a.b'] == 'inside'
 	assert A['abc'] == 10.0
@@ -51,7 +52,7 @@ def test_hierarchy():
 	assert 'arg1' not in A
 	
 	
-	B = fig.get_config('test1', 'test2')
+	B = fig.create_config('test1', 'test2')
 	
 	assert B['a.b'] == 10
 	assert 'a123' in B
@@ -60,9 +61,9 @@ def test_hierarchy():
 	assert B['arg1'] == 'test'
 	
 	
-	C = fig.get_config('test1', 'test2', '--x', '''{"r":10, "z":100}''',
+	C = fig.get_current_project().parse_argv(['test1', 'test2', '--x', '''{"r":10, "z":100}''',
 	                   '--arg1', 'xx',
-	                   '--a.b', '11')
+	                   '--a.b', '11'])
 	
 	assert C['a.b'] == 11
 	assert len(C['x']) == 3
@@ -72,7 +73,7 @@ def test_hierarchy():
 	assert C['arg1'] == 'xx'
 	
 	
-	D = fig.get_config('test2', '--fruit', '["strawberries"]')
+	D = fig.create_config('test2', '--fruit', '["strawberries"]')
 	
 	assert len(D['fruit']) == 3
 	assert D['fruit'][0] == 'strawberries'
@@ -80,7 +81,7 @@ def test_hierarchy():
 
 def test_deep_hierarchy():
 
-	A = fig.get_config('test3', _history_key='_history')
+	A = fig.create_config('test3', _history_key='_history')
 	
 	assert A['tree'] == 'nodes'
 	
@@ -96,7 +97,7 @@ def test_deep_hierarchy():
 
 def test_pull_simple():
 	
-	A = fig.get_config('test2', **{'roman.greek': 'linguistics'})
+	A = fig.create_config('test2', **{'roman.greek': 'linguistics'})
 	
 	assert A.pull('roman.greek') == 'linguistics'
 	
@@ -104,9 +105,9 @@ def test_pull_simple():
 	
 	assert A.pull('default', 'worked') == 'worked'
 	
-	assert A.pull('not_there', '<>try_again', '<>alias_option') == 'found'
+	assert A.pulls('not_there', 'try_again', 'alias_option') == 'found'
 	
-	assert A.pull('n1', '<>n2', 2.5) == 2.5
+	assert A.pulls('n1', 'n2', default=2.5) == 2.5
 	
 	assert A.pull('unseen', silent=True) == 45
 
@@ -114,11 +115,11 @@ def test_pull_simple():
 
 	assert A.pull('x.y') == 'hello'
 
-	a = A.pull('x.list', '<>x')
-	a = a['z']
+	a = A.pull('x.list', 'x')
+	a = a['z'].pull()
 	assert len(a) == 2 and a[0] == 1 and a[1] == 2
 	
-	a = A.pull('veggies', '<>fruit')
+	a = A.pulls('veggies', 'fruit')
 	assert len(a) == 3 and a[0] == 'apples'
 	assert type(a) == tuple
 	
@@ -128,17 +129,17 @@ def test_pull_simple():
 	a = A.pull('costs')
 	assert type(a) == dict and len(a) == 5 and 'rubies' in a['gems'] and a['steel'] > 1000
 	
-	assert A.pull('others.2.not.mickey') == 'mouse'
-	assert A.pull('others.3', '<>others.1') == 'jerry'
-	assert A.pull('others.2.not.goofy', '<>fruit.0.apples', '<>others.2.not')['mickey'] == 'mouse'
+	assert A.pulls('others.2.not.mickey') == 'mouse'
+	assert A.pulls('others.3', 'others.1') == 'jerry'
+	assert A.pulls('others.2.not.goofy', 'fruit.0.apples', 'others.2.not')['mickey'] == 'mouse'
 	
 	
 def test_sub():
 	
-	A = fig.get_config('test1')
+	A = fig.create_config('test1')
 	
 	# making subs
-	D = A.sub('deep')
+	D = A.peek('deep')
 	
 	assert D['x1'] == 10
 	assert D.pull('fruit')[0] == 'tomato'
@@ -147,7 +148,7 @@ def test_sub():
 	assert D.pull('arg1') == 'test'
 	
 	# sub past a list
-	B = A.sub('deep.qwerty.1.t')
+	B = A.peek('deep.qwerty.1.t')
 	
 	assert B['d'] == 2
 	assert B.pull('check.1.H') == 'asdf'
@@ -158,7 +159,7 @@ def test_sub():
 	
 def test_push1():
 	
-	A = fig.get_config('test1')
+	A = fig.create_config('test1')
 	
 	assert A.pull('arg1') == 'test'
 	
@@ -175,7 +176,7 @@ def test_push1():
 	assert a == 123
 	assert A.pull('a.c')['c'] == 123
 def test_push2():
-	A = fig.get_config('test1')
+	A = fig.create_config('test1')
 	
 	assert A.pull('fruit.0') == 'tomato'
 	
@@ -214,7 +215,7 @@ def test_push2():
 	assert A.pull('nd.1.j', '<>nd.0') == 'no'
 	assert A.pull('deep.x1.qwer.asdf', '<>nd.1.k.0') == 0
 def test_push3():
-	A = fig.get_config('test1')
+	A = fig.create_config('test1')
 	
 	# child pushes
 	a = A.push('arg2.a.b', [-1,10])
@@ -246,7 +247,7 @@ def test_push3():
 	assert A.pull('fruit.11', 'nope') == 'nope'
 	assert A.pull('fruit.20', 'no way') == 'no way'
 def test_push4():
-	A = fig.get_config('test1')
+	A = fig.create_config('test1')
 	
 	a = A.push('test', 'not me')
 	assert a == 'not me'
@@ -284,8 +285,8 @@ def test_push4():
 
 def test_aliases():
 	
-	A = fig.get_config('test4')
-	B = A.sub('l4.l5')
+	A = fig.create_config('test4')
+	B = A.peek('l4.l5')
 	
 	assert A.pull('s1') == 'f1'
 	assert B.pull('s2') == 'f2'
@@ -293,11 +294,11 @@ def test_aliases():
 
 def test_update_sub():
 	
-	A = fig.get_config('test1')
+	A = fig.create_config('test1')
 	
 	# update with config (check parents)
 	
-	B = fig.get_config()
+	B = fig.create_config()
 	B.push('a', {'x':10, 'c': 20})
 	B.push('fruit', 'not a list')
 	B.push('a123', ['pears', 'raspberries'])
@@ -326,7 +327,7 @@ def test_update_sub():
 	assert A.pull('a123.2') == 'another'
 	assert B.pull('alpha.2.beta.1.0') == 'gamma'
 	
-	C = A.sub('q.y.m.c')
+	C = A.peek('q.y.m.c')
 	
 	assert C.pull('a') == 'hey'
 	assert C.pull('unknown') == 'bad'
@@ -337,7 +338,7 @@ def test_update_sub():
 	assert C.pull('m') == 'tick'
 	assert C.pull('y.m')['c']['a'] == 'hey'
 	
-	D = A.sub('alpha.2.beta')
+	D = A.peek('alpha.2.beta')
 	
 	assert D.pull('0') == -4
 	assert D.pull('alpha.0') == -9
@@ -346,7 +347,7 @@ def test_update_sub():
 	
 def test_update_dict():
 
-	A = fig.get_config('test1')
+	A = fig.create_config('test1')
 	
 	assert A.pull('a.x') == 1
 	
@@ -376,7 +377,7 @@ def test_update_dict():
 def test_export():
 	
 	# load/change/export
-	A = fig.get_config('test2', '--a.d', '50')
+	A = fig.create_config('test2', '--a.d', '50')
 	
 	A.push('count', [40,40])
 	
@@ -385,7 +386,7 @@ def test_export():
 	
 	# reload from path (rel and abs) check for change
 	
-	B = fig.get_config(path)
+	B = fig.create_config(path)
 	
 	assert B.pull('a.b') == 'inside'
 	assert B.pull('unseen') == 45
@@ -398,7 +399,7 @@ def test_export():
 	
 
 def test_components():
-	A = fig.get_config('test5')
+	A = fig.create_config('test5')
 	
 	# create
 	c = A.pull('a7')
@@ -434,7 +435,7 @@ def test_components():
 	
 def test_modifiers():
 	
-	A = fig.get_config('test6', 'test5')
+	A = fig.create_config('test6', 'test5')
 	
 	# simple auto modifiers
 	
@@ -470,7 +471,7 @@ def test_modifiers():
 	
 def test_iteration():
 	
-	A = fig.get_config('test2')
+	A = fig.create_config('test2')
 	
 	# iterate through a list with as_iter
 	
@@ -522,7 +523,7 @@ def test_iteration():
 	
 def test_removing():
 	
-	A = fig.get_config('test2')
+	A = fig.create_config('test2')
 	
 	assert A.pull('papageno') == 10
 	assert A.pull('papagena', 'missing') == 'missing'
@@ -537,7 +538,7 @@ def test_removing():
 
 def test_raw_and_cousins():
 	
-	A = fig.get_config('test5')
+	A = fig.create_config('test5')
 	
 	raw = A.pull('a7', raw=True)
 	assert isinstance(raw, ConfigType)

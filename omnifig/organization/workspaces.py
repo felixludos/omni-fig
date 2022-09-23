@@ -60,7 +60,7 @@ class GeneralProject(ProjectBase, name='general'):
 			config_manager = self.Config_Manager(self)
 		path = self.infer_path(path)
 		super().__init__(path, **kwargs)
-		self._path = path.parent.absolute()
+		self._path = None if path is None else path.parent.absolute()
 		self.config_manager = config_manager
 		self._artifact_registries = {
 			'script': script_registry,
