@@ -1,6 +1,6 @@
 from typing import Optional, Union, Sequence
 from pathlib import Path
-from omnibelt import unspecified_argument, get_printer, Class_Registry
+from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractMetaRule
 from .external import include_package, include_files
@@ -50,7 +50,7 @@ class GeneralProject(ProjectBase, name='general'):
 		prt.warning(f'Could not infer project path from {path} (using blank project)')
 
 
-	class Script_Registry(Class_Registry, components=['description', 'hidden', 'project']): pass
+	class Script_Registry(Function_Registry, components=['description', 'hidden', 'project']): pass
 	Config_Manager = ConfigManager
 
 	def __init__(self, path, *, script_registry=None, config_manager=None, **kwargs):
@@ -60,7 +60,7 @@ class GeneralProject(ProjectBase, name='general'):
 			config_manager = self.Config_Manager(self)
 		path = self.infer_path(path)
 		super().__init__(path, **kwargs)
-		self._path = path
+		self._path = path.parent.absolute()
 		self.config_manager = config_manager
 		self._artifact_registries = {
 			'script': script_registry,
@@ -69,7 +69,16 @@ class GeneralProject(ProjectBase, name='general'):
 	def _activate(self, *args, **kwargs):
 		super()._activate(*args, **kwargs)
 		self.load_configs(self.data.get('configs', []))
-		self.load_src(self.data.get('src', []), self.data.get('packages', []))
+		if self.data.get('auto_config', True):
+			for dname in ['config', 'configs']:
+				path = self._path / dname
+				if path.is_dir():
+					self.load_configs([path])
+					
+		pkgs = self.data.get('packages', [])
+		if 'package' in self.data:
+			pkgs = [self.data['package']] + pkgs
+		self.load_src(self.data.get('src', []), pkgs)
 
 	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()):
 		'''Registers all specified config files and directories'''
@@ -82,8 +91,18 @@ class GeneralProject(ProjectBase, name='general'):
 
 	def load_src(self, srcs: Optional[Sequence[Union[str ,Path]]] = (), packages: Optional[Sequence[str] ] =()):
 		'''Imports all specified packages and runs the specified python files'''
+		src_files = []
+		for src in srcs:
+			path = self._path / src
+			if path.is_file():
+				src_files.append(str(path))
+		# pkgs = []
+		# for pkg in packages:
+		# 	path = self._path / pkg
+		# 	if path.is_dir():
+		# 		pkgs.append(str(path))
 		include_package(*packages)
-		include_files(*[src for src in srcs], )  # project_name=self.get_name())
+		include_files(*src_files)
 
 	# region Organization
 	def extract_info(self, other: 'GeneralProject'):
@@ -113,8 +132,8 @@ class GeneralProject(ProjectBase, name='general'):
 	# endregion
 
 	# region Running/Ops
-	def create_config(self, *parents, **parameters):
-		return self.config_manager.create_config(*parents, **parameters)
+	def create_config(self, *parents: str, **parameters):
+		return self.config_manager.create_config(parents, parameters)
 
 	def parse_argv(self, argv, *, script_name=None) -> AbstractConfig:
 		return self.config_manager.parse_argv(argv, script_name=script_name)
@@ -167,7 +186,8 @@ class GeneralProject(ProjectBase, name='general'):
 		try:
 			return registry.find(ident, default=unspecified_argument)
 		except registry.NotFoundError:
-			raise self.UnknownArtifactError(artifact_type, ident)
+			pass
+		raise self.UnknownArtifactError(artifact_type, ident)
 
 	def register_artifact(self, artifact_type, ident, artifact, project=None, **kwargs):
 		if project is None:
@@ -196,9 +216,8 @@ class GeneralProject(ProjectBase, name='general'):
 	def iterate_configs(self):
 		return self.iterate_artifacts('config')
 
-	def register_config_dir(self, path, *, recursive=True, prefix=None, delimiter='/'):
-		return self.config_manager.register_config_dir(path, recursive=recursive, project=self,
-		                                               prefix=prefix, delimiter=delimiter)
+	def register_config_dir(self, path, *, recursive=True, prefix=None, delimiter=None):
+		return self.config_manager.register_config_dir(path, recursive=recursive, prefix=prefix, delimiter=delimiter)
 
 
 	def find_script(self, name, default=unspecified_argument):

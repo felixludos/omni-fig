@@ -28,13 +28,17 @@ class ConfigManager(AbstractConfigManager):
 	def register_config(self, name: str, path: Union[str, Path], **kwargs) -> None:
 		self.registry.new(name, path, **kwargs)
 
-	def register_config_dir(self, root: Union[str, Path]) -> None:
+	def register_config_dir(self, root: Union[str, Path], recursive=True, prefix=None, delimiter=None) -> None:
+		if delimiter is None:
+			delimiter = self._config_path_delimiter
+		if prefix is None:
+			prefix = ''
 		root = Path(root)
 		for ext in self._config_exts:
-			for path in root.glob(f'**/*.{ext}'):
+			for path in root.glob(f'**/*.{ext}' if recursive else f'*.{ext}'):
 				terms = path.relative_to(root).parts[:-1]
 				name = path.stem
-				ident = self._config_path_delimiter.join(terms + (name,))
+				ident = prefix + delimiter.join(terms + (name,))
 				self.register_config(ident, path)
 
 	def _parse_raw_arg(self, arg: str) -> JSONABLE:
@@ -155,8 +159,8 @@ class ConfigManager(AbstractConfigManager):
 		return self.create_config(configs, data)
 
 	def find_config_path(self, name: str) -> Path:
-		if name not in self.registry:
-			raise ValueError(f'Unknown config: {name}')
+		# if name not in self.registry:
+		# 	raise ValueError(f'Unknown config: {name}')
 		return self.registry.get_path(name)
 
 	@staticmethod
@@ -195,19 +199,20 @@ class ConfigManager(AbstractConfigManager):
 		if data is None:
 			data = {}
 		assert len(self._find_config_parents(data)) == 0, 'Passed in args cannot have a parents key'
-		data['parents'] = configs.copy()
+		todo = list(configs)
+		data['parents'] = list(configs)
 		raws = {None: data}
 		used_paths = {}
-		while len(configs):
-			name = configs.pop()
+		while len(todo):
+			name = todo.pop()
 			path = self.find_config_path(name)
 			if path not in raws:
 				if not path.exists():
 					raise FileNotFoundError(path)
 				raws[path] = load_yaml(path)
-				configs.extend(self._find_config_parents(raws[path]))
+				todo.extend(self._find_config_parents(raws[path]))
 				used_paths[name] = path
-		if len(used_paths) != len(configs):
+		if len(used_paths) != len(todo):
 			graph = {key: [used_paths[name] for name in self._find_config_parents(raw)] for key, raw in raws.items()}
 			graph[None] = [used_paths[name] for name in data['parents']]
 			order = linearize(graph, heads=[None], order=True)[None]

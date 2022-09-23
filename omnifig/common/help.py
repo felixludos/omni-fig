@@ -5,14 +5,14 @@ from omnibelt import get_printer
 
 from ..abstract import AbstractConfig
 from .. import meta_rule, create_config, get_current_project
+from ..registration import Meta_Rule
 
 
 prt = get_printer(__name__)
 
 
-
-@meta_rule(name='help', code='h', priority=99, num_args=0, description='Display this help message')
-class Help_Rule:
+# @meta_rule(name='help', code='h', priority=99, num_args=0, description='Display this help message')
+class Help_Rule(Meta_Rule, name='help', code='h', priority=99, num_args=0, description='Display this help message'):
 	_default_help_msg = '''
 	Usage: fig [-<meta>] {script} [<configs>...] [--<args>]
 
@@ -36,20 +36,21 @@ class Help_Rule:
 	+------+
 	Any additional arguments specified manually
 	as key-value pairs (keys with "--")
-	
+
 	Current project: {project}
 	'''
-
+	
 	_default_script_info = '''+--------+
 	| script |
 	+--------+
 	Specify a registered script name to run
 	{available}'''
-
+	
 	_script_sel = '''Script: {script}
 	{doc}'''
 
-	def __call__(self, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
+	@classmethod
+	def run(cls, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
 
 		show_help = meta.pull('help', False, silent=True)
 
@@ -86,7 +87,7 @@ class Help_Rule:
 			else:
 				sinfo = tabulate(scripts, headers=['Name', 'Description'], )  # tablefmt="plain"
 
-			sinfo = self._default_script_info.format(available=sinfo)
+			sinfo = cls._default_script_info.format(available=sinfo)
 
 		else:
 
@@ -96,11 +97,11 @@ class Help_Rule:
 			if doc is None or len(doc) == 0:
 				doc = '[no docstring]\n'
 
-			sinfo = self._script_sel.format(script=name, doc=doc)
+			sinfo = cls._script_sel.format(script=name, doc=doc)
 
-		print(self._default_help_msg.format(script=name, scripts=sinfo, metas=minfo, configs=cinfo, project=project))
+		print(cls._default_help_msg.format(script=name, scripts=sinfo, metas=minfo, configs=cinfo, project=project))
 
-		raise self.TerminationFlag
+		raise cls.TerminationFlag
 
 
 #

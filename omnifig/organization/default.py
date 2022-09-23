@@ -15,9 +15,9 @@ prt = get_printer(__name__)
 
 class Profile(ProfileBase, default_profile=True):
 	class Project(GeneralProject, name='default'):
-		class Creator_Registry(Function_Registry, components=['project']): pass
-		class Component_Registry(Class_Registry, components=['project']): pass
-		class Modifier_Registry(Class_Registry, components=['project']): pass
+		class Creator_Registry(Function_Registry, components=['project', 'description']): pass
+		class Component_Registry(Class_Registry, components=['creator', 'project', 'description']): pass
+		class Modifier_Registry(Class_Registry, components=['project', 'description']): pass
 
 		def __init__(self, path, *, creator_registry=None, component_registry=None, modifier_registry=None,
 		             **kwargs):
@@ -34,8 +34,6 @@ class Profile(ProfileBase, default_profile=True):
 				'modifier': modifier_registry,
 			})
 
-		def _activate(self, *args, **kwargs):
-			raise NotImplementedError
 
 		def validate_main(self, config: AbstractConfig) -> 'ProjectBase':
 			runner = config.pull('_meta.main_runner', None, silent=True)
@@ -48,7 +46,7 @@ class Profile(ProfileBase, default_profile=True):
 				return runner
 
 		def run_local(self, config, *, script_name=None, **meta): # derives meta from config under "_meta"
-			config.set_project(self)
+			config.project = self
 
 			if script_name is not None:
 				config.push('_meta.script_name', script_name, overwrite=True, silent=True)
@@ -78,8 +76,8 @@ class Profile(ProfileBase, default_profile=True):
 		def find_component(self, name, default=unspecified_argument):
 			return self.find_artifact('component', name, default=default)
 
-		def register_component(self, name, cls, *, creator=None):
-			return self.register_artifact('component', name, cls, creator=creator)
+		def register_component(self, name, cls, *, creator=None, description=None):
+			return self.register_artifact('component', name, cls, creator=creator, description=description)
 
 		def iterate_components(self):
 			return self.iterate_artifacts('component')
@@ -100,10 +98,11 @@ class Profile(ProfileBase, default_profile=True):
 				return super().find_artifact(artifact_type, ident)
 			except self.UnknownArtifactError:
 				for proj in self._profile.iterate_projects():
-					try:
-						return proj.find_artifact(artifact_type, ident)
-					except proj.ArtifactNotFoundError:
-						pass
+					if proj != self:
+						try:
+							return proj.find_artifact(artifact_type, ident)
+						except proj.UnknownArtifactError:
+							pass
 				if default is unspecified_argument:
 					raise
 				return default
@@ -125,7 +124,7 @@ class Profile(ProfileBase, default_profile=True):
 	def get_project(self, ident: Union[str, Path] = None, is_current: bool = True) -> Project:
 		if ident is None:
 			if self._current_project_key is not None:
-				return self.get_current_project()
+				return self._loaded_projects[self._current_project_key]
 
 		if ident in self._loaded_projects:
 			return self._loaded_projects[ident]
@@ -150,7 +149,7 @@ class Profile(ProfileBase, default_profile=True):
 		# self._loaded_projects[ident] = proj.name
 		self._loaded_projects[proj.name] = proj
 		if is_current:
-			self._current_project_key = ident
+			self._current_project_key = proj.name
 		return proj
 
 

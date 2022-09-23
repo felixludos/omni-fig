@@ -1,5 +1,6 @@
 from .organization import get_profile, Profile, ProfileBase, ProjectBase, GeneralProject
-from .registration import autofill_with_config, meta_rule, script, component, modifier, creator, autoscript#, \
+from .registration import autofill_with_config, meta_rule, Meta_Rule, \
+	script, component, modifier, creator, autocomponent, autoscript#, \
 	# Script, Component, Modifier, Creator, AutoScript
 from .top import get_current_project, get_project, switch_project, iterate_projects, \
 	entry, main, run, quick_run, initialize, cleanup, create_config
@@ -12,7 +13,7 @@ from . import config
 # del ConfigIter
 
 # from . import common
-from .configurable import Configurable
+from .configurable import Configurable, config_aliases
 # from .farming import Farmer, Worker
 from . import common
 

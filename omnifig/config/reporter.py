@@ -1,16 +1,16 @@
 
 
 class ConfigReporterBase:
-	def __init__(self, silent=False, **kwargs):
-		super().__init__(**kwargs)
-		self._silent = silent
-
-	@property
-	def silent(self):
-		return self._silent
-	@silent.setter
-	def silent(self, value):
-		self._silent = value
+	# def __init__(self, silent=False, **kwargs):
+	# 	super().__init__(**kwargs)
+	# 	self._silent = silent
+	#
+	# @property
+	# def silent(self):
+	# 	return self._silent
+	# @silent.setter
+	# def silent(self, value):
+	# 	self._silent = value
 
 	@staticmethod
 	def log(*msg, end='\n', sep=' ') -> str:

@@ -146,6 +146,9 @@ class AbstractProject(AbstractRunMode, FileInfo): # generally you should extend 
 		super().__init__(path, **kwargs)
 		self._profile = profile
 
+	def __eq__(self, other: 'AbstractProject') -> bool:
+		return self.data['info_path'] == other.data['info_path']
+
 	@property
 	def profile(self) -> 'AbstractProfile':
 		return self._profile
@@ -153,14 +156,13 @@ class AbstractProject(AbstractRunMode, FileInfo): # generally you should extend 
 
 	def iterate_meta_rules(self) -> Iterator:
 		return self._profile.iterate_meta_rules()
-
-
-	class UnknownArtifactError(KeyError):
+	
+	class UnknownArtifactError(Exception):
 		def __init__(self, artifact_type, ident):
 			super().__init__(f'{artifact_type} {ident!r} not found')
 			self.artifact_type = artifact_type
 			self.ident = ident
-
+	
 	def find_artifact(self, artifact_type: str, ident: str,
 	                  default: Optional[Any] = unspecified_argument) -> _ArtifactEntry:
 		raise self.UnknownArtifactError(artifact_type, ident)
@@ -252,7 +254,8 @@ class AbstractProfile(FileInfo): # generally you should extend organization.work
 class AbstractMetaRule:
 	class TerminationFlag(KeyboardInterrupt): pass
 
-	def __call__(self, config: AbstractConfig, meta: Dict[str, Any]) -> Optional[AbstractConfig]:
+	@classmethod
+	def run(cls, config: AbstractConfig, meta: Dict[str, Any]) -> Optional[AbstractConfig]:
 		raise NotImplementedError
 
 

@@ -10,7 +10,7 @@ prt = get_printer(__name__)
 
 
 @meta_rule(name='debug', code='d', priority=100, num_args=0, description='Switch to debug mode')
-class Debug_Rule:
+def debug_rule(config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
 	'''
 	When activated, this rule changes the run mode to ``run_mode/debug`` and updates the config to include
 
@@ -18,19 +18,21 @@ class Debug_Rule:
 	:param config: full config object
 	:return: config object updated with debug config (if available)
 	'''
-	def __call__(self, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
-		debug = meta.pull('debug', False, silent=True)
-		silent = meta.pull('silent', True, silent=True)
-		if debug is not None:
-			try:
-				debug_config = create_config('debug')
-			except KeyError:
-				if not silent:
-					prt.warning('No config "debug" was found')
-			else:
-				config.update(debug_config)
-				prt.info('Using debug mode')
-				return config
+	
+	debug = meta.pull('debug', False, silent=True)
+	_debug_done = meta.pull('_debug_done', False, silent=True)
+	silent = meta.pull('silent', True, silent=True)
+	if debug is not None and debug and not _debug_done:
+		try:
+			debug_config = create_config('debug')
+		except KeyError:
+			if not silent:
+				prt.warning('No config "debug" was found')
+		else:
+			config.update(debug_config)
+			meta.push('_debug_done', True, silent=True)
+			prt.info('Using debug mode')
+			return config
 
 
 
