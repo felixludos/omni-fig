@@ -59,6 +59,9 @@ class AbstractConfigManager:
 	def register_config_dir(self, root: Union[str, Path]):
 		raise NotImplementedError
 
+	def find_config_entry(self, name: str):
+		raise NotImplementedError
+
 	def find_config_path(self, name: str) -> Path:
 		raise NotImplementedError
 
@@ -67,7 +70,17 @@ class AbstractConfigManager:
 
 	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None) -> AbstractConfig:
 		raise NotImplementedError
+	
+	ConfigNode = None
+	
+	def configurize(self, raw: Any):
+		raise NotImplementedError
+	
+	def merge_configs(self, *configs: AbstractConfig) -> AbstractConfig:
+		raise NotImplementedError
 
+	def update_config(self, base: AbstractConfig, update: AbstractConfig) -> AbstractConfig:
+		raise NotImplementedError
 
 
 class AbstractScript:

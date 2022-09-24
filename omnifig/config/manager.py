@@ -4,7 +4,7 @@ from pathlib import Path
 import io
 import yaml
 from c3linearize import linearize
-from omnibelt import Path_Registry, load_yaml, JSONABLE
+from omnibelt import Path_Registry, load_yaml, JSONABLE, unspecified_argument
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractConfigManager
 from .nodes import ConfigNode
@@ -43,7 +43,7 @@ class ConfigManager(AbstractConfigManager):
 
 	def _parse_raw_arg(self, arg: str) -> JSONABLE:
 		val = yaml.safe_load(io.StringIO(arg))
-		if val in self._config_nones:
+		if isinstance(val, str) and val in self._config_nones:
 			return None
 		return val
 
@@ -67,7 +67,7 @@ class ConfigManager(AbstractConfigManager):
 	class UnknownMetaError(ValueError):
 		pass
 
-	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = None) -> AbstractConfig:
+	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> AbstractConfig:
 		meta = {}
 
 		waiting_key = None
@@ -113,15 +113,16 @@ class ConfigManager(AbstractConfigManager):
 				remaining = argv[i + int(script_name is None):]
 				break
 
-			elif script_name is None:
+			elif script_name is unspecified_argument:
 				script_name = arg
 
-		if script_name is not None:
+		if script_name is not None and script_name is not unspecified_argument:
 			meta['script_name'] = script_name
 
 		configs = []
 		for i, term in enumerate(remaining):
 			if term.startswith('--'):
+				break
 				remaining = remaining[i:]
 			else:
 				configs.append(term)
@@ -161,11 +162,11 @@ class ConfigManager(AbstractConfigManager):
 	def find_config_path(self, name: str) -> Path:
 		# if name not in self.registry:
 		# 	raise ValueError(f'Unknown config: {name}')
-		return self.find_config(name).path
+		return self.find_config_entry(name).path
 
 	class ConfigNotRegistered(KeyError): pass
 
-	def find_config(self, name: str) -> AbstractConfig:
+	def find_config_entry(self, name: str) -> AbstractConfig:
 		try:
 			return self.registry.find(name)
 		except self.registry.NotFoundError:
@@ -202,7 +203,8 @@ class ConfigManager(AbstractConfigManager):
 		# self._unify_config_node(config)
 		pass
 
-	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None) -> AbstractConfig:
+	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None, *,
+	                  ancestry_key: Optional[str] = '_ancestry') -> AbstractConfig:
 		if configs is None:
 			configs = []
 		if data is None:
@@ -221,16 +223,24 @@ class ConfigManager(AbstractConfigManager):
 				raws[path] = load_yaml(path, ordered=True)
 				todo.extend(self._find_config_parents(raws[path]))
 				used_paths[name] = path
+				if ancestry_key is not None:
+					raws[path][ancestry_key] = name
 		if len(used_paths) != len(todo):
 			graph = {key: [used_paths[name] for name in self._find_config_parents(raw)] for key, raw in raws.items()}
 			graph[None] = [used_paths[name] for name in data['parents']]
 			order = linearize(graph, heads=[None], order=True)[None]
 			order = [data] + [raws[p] for p in order[1:]]
-			order = list(reversed(order))
+			# order = list(reversed(order))
 		else:
 			order = [data]
 
+		if ancestry_key is not None:
+			ancestors = [raw.get(ancestry_key, None) for raw in order[1:]]
+
 		merged = self._merge_raw_configs(order)
+
+		if ancestry_key is not None:
+			merged.push(ancestry_key, ancestors, silent=True)
 
 		merged.settings = merged.pull('_meta.settings', {}, silent=True)
 		return merged

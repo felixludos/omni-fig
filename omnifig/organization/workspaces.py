@@ -184,7 +184,7 @@ class GeneralProject(ProjectBase, name='general'):
 	class UnknownArtifactTypeError(KeyError): pass
 	def find_artifact(self, artifact_type, ident, default=unspecified_argument):
 		if artifact_type == 'config':
-			return self.config_manager.find_config(ident)
+			return self.config_manager.find_config_entry(ident)
 		registry = self._artifact_registries.get(artifact_type)
 		if registry is None:
 			raise self.UnknownArtifactTypeError(artifact_type)

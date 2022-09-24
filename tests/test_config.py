@@ -44,40 +44,40 @@ def test_hierarchy():
 	
 	A = fig.create_config('test2', abc=10.0)
 	
-	assert A['a.b'] == 'inside'
-	assert A['abc'] == 10.0
+	assert A.pull('a.b') == 'inside'
+	assert A.pull('abc') == 10.0
 	assert 'a123' not in A
-	assert A['fruit'][0] == 'apples'
-	assert A['fruit'][1] == 'bananas'
+	assert A.pull('fruit')[0] == 'apples'
+	assert A.pull('fruit')[1] == 'bananas'
 	assert 'arg1' not in A
 	
 	
 	B = fig.create_config('test1', 'test2')
 	
-	assert B['a.b'] == 10
+	assert B.pull('a.b') == 10
 	assert 'a123' in B
-	assert B['fruit'][0] == 'tomato'
-	assert B['fruit'][1] == 'bananas'
-	assert B['arg1'] == 'test'
+	assert B.pull('fruit')[0] == 'tomato'
+	assert B.pull('fruit')[1] == 'bananas'
+	assert B.pull('arg1') == 'test'
 	
 	
 	C = fig.get_current_project().parse_argv(['test1', 'test2', '--x', '''{"r":10, "z":100}''',
 	                   '--arg1', 'xx',
-	                   '--a.b', '11'])
+	                   '--a.b', '11'], script_name=None)
 	
-	assert C['a.b'] == 11
-	assert len(C['x']) == 3
-	assert C['x.r'] == 10
-	assert C['x.y'] == 'hello'
-	assert C['x.z'] == 100
-	assert C['arg1'] == 'xx'
+	assert C.pull('a.b') == 11
+	assert len(C.pull('x')) == 3
+	assert C.pull('x.r') == 10
+	assert C.pull('x.y') == 'hello'
+	assert C.pull('x.z') == 100
+	assert C.pull('arg1') == 'xx'
 	
 	
-	D = fig.create_config('test2', '--fruit', '["strawberries"]')
+	D = fig.create_config('test2', '--fruit', '["strawberries")')
 	
-	assert len(D['fruit']) == 3
-	assert D['fruit'][0] == 'strawberries'
-	assert D['fruit'][-1] == 'peaches'
+	assert len(D.pull('fruit')) == 3
+	assert D.pull('fruit')[0] == 'strawberries'
+	assert D.pull('fruit')[-1] == 'peaches'
 
 def test_deep_hierarchy():
 
