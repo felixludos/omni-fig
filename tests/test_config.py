@@ -73,7 +73,7 @@ def test_hierarchy():
 	assert C.pull('arg1') == 'xx'
 	
 	
-	D = fig.create_config('test2', '--fruit', '["strawberries")')
+	D = fig.create_config('test2', fruit=["strawberries"])
 	
 	assert len(D.pull('fruit')) == 3
 	assert D.pull('fruit')[0] == 'strawberries'
@@ -81,17 +81,16 @@ def test_hierarchy():
 
 def test_deep_hierarchy():
 
-	A = fig.create_config('test3', _history_key='_history')
+	A = fig.create_config('test3')
 	
-	assert A['tree'] == 'nodes'
+	assert A.pull('tree') == 'nodes'
 	
-	assert A['all'][0] == 0
-	print(A['ancestors'])
-	print(type(A['ancestors']))
-	assert A['ancestors'][0] == 'test3'
-	# assert A['_history'][0] == 'test3'
+	assert A.pull('all')[0] == 0
+	print(A.pull('_ancestry'))
+	print(type(A.pull('_ancestry')))
+	assert A.pull('_ancestry')[0] == 'test3'
 	
-	order = tuple(A['ancestors'][1:])
+	order = tuple(A.pull('_ancestry')[1:])
 	assert order == ('t/n0', 't/n1', 't/n3', 't/n5', 't/n2', 't/n4', 't/n6', 't/n7')
 
 
@@ -115,8 +114,8 @@ def test_pull_simple():
 
 	assert A.pull('x.y') == 'hello'
 
-	a = A.pull('x.list', 'x')
-	a = a['z'].pull()
+	a = A.peeks('x.list', 'x')
+	a = a.peek('z').pull()
 	assert len(a) == 2 and a[0] == 1 and a[1] == 2
 	
 	a = A.pulls('veggies', 'fruit')
@@ -141,7 +140,7 @@ def test_sub():
 	# making subs
 	D = A.peek('deep')
 	
-	assert D['x1'] == 10
+	assert D.pull('x1') == 10
 	assert D.pull('fruit')[0] == 'tomato'
 	assert D.pull('x2.a') == 1.2
 	assert D.pull('plus1') == 10
@@ -150,7 +149,7 @@ def test_sub():
 	# sub past a list
 	B = A.peek('deep.qwerty.1.t')
 	
-	assert B['d'] == 2
+	assert B.pull('d') == 2
 	assert B.pull('check.1.H') == 'asdf'
 	assert B.pull('x5') == 10
 	assert B.pull('check.2.for.q')
@@ -163,18 +162,20 @@ def test_push1():
 	
 	assert A.pull('arg1') == 'test'
 	
-	a = A.push('arg1', 'another')
+	a = A.push_pull('arg1', 'another')
 	assert a == 'another'
 	
 	assert A.pull('arg1') == 'another'
 	
-	a = A.push('a.d', 'one')
+	a = A.push_pull('a.d', 'one')
 	assert a == 'one'
 	assert A.pull('a.d') == 'one'
 	
-	a = A.push('a.c.c', 123)
+	a = A.push_pull('a.c.c', 123)
 	assert a == 123
-	assert A.pull('a.c')['c'] == 123
+	assert A.pull('a.c.c') == 123
+
+
 def test_push2():
 	A = fig.create_config('test1')
 	

@@ -69,16 +69,17 @@ class ConfigManager(AbstractConfigManager):
 		pass
 
 	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> AbstractConfig:
-		meta = {}
-
 		waiting_key = None
 		waiting_meta = 0
 
-		remaining = []
-		for i, arg in enumerate(argv):
+		remaining = list(reversed(argv))
+		
+		meta = {}
+		while len(remaining):
+			term = remaining.pop()
 
 			if waiting_meta > 0:
-				val = self._parse_raw_arg(arg)
+				val = self._parse_raw_arg(term)
 				if waiting_key in meta and isinstance(meta[waiting_key], list):
 					meta[waiting_key].append(val)
 				else:
@@ -87,8 +88,8 @@ class ConfigManager(AbstractConfigManager):
 				if waiting_meta == 0:
 					waiting_key = None
 
-			elif arg.startswith('-') and not arg.startswith('--'):
-				text = arg[1:]
+			elif term.startswith('-') and not term.startswith('--'):
+				text = term[1:]
 				while len(text) > 0:
 					for rule in self.project.iterate_meta_rules():
 						name = rule.name
@@ -110,44 +111,52 @@ class ConfigManager(AbstractConfigManager):
 					else:
 						raise self.UnknownMetaError(text)
 
-			elif arg == '_' or script_name is not None:
-				remaining = argv[i + int(script_name is None):]
+			elif script_name is not unspecified_argument:
+				remaining.append(term)
 				break
 
-			elif script_name is unspecified_argument:
-				script_name = arg
+			elif term != '_' and script_name is unspecified_argument:
+				script_name = term
+				
+			else:
+				break
 
-		if script_name is not None and script_name is not unspecified_argument:
+		if script_name not in {None, unspecified_argument}:
 			meta['script_name'] = script_name
 
 		configs = []
-		for i, term in enumerate(remaining):
+		while len(remaining):
+			term = remaining.pop()
+			
 			if term.startswith('--'):
+				remaining.append(term)
 				break
-				remaining = remaining[i:]
 			else:
 				configs.append(term)
 
 		waiting_arg_key = None
 		data = {}
-
-		for arg in remaining:
-			if arg.startswith('--'):
+		while len(remaining):
+			term = remaining.pop()
+			
+			if term.startswith('--'):
 				if waiting_arg_key is not None:
 					data[waiting_arg_key] = True
 
-				key, *other = arg[2:].split('=', 1)
+				key, *other = term[2:].split('=', 1)
 				if len(other) and len(other[0]):
+					if len(other) > 1:
+						raise ValueError(f'Invalid argument {term} (avoid using "=" in argument names)')
 					data[key] = self._parse_raw_arg(other[0])
 				else:
 					waiting_arg_key = key
 
 			elif waiting_arg_key is not None:
-				data[waiting_arg_key] = self._parse_raw_arg(arg)
+				data[waiting_arg_key] = self._parse_raw_arg(term)
 				waiting_arg_key = None
 
 			else:
-				raise ValueError(f'Unexpected argument: {arg}')
+				raise ValueError(f'Unexpected argument: {term}')
 
 		if waiting_arg_key is not None:
 			data[waiting_arg_key] = True
@@ -157,7 +166,6 @@ class ConfigManager(AbstractConfigManager):
 		else:
 			data['_meta'] = meta
 
-		# create config with remaining argv
 		return self.create_config(configs, data)
 
 	def find_config_path(self, name: str) -> Path:

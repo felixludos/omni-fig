@@ -18,11 +18,12 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 	def project(self, project: 'AbstractProject'):
 		raise NotImplementedError
 
-	def peek(self, query: str, default: Optional[Any] = empty_default, *,
+	def peek(self, query: Optional[str] = None, default: Optional[Any] = empty_default, *,
 	         silent: Optional[bool] = False) -> 'AbstractConfig':
 		return self.peeks(query, default=default, silent=silent)
 
-	def pull(self, query: str, default: Optional[Any] = empty_default, *, silent: Optional[bool] = False) -> Any:
+	def pull(self, query: Optional[str] = None, default: Optional[Any] = empty_default, *,
+	         silent: Optional[bool] = False) -> Any:
 		return self.pulls(query, default=default, silent=silent)
 
 	def push_pull(self, addr: str, value: Any, overwrite: bool = True, *, silent: Optional[bool] = False) -> Any:

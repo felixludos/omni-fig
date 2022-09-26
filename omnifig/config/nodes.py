@@ -493,6 +493,7 @@ class ConfigNode(_ConfigNode):
 					child._trace = None if trace is None else trace.sub_search(config, [key])
 					product[key] = child._process(silent=silent)
 					child._trace = old
+				product = config.SparseNode._python_structure(product)
 			
 			elif isinstance(config, config.DenseNode):
 				product = []
@@ -501,7 +502,7 @@ class ConfigNode(_ConfigNode):
 					child._trace = None if trace is None else trace.sub_search(config, [key])
 					product.append(child._process(silent=silent))
 					child._trace = old
-					
+				product = config.DenseNode._python_structure(product)
 			else:
 				raise NotImplementedError(f'Unknown container type: {type(config)}')
 
@@ -588,9 +589,15 @@ class ConfigNode(_ConfigNode):
 		return self.pull(addr, **kwargs)
 
 	def peek_process(self, query, default: Optional[Any] = AbstractConfig.empty_default, *args, **kwargs):
-		node = self.peek(query, default=default)
-		out = node.process(*args, **kwargs)
-		return out
+		try:
+			node = self.peek(query)
+		except self.Search.SearchFailed:
+			if default is self.empty_default:
+				raise
+			return default
+		else:
+			out = node.process(*args, **kwargs)
+			return out
 
 	def __init__(self, *args, reporter: Optional[Reporter] = None, settings: Optional[Settings] = None,
 	             project: Optional[AbstractProject] = None, manager: Optional[AbstractConfigManager] = None, **kwargs):
