@@ -152,7 +152,8 @@ def test_sub():
 	assert B.pull('d') == 2
 	assert B.pull('check.1.H') == 'asdf'
 	assert B.pull('x5') == 10
-	assert B.pull('check.2.for.q')
+	assert B.pull('2.for.q')
+	# assert B.pull('check.2.for.q')
 	assert B.pull('difficult') == 'good'
 	
 	
@@ -183,103 +184,105 @@ def test_push2():
 	
 	a = A.pull('fruit')
 	assert len(a) == 1 and a[0] == 'tomato'
-	a = A.push('new_fruit', a)
+	a = A.push_pull('new_fruit', a)
 	assert len(a) == 1 and a[0] == 'tomato'
 	
-	a = A.push('new_fruit', 'no')
+	a = A.push_pull('new_fruit', 'no')
 	assert a == 'no'
 	assert A.pull('new_fruit.0', 'failed') == 'failed'
 	assert A.pull('new_fruit') == 'no'
 	
 	assert A.pull('a.b', 10)
-	a = A.push('a.b', 11)
+	a = A.push_pull('a.b', 11)
 	assert a == 11
 	assert A.pull('a.b') == 11
 	# a = A.push('a.b.c', 0.25)
 	# assert a == 0.25
 	# assert A.pull('a.b')['c'] == 0.25
 	
-	a = A.push('a123', 'removed')
+	a = A.push_pull('a123', 'removed')
 	assert a == 'removed'
 	
-	a = A.push('new', [1,2,4])
+	a = A.push_pull('new', [1,2,4])
 	assert a[-1] == 4
 	assert A.pull('new.0') == 1
 	
-	a = A.push('nd', ['no', {'k':[0]}])
+	a = A.push_pull('nd', ['no', {'k':[0]}])
 	assert a[0] == 'no'
 	assert 'k' in a[1]
 	a = A.pull('nd')
 	assert len(a) == 2 and a[0] == 'no' and a[1]['k'][0] == 0
 	assert A.pull('nd.0') == 'no'
 	assert A.pull('nd.o', 'w') == 'w'
-	assert A.pull('nd.1.j', '<>nd.0') == 'no'
-	assert A.pull('deep.x1.qwer.asdf', '<>nd.1.k.0') == 0
+	assert A.pulls('nd.1.j', 'nd.0') == 'no'
+	assert A.pulls('deep.x1.qwer.asdf', 'nd.1.k.0') == 0
+
+
 def test_push3():
 	A = fig.create_config('test1')
 	
 	# child pushes
-	a = A.push('arg2.a.b', [-1,10])
+	a = A.push_pull('arg2.a.b', [-1,10])
 	assert a[0] == -1
 	assert A.pull('arg2.a')['b'][1] == 10
 	assert A.pull('arg2.a.b.1') == 10
 	
 	# when parent exists
-	a = A.push('deep.unknown', 'gooder')
+	a = A.push_pull('deep.unknown', 'gooder')
 	assert a == 'gooder'
 	assert A.pull('unknown') == 'bad'
 	assert A.pull('deep.qwerty.1.t.unknown') == 'good'
 	assert A.pull('deep.unknown') == 'gooder'
 	
 	# push to list (append and indexed)
-	a = A.push('fruit._', 'yummy')
+	a = A.push_pull('fruit.1', 'yummy')
 	assert a == 'yummy'
 	assert A.pull('fruit.1') == 'yummy'
-	a = A.push('fruit.2', 'blueberry')
+	a = A.push_pull('fruit.2', 'blueberry')
 	assert a == 'blueberry'
 	assert len(A.pull('fruit')) == 3
 	assert A.pull('fruit.2') == 'blueberry'
 	
-	a = A.push('fruit.10', 'veggies')
+	a = A.push_pull('fruit.10', 'veggies')
 	assert a == 'veggies'
-	assert A.pull('fruit.3') is EmptyElement
-	assert A.pull('fruit.7') is EmptyElement
+	assert A.pull('fruit.3') == A.empty_value
+	assert A.pull('fruit.7') == A.empty_value
 	assert A.pull('fruit.10') == 'veggies'
 	assert A.pull('fruit.11', 'nope') == 'nope'
 	assert A.pull('fruit.20', 'no way') == 'no way'
 def test_push4():
 	A = fig.create_config('test1')
 	
-	a = A.push('test', 'not me')
+	a = A.push_pull('test', 'not me')
 	assert a == 'not me'
 	assert A.pull('deep.x1') == 10
 	assert A.pull('deep')['x1'] == 10
 	
-	a = A.push('deep.qwerty.0', {'x1': 11})
+	a = A.push_pull('deep.qwerty.0', {'x1': 11})
 	assert a['x1'] == 11
 	
 	assert A.pull('deep.qwerty.0')['x1'] == 11
 	assert A.pull('deep.qwerty.0.x1') == 11
-	assert A.pull('deep.qwerty.1.x1') == 10
+	assert A.pulls('deep.qwerty.1.x1', 'deep.x1') == 10
 	
 	assert A.pull('deep.x1') == 10
 	assert A.pull('deep')['x1'] == 10
-	assert A.pull('deep.qwerty.x1') == 10
+	# assert A.pull('deep.qwerty.x1') == 10
 	
-	a = A.push('deep.qwerty.2', 'no more')
+	a = A.push_pull('deep.qwerty.2', 'no more')
 	assert a == 'no more'
 	assert A.pull('deep.qwerty.2') == 'no more'
 	
-	a = A.push('deep.qwerty.3', [100])
+	a = A.push_pull('deep.qwerty.3', [100])
 	assert len(a) == 1 and a[0] == 100
 	assert A.pull('deep.qwerty.3.0') == 100
 	
 	# with/out overwriting
-	a = A.push('deep.qwerty.4', 23, overwrite=False)
+	a = A.push_pull('deep.qwerty.4', 23, overwrite=False)
 	assert a == 23
 	assert A.pull('deep.qwerty.4') == 23
 	
-	a = A.push('a.x', 2, overwrite=False)
+	a = A.push_pull('a.x', 2, overwrite=False)
 	assert a == 1
 	assert A.pull('a.x') == 1
 
@@ -315,8 +318,9 @@ def test_update_sub():
 	
 	B.push('q', {'y': {'m': {'c': {'a': 'hey'}}}})
 	B.push('alpha', [-9,2.1,{'beta':[-4,{'gamma'}]}])
-	
-	assert B.pull('alpha.2.beta.1.0') == 'gamma'
+
+	b = B.pull('alpha.2.beta.1')
+	assert type(b) is set and 'gamma' in b
 	
 	A.update(B)
 	
@@ -326,7 +330,7 @@ def test_update_sub():
 	assert A.pull('a123.0') == 'pears'
 	assert A.pull('a123.1') == 'raspberries'
 	assert A.pull('a123.2') == 'another'
-	assert B.pull('alpha.2.beta.1.0') == 'gamma'
+	assert 'gamma' in B.pull('alpha.2.beta.1')
 	
 	C = A.peek('q.y.m.c')
 	
@@ -334,7 +338,7 @@ def test_update_sub():
 	assert C.pull('unknown') == 'bad'
 	assert C.pull('c.a') == 'hey'
 	
-	c = C.push('m', 'tick')
+	c = C.push_pull('m', 'tick')
 	assert c == 'tick'
 	assert C.pull('m') == 'tick'
 	assert C.pull('y.m')['c']['a'] == 'hey'
@@ -352,23 +356,23 @@ def test_update_dict():
 	
 	assert A.pull('a.x') == 1
 	
-	A.update({'y': {'m': {'c': {'a': 'hey'}}}, 'a': {'x':12}})
+	A.update(A.from_raw({'y': {'m': {'c': {'a': 'hey'}}}, 'a': {'x':12}}))
 	
 	assert A.pull('a.x') == 12
 	assert A.pull('y.m.c.a') == 'hey'
 	
-	C = A.sub('y.m.c')
+	C = A.peek('y.m.c')
 	
 	assert C.pull('a') == 'hey'
 	assert C.pull('unknown') == 'bad'
 	assert C.pull('c.a') == 'hey'
 	
-	A.update({'alpha':[-9,2.1,{'beta':[-4,{'gamma'}]}]})
+	A.update(A.from_raw({'alpha':[-9,2.1,{'beta':[-4,{'gamma'}]}]}))
 	
 	assert A.pull('alpha.0') == -9
-	assert A.pull('alpha.2.beta.1.0') == 'gamma'
+	assert tuple(A.pull('alpha.2.beta.1')) == ('gamma',)
 	
-	D = A.sub('alpha.2.beta')
+	D = A.peek('alpha.2.beta')
 	
 	assert D.pull('0') == -4
 	assert D.pull('alpha.0') == -9
@@ -378,7 +382,7 @@ def test_update_dict():
 def test_export():
 	
 	# load/change/export
-	A = fig.create_config('test2', '--a.d', '50')
+	A = fig.create_config('test2', **{'a.d':'50'})
 	
 	A.push('count', [40,40])
 	
@@ -403,7 +407,7 @@ def test_components():
 	A = fig.create_config('test5')
 	
 	# create
-	c = A.pull('a7')
+	c = A.peek('a7').create()
 	
 	assert c.a2 == 'worked'
 	assert c.a4_a6 == 2
@@ -428,11 +432,12 @@ def test_components():
 	d.delta = 1234
 	
 	# reuse
-	e = A.pull('a7', ref=True)
+	e = A.pull('a7')
 	
 	assert id(e) == id(d)
 	assert id(d.x) == id(e.x)
 	assert e.delta == d.delta
+	assert e.delta == 1234
 	
 def test_modifiers():
 	

@@ -3,7 +3,7 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 import abc
 import inspect
 from collections import OrderedDict
-from omnibelt import get_printer, unspecified_argument, extract_function_signature, JSONABLE, Primitive
+from omnibelt import get_printer, unspecified_argument, extract_function_signature, JSONABLE, Primitive, primitive
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager
@@ -127,27 +127,28 @@ class SimpleConfigNode(_ConfigNode):
 class ConfigNode(_ConfigNode):
 	DummyNode: 'ConfigNode' = None
 	Settings = OrderedDict
-	
+
 	@classmethod
-	def from_raw(cls, raw: Any, *, parent: Optional['ConfigNode'] = unspecified_argument, **kwargs) -> 'ConfigNode':
+	def from_raw(cls, raw: Any, *, parent: Optional['ConfigNode'] = unspecified_argument,
+	             parent_key: Optional[str] = None, **kwargs) -> 'ConfigNode':
 		if isinstance(raw, ConfigNode):
 			raw.parent = parent
 			return raw
 		if isinstance(raw, dict):
-			node = cls.SparseNode(parent=parent, **kwargs)
+			node = cls.SparseNode(parent=parent, parent_key=parent_key, **kwargs)
 			for key, value in raw.items():
-				child = cls.from_raw(value, parent=node, **kwargs)
+				child = cls.from_raw(value, parent=node, parent_key=key, **kwargs)
 				if key in node:
 					node.get(key).update(child)
 				else:
 					node.set(key, child, **kwargs)
 		elif isinstance(raw, (tuple, list)):
-			node = cls.DenseNode(parent=parent, **kwargs)
+			node = cls.DenseNode(parent=parent, parent_key=parent_key, **kwargs)
 			for idx, value in enumerate(raw):
 				idx = str(idx)
-				node.set(idx, cls.from_raw(value, parent=node, **kwargs), **kwargs)
+				node.set(idx, cls.from_raw(value, parent=node, parent_key=idx, **kwargs), **kwargs)
 		else:
-			node = cls.DefaultNode(payload=raw, parent=parent, **kwargs)
+			node = cls.DefaultNode(payload=raw, parent=parent, parent_key=parent_key, **kwargs)
 		return node
 	
 	class Search(SimpleSearch):
@@ -241,7 +242,9 @@ class ConfigNode(_ConfigNode):
 		missing_key_payload = '__x__' # payload for key that doesn't really exist
 
 		def process_node(self, node: 'ConfigNode') -> 'ConfigNode':  # follows references
-			if node.has_payload:
+			if self.origin.empty_value is node:
+				return self.origin.DummyNode(payload=node, parent=self.origin)
+			elif node.has_payload:
 				payload = node.payload
 				if isinstance(payload, str):
 					if payload.startswith(self.reference_prefix):
@@ -346,11 +349,14 @@ class ConfigNode(_ConfigNode):
 			size = f' [{N} element{"s" if N == 0 or N > 1 else ""}]'
 			return self.log(self._stylize(node, f'ITERATOR {key}{size}'), silent=silent)
 
-		def reuse_product(self, node: 'ConfigNode', product: Any, *, component_type: str = None,
-		                  modifiers: Optional[Sequence[str]] = None, creator_type: str = None,
-		                  silent: bool = None) -> Optional[str]:
+		def reuse_product(self, node: 'ConfigNode', product: Any, *, silent: bool = None) -> Optional[str]:
 			trace = node.trace
 			key = self.get_key(trace)
+
+			reusing = '' if isinstance(product, primitive) else ' (reuse)'
+			line = f'{key}{self.colon}{self._format_value(product)}{reusing}'
+			return self.log(self._stylize(node, line), silent=silent)
+
 			line = f'REUSING {self._format_component(key, component_type, modifiers, creator_type)}'
 			return self.log(self._stylize(node, line), silent=silent)
 
@@ -460,14 +466,14 @@ class ConfigNode(_ConfigNode):
 			                                 creator_type=self._creator_name, silent=silent)
 
 			cls = self.component_entry.cls
-			assert isinstance(cls, type), f'This creator can only be used for components that are classes: {cls!r}'
+			# assert isinstance(cls, type), f'This creator can only be used for components that are classes: {cls!r}'
 			
 			mods = [self.project.find_artifact('modifier', mod).cls for mod in self.modifiers]
 			if len(mods):
 				bases = (*reversed(mods), cls)
 				cls = type('_'.join(base.__name__ for base in bases), bases, {})
 			
-			if issubclass(cls, AbstractConfigurable):
+			if isinstance(cls, type) and issubclass(cls, AbstractConfigurable):
 				obj = cls.init_from_config(config, args, kwargs, silent=silent)
 			else:
 				settings = config.settings
@@ -600,7 +606,8 @@ class ConfigNode(_ConfigNode):
 			return out
 
 	def __init__(self, *args, reporter: Optional[Reporter] = None, settings: Optional[Settings] = None,
-	             project: Optional[AbstractProject] = None, manager: Optional[AbstractConfigManager] = None, **kwargs):
+	             project: Optional[AbstractProject] = None, manager: Optional[AbstractConfigManager] = None,
+	             parent_key: Optional[str] = None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self._project = project
 		self._trace = None
@@ -608,6 +615,7 @@ class ConfigNode(_ConfigNode):
 		self._manager = manager
 		self._reporter = reporter
 		self._settings = settings
+		self._parent_key = parent_key
 		if self.reporter is None:
 			self.reporter = self.Reporter()
 		if self.settings is None:
@@ -714,11 +722,12 @@ class ConfigNode(_ConfigNode):
 		
 
 	def _create(self, component_args: Optional[Tuple] = None, component_kwargs: Optional[Dict[str,Any]] = None,
-	            silent: Optional[bool] = None, **kwargs: Any) -> Any:
-		# old = self._trace
-		out = self.DefaultCreator(self, silent=silent,  **kwargs)\
+	            silent: Optional[bool] = None, creator: Optional[str] = unspecified_argument, **kwargs: Any) -> Any:
+		if creator is unspecified_argument:
+			creator = self.settings.get('creator')
+		creator = self.DefaultCreator if creator is None else self.project.find_artifact('creator', creator).cls
+		out = creator(self, silent=silent, project=self.project,  **kwargs)\
 			.create_product(self, args=component_args, kwargs=component_kwargs, silent=silent)
-		# self._trace = old
 		return out
 
 	def _process(self, component_args: Optional[Tuple] = None, component_kwargs: Optional[Dict[str, Any]] = None,
@@ -729,6 +738,8 @@ class ConfigNode(_ConfigNode):
 		assert not (force_create and not allow_create), f'Cannot force create without allowing create: {self}'
 		if (allow_create and self._product is None) or force_create:
 			self._product = self._create(component_args, component_kwargs, silent=silent, **kwargs)
+		else:
+			self.reporter.reuse_product(self, self._product)
 		return self._product
 
 	def create(self, *args: Any, **kwargs: Any) -> Any:
@@ -817,11 +828,16 @@ class ConfigNode(_ConfigNode):
 
 class ConfigDummyNode(ConfigNode): # output of peek if default is not unspecified_argument but node does not exist
 	ChildrenStructure = list
-	def __init__(self, payload: Any, parent: ConfigNode, **kwargs):
+	def __init__(self, payload: Optional[Any] = unspecified_argument,
+	             parent: Optional[ConfigNode] = None, **kwargs):
 		super().__init__(payload=payload, parent=parent, **kwargs)
 
 	def _get(self, addr: Hashable):
 		raise self.MissingKey(addr)
+
+	# def _create(self, component_args: Optional[Tuple] = None, component_kwargs: Optional[Dict[str,Any]] = None,
+	#             silent: Optional[bool] = None, creator: Optional[str] = unspecified_argument, **kwargs: Any) -> Any:
+	# 	return self.payload
 
 	def __repr__(self):
 		return f'{self.__class__.__name__}({self.payload!r})'
@@ -836,6 +852,7 @@ class ConfigDenseNode(AutoTreeDenseNode, ConfigNode):
 	_python_structure = tuple
 
 
+# ConfigNode.empty_value = ConfigDummyNode
 ConfigNode.DummyNode = ConfigDummyNode
 ConfigNode.DefaultNode = ConfigSparseNode
 ConfigNode.SparseNode = ConfigSparseNode

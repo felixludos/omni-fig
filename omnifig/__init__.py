@@ -15,7 +15,7 @@ from . import config as _config
 # from . import common
 from .configurable import Configurable, config_aliases
 # from .farming import Farmer, Worker
-from . import common
+from . import common as _common
 
 import os
 __info__ = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py')}

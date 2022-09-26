@@ -59,7 +59,7 @@ class FileInfo(Activatable):
 
 	@property
 	def name(self):
-		return self.data.get('name', '-no-name-')
+		return self.data.get('name', '')
 
 	def __repr__(self):
 		return f'{self.__class__.__name__}({self.name})'

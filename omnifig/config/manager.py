@@ -209,15 +209,20 @@ class ConfigManager(AbstractConfigManager):
 		# self._unify_config_node(config)
 		pass
 
+	_config_parents_key = 'parents'
+
 	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None, *,
-	                  ancestry_key: Optional[str] = '_ancestry') -> AbstractConfig:
+	                  ancestry_key: Optional[str] = '_ancestry',
+	                  project: Optional[AbstractProject] = unspecified_argument) -> AbstractConfig:
 		if configs is None:
 			configs = []
 		if data is None:
 			data = {}
+		if project is unspecified_argument:
+			project = self.project
 		assert len(self._find_config_parents(data)) == 0, 'Passed in args cannot have a parents key'
 		todo = list(configs)
-		data['parents'] = list(configs)
+		data[self._config_parents_key] = list(configs)
 		raws = {None: data}
 		used_paths = {}
 		while len(todo):
@@ -233,7 +238,7 @@ class ConfigManager(AbstractConfigManager):
 					raws[path][ancestry_key] = name
 		if len(used_paths) != len(todo):
 			graph = {key: [used_paths[name] for name in self._find_config_parents(raw)] for key, raw in raws.items()}
-			graph[None] = [used_paths[name] for name in data['parents']]
+			graph[None] = [used_paths[name] for name in data[self._config_parents_key]]
 			order = linearize(graph, heads=[None], order=True)[None]
 			order = [data] + [raws[p] for p in order[1:]]
 			# order = list(reversed(order))
@@ -248,6 +253,8 @@ class ConfigManager(AbstractConfigManager):
 		if ancestry_key is not None:
 			merged.push(ancestry_key, ancestors, silent=True)
 
+		if project is not None:
+			merged.project = project
 		merged.settings = merged.pull('_meta.settings', {}, silent=True)
 		return merged
 	

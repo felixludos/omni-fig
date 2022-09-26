@@ -15,7 +15,7 @@ prt = get_printer(__name__)
 
 class Profile(ProfileBase, default_profile=True):
 	class Project(GeneralProject, name='default'):
-		class Creator_Registry(Function_Registry, components=['project', 'description']): pass
+		class Creator_Registry(Class_Registry, components=['project', 'description']): pass
 		class Component_Registry(Class_Registry, components=['creator', 'project', 'description']): pass
 		class Modifier_Registry(Class_Registry, components=['project', 'description']): pass
 
