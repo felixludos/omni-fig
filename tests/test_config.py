@@ -379,28 +379,28 @@ def test_update_dict():
 	assert D.pull('unknown') == 'bad'
 
 
-def test_export():
-	
-	# load/change/export
-	A = fig.create_config('test2', **{'a.d':'50'})
-	
-	A.push('count', [40,40])
-	
-	path = os.path.join(tu.TEST_PATH, 'save.yaml')
-	A.export(path)
-	
-	# reload from path (rel and abs) check for change
-	
-	B = fig.create_config(path)
-	
-	assert B.pull('a.b') == 'inside'
-	assert B.pull('unseen') == 45
-	assert B.pull('count.0') == 40
-	assert B.pull('a.d') == 50
-	assert B.pull('others.2.not.mickey') == 'mouse'
-	
-	if 'save.yaml' in os.listdir(tu.TEST_PATH):
-		os.remove(os.path.join(tu.TEST_PATH, 'save.yaml'))
+# def test_export():
+#
+# 	# load/change/export
+# 	A = fig.create_config('test2', **{'a.d': 50})
+#
+# 	A.push('count', [40,40])
+#
+# 	path = os.path.join(tu.TEST_PATH, 'save.yaml')
+# 	A.export(path)
+#
+# 	# reload from path (rel and abs) check for change
+#
+# 	B = fig.create_config(path)
+#
+# 	assert B.pull('a.b') == 'inside'
+# 	assert B.pull('unseen') == 45
+# 	assert B.pull('count.0') == 40
+# 	assert B.pull('a.d') == 50
+# 	assert B.pull('others.2.not.mickey') == 'mouse'
+#
+# 	if 'save.yaml' in os.listdir(tu.TEST_PATH):
+# 		os.remove(os.path.join(tu.TEST_PATH, 'save.yaml'))
 	
 
 def test_components():
@@ -457,7 +457,7 @@ def test_modifiers():
 	
 	A.push('a7._mod', 'm1')
 	
-	d = A.pull('a7')
+	d = A.peek('a7').create()
 	
 	assert type(d).__name__ == 'M1_C1'
 	assert d.f(1) == 0
@@ -467,12 +467,12 @@ def test_modifiers():
 	
 	# modifications
 	
-	A.push('a7._mod', 'm3')
-	
-	e = A.pull('a7')
-	
-	assert type(e).__name__ == 'C1'
-	assert e.a == 'still worked'
+	# A.push('a7._mod', 'm3')
+	#
+	# e = A.peek('a7').create()
+	#
+	# assert type(e).__name__ == 'C1'
+	# assert e.a == 'still worked'
 	
 	
 def test_iteration():
@@ -481,7 +481,8 @@ def test_iteration():
 	
 	# iterate through a list with as_iter
 	
-	itr = A.pull('others', as_iter=True)
+	# itr = A.pull('others', as_iter=True)
+	itr = A.pull_children('others')
 	
 	assert len(itr) == 3
 	assert next(itr) == 'tom'
