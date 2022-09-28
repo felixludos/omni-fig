@@ -571,6 +571,10 @@ class ConfigNode(_ConfigNode):
 		if self.settings.get('readonly', False):
 			raise self.ReadOnlyError('Cannot push to read-only node')
 
+		if value == self._delete_value:
+			self.remove(addr)
+			return True
+
 		if not self.has(addr) or overwrite:
 			self.set(addr, value)
 			return True
@@ -580,7 +584,7 @@ class ConfigNode(_ConfigNode):
 	def peek_children(self, *, include_key: bool = False, silent: Optional[bool] = None):
 		self.reporter.report_iterator(self, include_key=include_key, product=False, silent=silent)
 		for key, _ in self.children(keys=True):
-			child = self.search(key, silent=silent).find_node(silent=silent)
+			child = self.search(key).find_node(silent=silent)
 			yield (key, child) if include_key else child
 	
 	def pull_children(self, *, include_key: bool = False, force_create: Optional[bool] = False,
@@ -791,6 +795,15 @@ class ConfigNode(_ConfigNode):
 			else:
 				self[key] = child
 		return self
+
+
+	_delete_value = '_x_'
+	def validate(self):
+		for key, child in self.children():
+			if child.has_payload and child.payload == self._delete_value:
+				self.remove(key)
+			else:
+				child.validate()
 
 
 	def silence(self, silent: bool = True) -> ContextManager:

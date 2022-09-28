@@ -482,11 +482,12 @@ def test_iteration():
 	# iterate through a list with as_iter
 	
 	# itr = A.pull('others', as_iter=True)
-	itr = A.pull_children('others')
+	node = A.peek('others')
+	itr = node.pull_children()
 	
-	assert len(itr) == 3
+	assert len(node) == 3
 	assert next(itr) == 'tom'
-	assert len(itr) == 2
+	# assert len(itr) == 2
 	assert next(itr) == 'jerry'
 	assert next(itr)['not']['mickey'] == 'mouse'
 	
@@ -494,11 +495,12 @@ def test_iteration():
 	
 	A.push('costs.gems', '_x_')
 	
-	answers = A.pull('costs')
+	answers = A.peek('costs').create()
+
+	node = A.peek('costs')
+	itr = node.pull_children(include_key=True)
 	
-	itr = A.pull('costs', as_iter=True)
-	
-	assert len(itr) == 4
+	assert len(node) == 4
 	for _ in range(len(itr)):
 		k,v = next(itr)
 		

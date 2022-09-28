@@ -74,7 +74,7 @@ class AbstractConfigManager:
 	
 	ConfigNode = None
 	
-	def load_config(self, path: Union[str, Path]) -> AbstractConfig:
+	def load_raw_config(self, path: Union[str, Path]) -> AbstractConfig:
 		raise NotImplementedError
 	
 	def configurize(self, raw: Any):

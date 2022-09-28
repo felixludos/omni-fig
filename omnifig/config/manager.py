@@ -256,9 +256,11 @@ class ConfigManager(AbstractConfigManager):
 		if project is not None:
 			merged.project = project
 		merged.settings = merged.pull('_meta.settings', {}, silent=True)
+
+		merged.validate()
 		return merged
 	
-	def load_config(self, path: Union[str, Path]) -> AbstractConfig:
+	def load_raw_config(self, path: Union[str, Path]) -> AbstractConfig:
 		if path.suffix in ('.yaml', '.yml'):
 			return load_yaml(path, ordered=True)
 		raise ValueError(f'Unknown config file type: {path}')
