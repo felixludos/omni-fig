@@ -501,7 +501,7 @@ def test_iteration():
 	itr = node.pull_children(include_key=True)
 	
 	assert len(node) == 4
-	for _ in range(len(itr)):
+	for _ in range(len(node)):
 		k,v = next(itr)
 		
 		assert k in answers
@@ -509,25 +509,29 @@ def test_iteration():
 	
 	# auto iterate a list with seq
 	
-	itr = A.sub('others').seq()
+	node = A.peek('others')
+	itr = node.peek_children()
 	
-	assert len(itr) == 3
-	assert next(itr) == 'tom'
-	assert len(itr) == 2
-	assert next(itr) == 'jerry'
-	assert next(itr)['not']['mickey'] == 'mouse'
+	assert len(node) == 3
+	assert next(itr).create() == 'tom'
+	# assert len(itr) == 2
+	# assert next(itr).create() == 'jerry'
+	assert next(itr).parent == node
+	assert next(itr).create()['not']['mickey'] == 'mouse'
 	
 
 	# auto iterate a dict with seq
 	
-	itr = A.sub('costs').seq()
+	node = A.peek('costs')
+	itr = node.peek_children(include_key=True)
 	
-	assert len(itr) == 4
-	for _ in range(len(itr)):
+	assert len(node) == 4
+	for _ in range(len(node)):
 		k, v = next(itr)
 		
 		assert k in answers
-		assert answers[k] == v
+		assert v.parent == node
+		assert answers[k] == v.create()
 	
 	
 def test_removing():
@@ -539,26 +543,29 @@ def test_removing():
 	
 	A.push('vogel.papagena', '_x_')
 	
-	itr = A.pull('vogel', as_iter=True)
+	node = A.peek('vogel')
+	itr = node.pull_children(include_key=True)
 	
-	assert len(itr) == 1
-	assert next(itr) == ('papagei', 'parrot')
+	assert len(node) == 1
+	assert tuple(next(itr)) == ('papagei', 'parrot')
 	
 
 def test_raw_and_cousins():
 	
 	A = fig.create_config('test5')
 	
-	raw = A.pull('a7', raw=True)
-	assert isinstance(raw, ConfigType)
+	raw = A.peek('a7')
+	assert isinstance(raw, type(A))
 	
-	A.push('pocket.a7', raw, process=False)
+	A.push('pocket.a7', raw)
 	A.push('a2', '_x_')
 	A.push('a7', '_x_')
 	A.push('a7.a2', 'cousin')
 	A.push('pocket.a7.a2', '_x_')
 	
-	pocket = A.pull('pocket', raw=True)
+	A.settings['allow_cousins'] = True
+	
+	pocket = A.peek('pocket')
 	
 	# create
 	c = pocket.pull('a7')

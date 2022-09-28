@@ -133,6 +133,7 @@ class ConfigNode(_ConfigNode):
 	             parent_key: Optional[str] = None, **kwargs) -> 'ConfigNode':
 		if isinstance(raw, ConfigNode):
 			raw.parent = parent
+			raw._parent_key = parent_key
 			return raw
 		if isinstance(raw, dict):
 			node = cls.SparseNode(parent=parent, parent_key=parent_key, **kwargs)
@@ -185,7 +186,16 @@ class ConfigNode(_ConfigNode):
 						try:
 							result = self._resolve_query(parent, query)
 						except parent.MissingKey:
-							pass
+							if src.settings.get('allow_cousins', False) and src._parent_key is not None:
+								try:
+									cousin_query = f'{src._parent_key}.{query}'
+									result = self._resolve_query(parent, cousin_query)
+								except parent.MissingKey:
+									pass
+								else:
+									self.query_chain[-1] = f'.{self.query_chain[-1]}'
+									self.query_node = result
+									return result
 						else:
 							self.query_chain[-1] = f'.{self.query_chain[-1]}'
 							self.query_node = result
@@ -580,10 +590,17 @@ class ConfigNode(_ConfigNode):
 			return True
 		return False
 
-
+	def __len__(self):
+		return len(list(self._child_keys()))
+	
+	def _child_keys(self) -> Iterator[str]:
+		for key, child in self.children(keys=True):
+			if not child.has_payload or child.payload not in {'__x__', '_x_'}:
+				yield key
+	
 	def peek_children(self, *, include_key: bool = False, silent: Optional[bool] = None):
 		self.reporter.report_iterator(self, include_key=include_key, product=False, silent=silent)
-		for key, _ in self.children(keys=True):
+		for key in self._child_keys():
 			child = self.search(key).find_node(silent=silent)
 			yield (key, child) if include_key else child
 	
@@ -619,7 +636,6 @@ class ConfigNode(_ConfigNode):
 		self._manager = manager
 		self._reporter = reporter
 		self._settings = settings
-		self._parent_key = parent_key
 		if self.reporter is None:
 			self.reporter = self.Reporter()
 		if self.settings is None:
