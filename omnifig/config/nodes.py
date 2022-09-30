@@ -169,17 +169,11 @@ class ConfigNode(_ConfigNode):
 		confidential_prefix = '_'
 
 		def _resolve_query(self, src: 'ConfigNode', query: str, *remaining: str,
-		                   chain: Optional[List[str]] = None) -> Tuple['ConfigNode',List[str]]:
+		                   chain: Optional[List[str]] = None) -> Tuple['ConfigNode', Tuple, List[str]]:
 			if chain is None:
 				chain = []
-			# if query is unspecified_argument:
-			# 	try:
-			# 		query = next(self.remaining_queries)
-			# 	except StopIteration:
-			# 		raise self.SearchFailed(*self.query_chain)
 			if query is None:
-				self.query_node = src
-				return src, chain
+				return src, remaining, chain
 
 			try:
 				result = src.get(query)
@@ -193,33 +187,30 @@ class ConfigNode(_ConfigNode):
 							if src.settings.get('allow_cousins', False) and src._parent_key is not None:
 								try:
 									cousin_query = f'{src._parent_key}.{query}'
-									result = self._resolve_query(parent, cousin_query)
+									result = self._resolve_query(parent, cousin_query, chain=chain)
 								except parent.MissingKey:
 									pass
 								else:
-									self.query_chain[-1] = f'.{self.query_chain[-1]}'
-									self.query_node = result
-									return result
+									chain[-1] = f'.{chain[-1]}'
+									return result, remaining, chain
 						else:
-							self.query_chain[-1] = f'.{self.query_chain[-1]}'
-							self.query_node = result
-							return result
+							chain[-1] = f'.{chain[-1]}'
+							return result, remaining, chain
 				if len(remaining):
-					return self._resolve_query(src, *remaining, chain=[*chain, query])
+					chain.append(query)
+					return self._resolve_query(src, *remaining, chain=chain)
 				else:
 					raise self.SearchFailed(*chain)
 			else:
-				self.query_node = result
 				chain.append(query)
-				return result, chain
+				return result, remaining, chain
 
 		def _find_node(self) -> 'ConfigNode':
 			if self.queries is None or not len(self.queries):
 				result = self.origin
-				self.query_node = result
 			else:
-				self.remaining_queries = iter(self.queries)
-				result, self.query_chain = self._resolve_query(self.origin, *self.queries)
+				result, self.unused_queries, self.query_chain = self._resolve_query(self.origin, *self.queries)
+			self.query_node = result
 			self.result_node = self.process_node(result)
 			return self.result_node
 		
@@ -265,20 +256,24 @@ class ConfigNode(_ConfigNode):
 				if isinstance(payload, str):
 					if payload.startswith(self.reference_prefix):
 						ref = payload[len(self.reference_prefix):]
-						out, self.query_chain = self._resolve_query(node, ref)
-						return self.process_node(out)
+						result, self.unused_queries, self.query_chain \
+							= self._resolve_query(node, ref, *self.unused_queries, chain=self.query_chain)
+						return self.process_node(result)
 					elif payload.startswith(self.origin_reference_prefix):
 						ref = payload[len(self.origin_reference_prefix):]
-						out = self._resolve_query(self.origin, ref)
-						return self.process_node(out)
+						result, self.unused_queries, self.query_chain \
+							= self._resolve_query(node, ref, *self.unused_queries, chain=self.query_chain)
+						return self.process_node(result)
 					elif payload.startswith(self.force_create_prefix):
 						ref = payload[len(self.force_create_prefix):]
-						out = self._resolve_query(node, ref)
+						result, self.unused_queries, self.query_chain \
+							= self._resolve_query(node, ref, *self.unused_queries, chain=self.query_chain)
 						self.force_create = True
-						return self.process_node(out)
+						return self.process_node(result)
 					elif payload == self.missing_key_payload:
-						out = self._resolve_query(self.query_node)
-						return self.process_node(out)
+						result, self.unused_queries, self.query_chain \
+							= self._resolve_query(self.query_node, *self.unused_queries, chain=self.query_chain)
+						return self.process_node(result)
 			return node
 
 
