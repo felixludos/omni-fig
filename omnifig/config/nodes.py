@@ -164,18 +164,22 @@ class ConfigNode(_ConfigNode):
 			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
 			self.force_create = False
 			self.parent_search = parent_search
+			self.extra_queries = None
 
 		confidential_prefix = '_'
 
-		def _resolve_query(self, src: 'ConfigNode', query: Optional[str] = unspecified_argument) -> 'ConfigNode':
-			if query is unspecified_argument:
-				try:
-					query = next(self.remaining_queries)
-				except StopIteration:
-					raise self.SearchFailed(*self.query_chain)
+		def _resolve_query(self, src: 'ConfigNode', query: str, *remaining: str,
+		                   chain: Optional[List[str]] = None) -> Tuple['ConfigNode',List[str]]:
+			if chain is None:
+				chain = []
+			# if query is unspecified_argument:
+			# 	try:
+			# 		query = next(self.remaining_queries)
+			# 	except StopIteration:
+			# 		raise self.SearchFailed(*self.query_chain)
 			if query is None:
 				self.query_node = src
-				return src
+				return src, chain
 
 			try:
 				result = src.get(query)
@@ -200,12 +204,14 @@ class ConfigNode(_ConfigNode):
 							self.query_chain[-1] = f'.{self.query_chain[-1]}'
 							self.query_node = result
 							return result
-				self.query_chain.append(query)
-				return self._resolve_query(src)
+				if len(remaining):
+					return self._resolve_query(src, *remaining, chain=[*chain, query])
+				else:
+					raise self.SearchFailed(*chain)
 			else:
-				self.query_chain.append(query)
 				self.query_node = result
-				return result
+				chain.append(query)
+				return result, chain
 
 		def _find_node(self) -> 'ConfigNode':
 			if self.queries is None or not len(self.queries):
@@ -213,7 +219,7 @@ class ConfigNode(_ConfigNode):
 				self.query_node = result
 			else:
 				self.remaining_queries = iter(self.queries)
-				result = self._resolve_query(self.origin)
+				result, self.query_chain = self._resolve_query(self.origin, *self.queries)
 			self.result_node = self.process_node(result)
 			return self.result_node
 		
@@ -259,7 +265,7 @@ class ConfigNode(_ConfigNode):
 				if isinstance(payload, str):
 					if payload.startswith(self.reference_prefix):
 						ref = payload[len(self.reference_prefix):]
-						out = self._resolve_query(node, ref)
+						out, self.query_chain = self._resolve_query(node, ref)
 						return self.process_node(out)
 					elif payload.startswith(self.origin_reference_prefix):
 						ref = payload[len(self.origin_reference_prefix):]
