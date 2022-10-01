@@ -14,71 +14,8 @@ from .reporter import ConfigReporter, ConfigReporterBase
 prt = get_printer(__name__)
 
 
-class _ConfigNode(AbstractConfig, AutoTreeNode):
-	# def __init__(self, *args, project: Optional[AbstractProject] = None, **kwargs):
-	# 	super().__init__(*args, **kwargs)
-	# 	self._project = project
-	# 	# self.readonly = readonly
 
-	@property
-	def root(self) -> '_ConfigNode':
-		parent = self.parent
-		if parent is None:
-			return self
-		return parent.root
-
-
-	# @property
-	# def project(self):
-	# 	return self.root._project
-	# @project.setter
-	# def project(self, value):
-	# 	self.root._project = value
-	#
-	# @property
-	# @abc.abstractmethod
-	# def silent(self):
-	# 	raise NotImplementedError
-	# @silent.setter
-	# @abc.abstractmethod
-	# def silent(self, value):
-	# 	raise NotImplementedError
-
-	# @property
-	# def readonly(self):
-	# 	return self.root._readonly
-	# @readonly.setter
-	# def readonly(self, value):
-	# 	self.root._readonly = value
-
-	# class ReadOnlyError(Exception): pass
-
-
-	# def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
-	# 	if self.readonly:
-	# 		raise self.ReadOnlyError('Cannot push to read-only node')
-	# 	try:
-	# 		existing = self.get(addr)
-	# 	except self.MissingKey:
-	# 		existing = None
-	#
-	# 	if existing is None or overwrite:
-	# 		self.set(addr, value)
-	# 		return True
-	# 	return False
-
-
-	# LazyIterator = None
-	# def as_iterator(self, *queries, product: bool = False, include_key: bool = False, silent: Optional[bool] = None,
-	#                 **kwargs) -> Iterator[Union['ConfigNode', Tuple['ConfigNode', str]]]:
-	# 	if len(queries):
-	# 		return self.peeks(*queries, silent=silent).as_iterator(product=product, include_key=include_key,
-	# 		                                                       silent=silent, **kwargs)
-	# 	return self.LazyIterator(self, product=product, include_key=include_key, silent=silent, **kwargs)
-
-
-
-class SimpleConfigNode(_ConfigNode):
+class SimpleConfigNode(AbstractConfig, AutoTreeNode):
 	Search = ConfigSearchBase
 	def __init__(self, *args, silent=False, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -124,7 +61,7 @@ class SimpleConfigNode(_ConfigNode):
 		raise NotImplementedError
 
 
-class ConfigNode(_ConfigNode):
+class ConfigNode(AbstractConfig, AutoTreeNode):
 	DummyNode: 'ConfigNode' = None
 	Settings = OrderedDict
 
@@ -169,7 +106,7 @@ class ConfigNode(_ConfigNode):
 		confidential_prefix = '_'
 
 		def _resolve_query(self, src: 'ConfigNode', query: str, *remaining: str,
-		                   chain: Optional[List[str]] = None) -> Tuple['ConfigNode', Tuple, List[str]]:
+		                   chain: Optional[List[str]] = None) -> Tuple[Optional['ConfigNode'], Tuple, List[str]]:
 			if chain is None:
 				chain = []
 			if query is None:
@@ -178,38 +115,37 @@ class ConfigNode(_ConfigNode):
 			try:
 				result = src.get(query)
 			except src.MissingKey:
+				result = None
+
+			if result is None:
 				if src.settings.get('ask_parents', True) and not query.startswith(self.confidential_prefix):
 					parent = src.parent
 					if parent is not None:
-						try:
-							result = self._resolve_query(parent, query)
-						except parent.MissingKey:
-							if src.settings.get('allow_cousins', False) and src._parent_key is not None:
-								try:
-									cousin_query = f'{src._parent_key}.{query}'
-									result = self._resolve_query(parent, cousin_query, chain=chain)
-								except parent.MissingKey:
-									pass
-								else:
-									chain[-1] = f'.{chain[-1]}'
+						result, _, parent_chain = self._resolve_query(parent, query)
+						if result is None:
+							grandparent = parent.parent
+							if grandparent is not None and src.settings.get('allow_cousins', False) \
+									and src._parent_key is not None:
+								cousin_query = f'{src._parent_key}.{query}'
+								result, _, cousin_chain = self._resolve_query(grandparent, cousin_query)
+								if result is not None:
+									chain.append(f'..{cousin_chain[-1]}')
 									return result, remaining, chain
 						else:
-							chain[-1] = f'.{chain[-1]}'
+							chain.append(f'.{parent_chain[-1]}')
 							return result, remaining, chain
 				if len(remaining):
-					chain.append(query)
 					return self._resolve_query(src, *remaining, chain=chain)
-				else:
-					raise self.SearchFailed(*chain)
-			else:
-				chain.append(query)
-				return result, remaining, chain
+			chain.append(query)
+			return result, remaining, chain
 
 		def _find_node(self) -> 'ConfigNode':
 			if self.queries is None or not len(self.queries):
 				result = self.origin
 			else:
 				result, self.unused_queries, self.query_chain = self._resolve_query(self.origin, *self.queries)
+				if result is None:
+					raise self.SearchFailed(*self.query_chain)
 			self.query_node = result
 			self.result_node = self.process_node(result)
 			return self.result_node
@@ -262,7 +198,7 @@ class ConfigNode(_ConfigNode):
 					elif payload.startswith(self.origin_reference_prefix):
 						ref = payload[len(self.origin_reference_prefix):]
 						result, self.unused_queries, self.query_chain \
-							= self._resolve_query(node, ref, *self.unused_queries, chain=self.query_chain)
+							= self._resolve_query(self.origin, ref, *self.unused_queries, chain=self.query_chain)
 						return self.process_node(result)
 					elif payload.startswith(self.force_create_prefix):
 						ref = payload[len(self.force_create_prefix):]
@@ -656,6 +592,13 @@ class ConfigNode(_ConfigNode):
 			self._project = project
 		else:
 			parent.project = project
+
+	@property
+	def root(self) -> '_ConfigNode':
+		parent = self.parent
+		if parent is None:
+			return self
+		return parent.root
 
 	@property
 	def manager(self):
