@@ -7,58 +7,10 @@ from omnibelt import get_printer, unspecified_argument, extract_function_signatu
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager
-from .creator import DefaultCreator
 from .search import ConfigSearchBase, SimpleTrace, SimpleSearch
 from .reporter import ConfigReporter, ConfigReporterBase
 
 prt = get_printer(__name__)
-
-
-
-class SimpleConfigNode(AbstractConfig, AutoTreeNode):
-	Search = ConfigSearchBase
-	def __init__(self, *args, silent=False, **kwargs):
-		super().__init__(*args, **kwargs)
-		self._silent = silent
-
-	@property
-	def silent(self):
-		return self.root._silent
-	@silent.setter
-	def silent(self, value):
-		self.root._silent = value
-
-
-	def search(self, *queries, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
-	           **kwargs) -> Search:
-		return self.Search(origin=self, queries=queries, default=default, **kwargs)
-
-	# def peek(self, query: str, default: Optional[Any] = _ConfigNode.empty_default, *,
-	#          silent: Optional[bool] = False) -> 'SimpleConfigNode':
-	# 	return self.peeks(query, default=default, silent=silent)
-	#
-	# def pull(self, query: str, default: Optional[Any] = unspecified_argument, *, silent: Optional[bool] = None,
-	#          **kwargs) -> Any:
-	# 	return self.pulls(query, default=default, silent=silent, **kwargs)
-
-	def peeks(self, *queries, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
-	         **kwargs) -> 'SimpleConfigNode':
-		node = self.search(*queries, default=default, **kwargs).find_node()
-		self._trace = None
-		return node
-
-	def pulls(self, *queries: str, default: Optional[Any] = unspecified_argument, silent: Optional[bool] = None,
-	          **kwargs) -> Any:
-		out = self.search(*queries, default=default, silent=silent, **kwargs).evaluate()
-		self._trace = None
-		return out
-
-	def push_pull(self, addr: str, value: Any, overwrite: bool = True, **kwargs) -> Any:
-		self.push(addr, value, overwrite=overwrite)
-		return self.pull(addr, **kwargs)
-
-	def create(self, config, args=None, kwargs=None) -> Any:
-		raise NotImplementedError
 
 
 class ConfigNode(AbstractConfig, AutoTreeNode):
@@ -233,13 +185,14 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			if node.parent is None:
 				return 0
 			return cls._node_depth(node.parent, _fuel=_fuel - 1) + 1
-
-		def log(self, *msg, silent=None, **kwargs) -> str:
-			# if silent is None:
-			# 	silent = self.silent
+		
+		@staticmethod
+		def log(*msg, end='\n', sep=' ', silent=None) -> str:
 			if not silent:
-				return super().log(*msg, **kwargs)
-
+				msg = sep.join(str(m) for m in msg) + end
+				print(msg, end='')
+				return msg
+		
 		def get_key(self, trace: 'ConfigNode.Search') -> str:
 			queries = trace.query_chain
 
@@ -565,7 +518,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 
 	def __init__(self, *args, reporter: Optional[Reporter] = None, settings: Optional[Settings] = None,
 	             project: Optional[AbstractProject] = None, manager: Optional[AbstractConfigManager] = None,
-	             parent_key: Optional[str] = None, **kwargs):
+	             **kwargs):
 		super().__init__(*args, **kwargs)
 		self._project = project
 		self._trace = None
@@ -607,13 +560,6 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			if parent is not None:
 				return parent.manager
 		return self._manager
-	# @manager.setter
-	# def manager(self, manager: AbstractConfigManager):
-	# 	parent = self.parent
-	# 	if parent is None:
-	# 		self._manager = manager
-	# 	else:
-	# 		parent.manager = manager
 	
 	@property
 	def trace(self) -> Optional[Search]:
@@ -656,13 +602,6 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 	@silent.setter
 	def silent(self, value: bool):
 		self.settings['silent'] = value
-
-	@property
-	def readonly(self) -> bool:
-		return self.settings.get('readonly', False)
-	@readonly.setter
-	def readonly(self, value: bool):
-		self.settings['readonly'] = value
 
 	class ReadOnlyError(Exception): pass
 
@@ -707,7 +646,6 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 		return self._product
 
 	def create(self, *args: Any, **kwargs: Any) -> Any:
-		# return self._create_component(*self._extract_component_info(), args=args, kwargs=kwargs)
 		return self._create(args, kwargs, silent=self.settings.get('silent', None))
 	
 	def create_silent(self, *args: Any, **kwargs: Any) -> Any:
@@ -736,10 +674,6 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 		return f'<{self.__class__.__name__} {len(self)} children>'
 
 	def update(self, update: 'ConfigNode', *, clear_product: bool = True, **kwargs) -> 'ConfigNode':
-		# manager = self.manager
-		# if manager is not None:
-		# 	return manager.update(self, update, clear_product=clear_product, **kwargs)
-		
 		if clear_product:
 			self.clear_product()
 			update.clear_product()
@@ -771,33 +705,6 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 		return self.context(silent=silent)
 
 
-	# _ask_parent = True
-	# _volatile_prefix = '__'
-
-	# class Editor:
-	# 	def __init__(self, readonly=False, **kwargs):
-	# 		super().__init__(**kwargs)
-	# 		self._readonly = readonly
-	#
-	# 	@property
-	# 	def readonly(self):
-	# 		return self._readonly
-	# 	@readonly.setter
-	# 	def readonly(self, value):
-	# 		self._readonly = value
-	#
-	#
-	# def __init__(self, *args, reporter=None, editor=None, **kwargs):
-	# 	if reporter is None:
-	# 		reporter = self.Reporter()
-	# 	if editor is None:
-	# 		editor = self.Editor()
-	# 	super().__init__(*args, **kwargs)
-	# 	del self._readonly
-	# 	self.reporter = reporter
-	# 	self.editor = editor
-
-
 
 class ConfigDummyNode(ConfigNode): # output of peek if default is not unspecified_argument but node does not exist
 	ChildrenStructure = list
@@ -807,10 +714,6 @@ class ConfigDummyNode(ConfigNode): # output of peek if default is not unspecifie
 
 	def _get(self, addr: Hashable):
 		raise self.MissingKey(addr)
-
-	# def _create(self, component_args: Optional[Tuple] = None, component_kwargs: Optional[Dict[str,Any]] = None,
-	#             silent: Optional[bool] = None, creator: Optional[str] = unspecified_argument, **kwargs: Any) -> Any:
-	# 	return self.payload
 
 	def __repr__(self):
 		return f'{self.__class__.__name__}({self.payload!r})'
@@ -825,7 +728,6 @@ class ConfigDenseNode(AutoTreeDenseNode, ConfigNode):
 	_python_structure = tuple
 
 
-# ConfigNode.empty_value = ConfigDummyNode
 ConfigNode.DummyNode = ConfigDummyNode
 ConfigNode.DefaultNode = ConfigSparseNode
 ConfigNode.SparseNode = ConfigSparseNode

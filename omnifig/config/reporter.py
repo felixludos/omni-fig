@@ -12,12 +12,6 @@ class ConfigReporterBase:
 	# def silent(self, value):
 	# 	self._silent = value
 
-	@staticmethod
-	def log(*msg, end='\n', sep=' ') -> str:
-		msg = sep.join(str(m) for m in msg) + end
-		print(msg, end='')
-		return msg
-
 
 
 class ConfigReporter(ConfigReporterBase):
