@@ -1,6 +1,6 @@
 
 
-class ConfigReporterBase:
+# class ConfigReporterBase:
 	# def __init__(self, silent=False, **kwargs):
 	# 	super().__init__(**kwargs)
 	# 	self._silent = silent
@@ -12,9 +12,12 @@ class ConfigReporterBase:
 	# def silent(self, value):
 	# 	self._silent = value
 
+class AbstractReporter:
+	pass
 
 
-class ConfigReporter(ConfigReporterBase):
+
+class ConfigReporter(AbstractReporter):
 	def __init__(self, indent=' > ', flair='| ', transfer=' --> ', colon=': ',
 	             prefix_fmt='{prefix}', suffix_fmt=' (by {suffix!l})', max_num_aliases=3, **kwargs):
 		super().__init__(**kwargs)
@@ -67,7 +70,7 @@ class ConfigReporter(ConfigReporterBase):
 		indent = max(0, self._node_depth(node) - 1) * self.indent
 		return self.log(f'{self.flair}{indent}CREATING {key}type={cmpn}{mod_info}', silent=silent)
 
-	def get_key(self, search: 'ConfigNode.Search') -> str:
+	def get_key(self, search: 'ConfigNode._Search') -> str:
 
 		queries = search.query_chain
 
@@ -92,7 +95,7 @@ class ConfigReporter(ConfigReporterBase):
 			node = search.result_node
 			N = len(node)
 
-			t, x = ('list', 'element') if isinstance(node, search.origin.SparseNode) else ('dict', 'item')
+			t, x = ('list', 'element') if isinstance(node, search.origin._SparseNode) else ('dict', 'item')
 			x = x + 's' if N != 1 else x
 			# return f'{key} has {N} {x}:'
 			return f'{key} [{t} with {N} {x}]'

@@ -9,39 +9,39 @@ class AbstractSearch:
 	def __init__(self, origin: AbstractConfig, queries: Optional[Sequence[str]], default: Optional[Any], **kwargs):
 		super().__init__(**kwargs)
 
-	def find_node(self):
-		raise NotImplementedError
-
-
-
-class SimpleSearch(AbstractSearch):
-	def __init__(self, origin: AbstractConfig, queries: Optional[Sequence[str]], default: Any, **kwargs):
-		super().__init__(origin=origin, queries=queries, default=default, **kwargs)
-		self.origin = origin
-		self.queries = queries
-		self.default = default
-		self.query_chain = []
-		self.result_node = None
-
-	class SearchFailed(KeyError):
+	class _SearchFailed(KeyError):
 		def __init__(self, *queries):
 			super().__init__(', '.join(queries))
 			self.queries = queries
 
 	def find_node(self):
-		for query in self.queries:
-			self.query_chain.append(query)
-			try:
-				out = self.get(query)
-			except KeyError:
-				pass
-			else:
-				self.result_node = out
-				return out
-		else:
-			if self.default is self.origin.empty_default:
-				raise self.SearchFailed(self.queries)
-			return self.origin.DummyNode(self.default)
+		raise NotImplementedError
+
+
+
+# class SimpleSearch(AbstractSearch):
+# 	def __init__(self, origin: AbstractConfig, queries: Optional[Sequence[str]], default: Any, **kwargs):
+# 		super().__init__(origin=origin, queries=queries, default=default, **kwargs)
+# 		self.origin = origin
+# 		self.queries = queries
+# 		self.default = default
+# 		self.query_chain = []
+# 		self.result_node = None
+#
+# 	def find_node(self):
+# 		for query in self.queries:
+# 			self.query_chain.append(query)
+# 			try:
+# 				out = self.get(query)
+# 			except KeyError:
+# 				pass
+# 			else:
+# 				self.result_node = out
+# 				return out
+# 		else:
+# 			if self.default is self.origin.empty_default:
+# 				raise self._SearchFailed(self.queries)
+# 			return self.origin._DummyNode(self.default)
 
 
 class AbstractTrace:
@@ -93,7 +93,7 @@ class ConfigSearchBase:
 				return None, src
 			try:
 				return query, src.get(query)
-			except src.MissingKey:
+			except src._MissingKey:
 				pass
 		raise self.SearchFailed(queries)
 
@@ -101,7 +101,7 @@ class ConfigSearchBase:
 		try:
 			self.final_query, self.result_node = self._resolve_queries(self.origin, self.queries)
 		except self.SearchFailed:
-			if self.default is self.origin.empty_default:
+			if self.default is self.origin._empty_default:
 				raise
 		return self.result_node
 
@@ -136,13 +136,13 @@ class ConfigSearch(ConfigSearchBase):
 	def _resolve_query(self, src, query=None):
 		try:
 			result = src.get(query)
-		except src.MissingKey:
+		except src._MissingKey:
 			if self._ask_parent and not query.startswith(self._confidential_prefix):
 				parent = src.parent
 				if parent is not None:
 					try:
 						result = self._resolve_query(parent, query)
-					except parent.MissingKey:
+					except parent._MissingKey:
 						pass
 					else:
 						self.query_chain.append(f'.{query}')
@@ -218,13 +218,13 @@ class ConfigSearch(ConfigSearchBase):
 			node.reporter.search_report(self)
 
 			# list or dict
-			if isinstance(node, node.SparseNode):
+			if isinstance(node, node._SparseNode):
 				self.product_type = 'dict'
 				product = OrderedDict()
 				for key, child in node.children():
 					product[key] = self.sub_search(node, key)
 
-			elif isinstance(node, node.DenseNode):
+			elif isinstance(node, node._DenseNode):
 				self.product_type = 'list'
 				product = []
 				for key, child in node.children():
@@ -246,7 +246,7 @@ class ConfigSearch(ConfigSearchBase):
 		try:
 			node = self.find_node()
 		except self.SearchFailed:
-			if self.default is not self.origin.empty_default:
+			if self.default is not self.origin._empty_default:
 				return self.default
 			raise
 		else:

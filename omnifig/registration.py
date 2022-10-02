@@ -192,7 +192,7 @@ class _AutofillMixin(_Registration_Decorator):
 	def autofill(self, config: AbstractConfig) -> Tuple[List[Any], Dict[str, Any]]:
 		def default_fn(key, default):
 			if default is Parameter.empty:
-				default = config.empty_default
+				default = config._empty_default
 			aliases = self.aliases.get(key, ())
 			if isinstance(aliases, str):
 				aliases = (aliases,)
@@ -329,7 +329,7 @@ class autofill_with_config:  # TODO: generally not recommended for types, use Co
 		def _autofill_init(self, config: AbstractConfig, kwargs: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
 			def default_fn(key, default):
 				if default is Parameter.empty:
-					default = config.empty_default
+					default = config._empty_default
 				if self._autofill_aliases is None:
 					aliases = ()
 				else:
@@ -348,7 +348,7 @@ class autofill_with_config:  # TODO: generally not recommended for types, use Co
 	             kwargs: Optional[Dict[str, Any]] = None) -> Tuple[List[Any], Dict[str, Any]]:
 		def default_fn(key, default):
 			if default is Parameter.empty:
-				default = config.empty_default
+				default = config._empty_default
 			aliases = self.aliases.get(key, ())
 			if isinstance(aliases, str):
 				aliases = (aliases,)

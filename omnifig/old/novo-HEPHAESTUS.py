@@ -45,7 +45,7 @@ class SimpleConfigNode(AutoTreeNode):
 					return None, src
 				try:
 					return query, src.get(query)
-				except src.MissingKey:
+				except src._MissingKey:
 					pass
 			raise self.SearchFailed(queries)
 
@@ -105,7 +105,7 @@ class SimpleConfigNode(AutoTreeNode):
 			raise self.ReadOnlyError('Cannot push to read-only node')
 		try:
 			existing = self.get(addr)
-		except self.MissingKey:
+		except self._MissingKey:
 			existing = None
 
 		if existing is None or overwrite:
@@ -193,7 +193,7 @@ class ConfigNode(SimpleConfigNode):
 				node = search.result_node
 				N = len(node)
 				
-				t, x = ('list', 'element') if isinstance(node, search.origin.SparseNode) else ('dict', 'item')
+				t, x = ('list', 'element') if isinstance(node, search.origin._SparseNode) else ('dict', 'item')
 				x = x + 's' if N != 1 else x
 				# return f'{key} has {N} {x}:'
 				return f'{key} [{t} with {N} {x}]'
@@ -237,13 +237,13 @@ class ConfigNode(SimpleConfigNode):
 		def _resolve_query(self, src, query, *remainder):
 			try:
 				result = src.get(query)
-			except src.MissingKey:
+			except src._MissingKey:
 				if self._ask_parent and not query.startswith(self._confidential_prefix):
 					parent = src.parent
 					if parent is not None:
 						try:
 							result = self._resolve_query(parent, query)
-						except parent.MissingKey:
+						except parent._MissingKey:
 							pass
 						else:
 							self.query_chain.append(f'.{query}')
@@ -458,8 +458,8 @@ class ReferenceNode(SimpleConfigNode):
 class ConfigSparseNode(AutoTreeSparseNode, ConfigNode): pass
 class ConfigDenseNode(AutoTreeDenseNode, ConfigNode): pass
 ConfigNode.DefaultNode = AutoTreeSparseNode
-ConfigNode.SparseNode = AutoTreeSparseNode
-ConfigNode.DenseNode = AutoTreeDenseNode
+ConfigNode._SparseNode = AutoTreeSparseNode
+ConfigNode._DenseNode = AutoTreeDenseNode
 
 
 

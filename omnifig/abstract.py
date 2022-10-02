@@ -7,7 +7,7 @@ from omnibelt import unspecified_argument, Class_Registry, Primitive, JSONABLE
 from .mixins import Activatable, FileInfo
 
 class AbstractConfig: # TODO: copy, deepcopy, etc
-	empty_default = unspecified_argument
+	_empty_default = unspecified_argument
 
 	@property
 	@abc.abstractmethod
@@ -18,11 +18,11 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 	def project(self, project: 'AbstractProject'):
 		raise NotImplementedError
 
-	def peek(self, query: Optional[str] = None, default: Optional[Any] = empty_default, *,
+	def peek(self, query: Optional[str] = None, default: Optional[Any] = _empty_default, *,
 	         silent: Optional[bool] = False) -> 'AbstractConfig':
 		return self.peeks(query, default=default, silent=silent)
 
-	def pull(self, query: Optional[str] = None, default: Optional[Any] = empty_default, *,
+	def pull(self, query: Optional[str] = None, default: Optional[Any] = _empty_default, *,
 	         silent: Optional[bool] = False) -> Any:
 		return self.pulls(query, default=default, silent=silent)
 
@@ -30,11 +30,11 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		self.push(addr, value, overwrite=overwrite, silent=silent)
 		return self.pull(addr, silent=silent)
 
-	def peeks(self, *queries, default: Optional[Any] = empty_default,
+	def peeks(self, *queries, default: Optional[Any] = _empty_default,
 	          silent: Optional[bool] = False) -> 'AbstractConfig':
 		raise NotImplementedError
 
-	def pulls(self, *queries: str, default: Optional[Any] = empty_default, silent: Optional[bool] = False) -> Any:
+	def pulls(self, *queries: str, default: Optional[Any] = _empty_default, silent: Optional[bool] = False) -> Any:
 		raise NotImplementedError
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, *, silent: Optional[bool] = False) -> bool:

@@ -245,8 +245,8 @@ def test_push3():
 	
 	a = A.push_pull('fruit.10', 'veggies')
 	assert a == 'veggies'
-	assert A.pull('fruit.3') == A.empty_value
-	assert A.pull('fruit.7') == A.empty_value
+	assert A.pull('fruit.3') == A._empty_value
+	assert A.pull('fruit.7') == A._empty_value
 	assert A.pull('fruit.10') == 'veggies'
 	assert A.pull('fruit.11', 'nope') == 'nope'
 	assert A.pull('fruit.20', 'no way') == 'no way'

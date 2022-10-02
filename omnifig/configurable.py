@@ -44,7 +44,7 @@ class Configurable(AbstractConfigurable):
 
 		def find_missing_arg(self, name, default=inspect.Parameter.empty):
 			if default is inspect.Parameter.empty:
-				default = self.config.empty_default
+				default = self.config._empty_default
 			aliases = self.aliases.get(name, ())
 			return self.config.pulls(name, *aliases, default=default)
 

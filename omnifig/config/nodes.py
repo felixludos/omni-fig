@@ -7,15 +7,14 @@ from omnibelt import get_printer, unspecified_argument, extract_function_signatu
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager
-from .search import ConfigSearchBase, SimpleTrace, SimpleSearch
-from .reporter import ConfigReporter, ConfigReporterBase
+from .abstract import AbstractSearch, AbstractReporter
 
 prt = get_printer(__name__)
 
 
 class ConfigNode(AbstractConfig, AutoTreeNode):
-	DummyNode: 'ConfigNode' = None
-	Settings = OrderedDict
+	_DummyNode: 'ConfigNode' = None
+	_Settings = OrderedDict
 
 	@classmethod
 	def from_raw(cls, raw: Any, *, parent: Optional['ConfigNode'] = unspecified_argument,
@@ -25,7 +24,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			raw._parent_key = parent_key
 			return raw
 		if isinstance(raw, dict):
-			node = cls.SparseNode(parent=parent, parent_key=parent_key, **kwargs)
+			node = cls._SparseNode(parent=parent, parent_key=parent_key, **kwargs)
 			for key, value in raw.items():
 				child = cls.from_raw(value, parent=node, parent_key=key, **kwargs)
 				if key in node:
@@ -33,24 +32,30 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 				else:
 					node.set(key, child, **kwargs)
 		elif isinstance(raw, (tuple, list)):
-			node = cls.DenseNode(parent=parent, parent_key=parent_key, **kwargs)
+			node = cls._DenseNode(parent=parent, parent_key=parent_key, **kwargs)
 			for idx, value in enumerate(raw):
 				idx = str(idx)
 				node.set(idx, cls.from_raw(value, parent=node, parent_key=idx, **kwargs), **kwargs)
 		else:
-			node = cls.DefaultNode(payload=raw, parent=parent, parent_key=parent_key, **kwargs)
+			node = cls._DefaultNode(payload=raw, parent=parent, parent_key=parent_key, **kwargs)
 		return node
 	
-	class Search(SimpleSearch):
+	
+	class _Search(AbstractSearch):
 		def sub_search(self, origin, queries):
-			out = self.__class__(origin=origin, queries=queries, default=origin.empty_default,
-			                      parent_search=self)
+			out = self.__class__(origin=origin, queries=queries, default=origin._empty_default,
+			                     parent_search=self)
 			out.query_chain = out.queries
 			return out
 		
 		def __init__(self, origin: 'ConfigNode', queries: Optional[Sequence[str]], default: Any,
-		             parent_search: Optional['ConfigNode.Search'] = None, **kwargs):
+		             parent_search: Optional['ConfigNode._Search'] = None, **kwargs):
 			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
+			self.origin = origin
+			self.queries = queries
+			self.default = default
+			self.query_chain = []
+			self.result_node = None
 			self.force_create = False
 			self.parent_search = parent_search
 			self.extra_queries = None
@@ -66,7 +71,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 
 			try:
 				result = src.get(query)
-			except src.MissingKey:
+			except src._MissingKey:
 				result = None
 
 			if result is None:
@@ -97,7 +102,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			else:
 				result, self.unused_queries, self.query_chain = self._resolve_query(self.origin, *self.queries)
 				if result is None:
-					raise self.SearchFailed(*self.query_chain)
+					raise self._SearchFailed(*self.query_chain)
 			self.query_node = result
 			self.result_node = self.process_node(result)
 			return self.result_node
@@ -105,18 +110,18 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 		def find_node(self, silent: Optional[bool] = None) -> 'ConfigNode':
 			try:
 				result = self._find_node()
-			except self.SearchFailed:
-				if self.default is self.origin.empty_default:
+			except self._SearchFailed:
+				if self.default is self.origin._empty_default:
 					raise
-				result = self.origin.DummyNode(payload=self.default, parent=self.origin)
+				result = self.origin._DummyNode(payload=self.default, parent=self.origin)
 			result._trace = self
 			return result
 
 		def find_product(self, silent: Optional[bool] = None) -> Any:
 			try:
 				node = self._find_node()
-			except self.SearchFailed:
-				if self.default is self.origin.empty_default:
+			except self._SearchFailed:
+				if self.default is self.origin._empty_default:
 					raise
 				old = self.origin._trace
 				self.origin._trace = self
@@ -137,8 +142,8 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 		missing_key_payload = '__x__' # payload for key that doesn't really exist
 
 		def process_node(self, node: 'ConfigNode') -> 'ConfigNode':  # follows references
-			if self.origin.empty_value is node:
-				return self.origin.DummyNode(payload=node, parent=self.origin)
+			if self.origin._empty_value is node:
+				return self.origin._DummyNode(payload=node, parent=self.origin)
 			elif node.has_payload:
 				payload = node.payload
 				if isinstance(payload, str):
@@ -165,7 +170,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			return node
 
 
-	class Reporter(ConfigReporterBase):
+	class _Reporter(AbstractReporter):
 		def __init__(self, indent: str = ' > ', flair: str = '| ', transfer: str = ' --> ', colon:str = ': ',
 		             prefix_fmt: str = '{prefix}', suffix_fmt: str = ' (by {suffix!l})',
 		             max_num_aliases: int = 3, **kwargs):
@@ -193,7 +198,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 				print(msg, end='')
 				return msg
 		
-		def get_key(self, trace: 'ConfigNode.Search') -> str:
+		def get_key(self, trace: 'ConfigNode._Search') -> str:
 			queries = trace.query_chain
 
 			if trace.parent_search is not None:
@@ -275,7 +280,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			key = self.get_key(trace)
 			N = len(node)
 
-			t, x = ('dict', 'item') if isinstance(node, trace.origin.SparseNode) else ('list', 'element')
+			t, x = ('dict', 'item') if isinstance(node, trace.origin._SparseNode) else ('list', 'element')
 			x = f'{x}s' if N != 1 else x
 			line = f'{key} [{t} with {N} {x}]'
 			return self.log(self._stylize(node, line), silent=silent)
@@ -289,13 +294,13 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			return self.log(self._stylize(node, line), silent=silent)
 
 	
-	class DefaultCreator(AbstractCreator):
+	class _DefaultCreator(AbstractCreator):
 		_config_component_key = '_type'
 		_config_modifier_key = '_mod'
 		_config_creator_key = '_creator'
 		
 		@classmethod
-		def replace(cls, creator: 'ConfigNode.DefaultCreator', component_type: Optional[str] = None,
+		def replace(cls, creator: 'ConfigNode._DefaultCreator', component_type: Optional[str] = None,
 		            modifiers: Optional[Sequence[str]] = None,
 		            project: Optional[AbstractProject] = unspecified_argument,
 		            component_entry=unspecified_argument, silent=unspecified_argument, **kwargs):
@@ -317,7 +322,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 		             component_entry: Optional = unspecified_argument, silent: Optional[bool] = None, **kwargs):
 			if component_type is unspecified_argument:
 				component_type = config.pull(self._config_component_key, None, silent=True) \
-					if isinstance(config, config.SparseNode) else None
+					if isinstance(config, config._SparseNode) else None
 			if component_type is not None and modifiers is None:
 				modifiers = config.pull(self._config_modifier_key, None, silent=True)
 				if modifiers is None:
@@ -392,23 +397,23 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			config.reporter.create_container(config, silent=silent)
 			trace = config.trace
 
-			if isinstance(config, config.SparseNode):
+			if isinstance(config, config._SparseNode):
 				product = {}
 				for key, child in config.children():
 					old = child._trace
 					child._trace = None if trace is None else trace.sub_search(config, [key])
 					product[key] = child._process(silent=silent)
 					child._trace = old
-				product = config.SparseNode._python_structure(product)
+				product = config._SparseNode._python_structure(product)
 			
-			elif isinstance(config, config.DenseNode):
+			elif isinstance(config, config._DenseNode):
 				product = []
 				for key, child in config.children():
 					old = child._trace
 					child._trace = None if trace is None else trace.sub_search(config, [key])
 					product.append(child._process(silent=silent))
 					child._trace = old
-				product = config.DenseNode._python_structure(product)
+				product = config._DenseNode._python_structure(product)
 			else:
 				raise NotImplementedError(f'Unknown container type: {type(config)}')
 
@@ -454,22 +459,22 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			return value
 			
 
-	def search(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default, **kwargs) -> Search:
-		return self.Search(origin=self, queries=queries, default=default, **kwargs)
+	def search(self, *queries: str, default: Optional[Any] = AbstractConfig._empty_default, **kwargs) -> _Search:
+		return self._Search(origin=self, queries=queries, default=default, **kwargs)
 
-	def peeks(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default, silent: Optional[bool] = None,
-	         **kwargs) -> 'ConfigNode':
+	def peeks(self, *queries: str, default: Optional[Any] = AbstractConfig._empty_default, silent: Optional[bool] = None,
+	          **kwargs) -> 'ConfigNode':
 		search = self.search(*queries, default=default, **kwargs)
 		return search.find_node(silent=silent)
 
-	def pulls(self, *queries: str, default: Optional[Any] = AbstractConfig.empty_default,
+	def pulls(self, *queries: str, default: Optional[Any] = AbstractConfig._empty_default,
 	          silent: Optional[bool] = None, **kwargs) -> Any:
 		search = self.search(*queries, default=default, **kwargs)
 		return search.find_product(silent=silent)
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
 		if self.settings.get('readonly', False):
-			raise self.ReadOnlyError('Cannot push to read-only node')
+			raise self._ReadOnlyError('Cannot push to read-only node')
 
 		if value == self._delete_value:
 			self.remove(addr)
@@ -505,18 +510,18 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 		self.push(addr, value, overwrite=overwrite)
 		return self.pull(addr, **kwargs)
 
-	def peek_process(self, query, default: Optional[Any] = AbstractConfig.empty_default, *args, **kwargs):
+	def peek_process(self, query, default: Optional[Any] = AbstractConfig._empty_default, *args, **kwargs):
 		try:
 			node = self.peek(query)
-		except self.Search.SearchFailed:
-			if default is self.empty_default:
+		except self._Search._SearchFailed:
+			if default is self._empty_default:
 				raise
 			return default
 		else:
 			out = node.process(*args, **kwargs)
 			return out
 
-	def __init__(self, *args, reporter: Optional[Reporter] = None, settings: Optional[Settings] = None,
+	def __init__(self, *args, reporter: Optional[_Reporter] = None, settings: Optional[_Settings] = None,
 	             project: Optional[AbstractProject] = None, manager: Optional[AbstractConfigManager] = None,
 	             **kwargs):
 		super().__init__(*args, **kwargs)
@@ -527,9 +532,9 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 		self._reporter = reporter
 		self._settings = settings
 		if self.reporter is None:
-			self.reporter = self.Reporter()
+			self.reporter = self._Reporter()
 		if self.settings is None:
-			self.settings = self.Settings()
+			self.settings = self._Settings()
 
 	@property
 	def project(self):
@@ -547,7 +552,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			parent.project = project
 
 	@property
-	def root(self) -> '_ConfigNode':
+	def root(self) -> 'ConfigNode':
 		parent = self.parent
 		if parent is None:
 			return self
@@ -562,18 +567,18 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 		return self._manager
 	
 	@property
-	def trace(self) -> Optional[Search]:
+	def trace(self) -> Optional[_Search]:
 		return self._trace
 
 	@property
-	def reporter(self) -> Reporter:
+	def reporter(self) -> _Reporter:
 		if self._reporter is None:
 			parent = self.parent
 			if parent is not None:
 				return parent.reporter
 		return self._reporter
 	@reporter.setter
-	def reporter(self, reporter: Reporter):
+	def reporter(self, reporter: _Reporter):
 		parent = self.parent
 		if parent is None:
 			self._reporter = reporter
@@ -581,7 +586,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			parent.reporter = reporter
 
 	@property
-	def settings(self) -> Settings: # global settings for config object,
+	def settings(self) -> _Settings: # global settings for config object,
 		# including: ask_parent, prefer_product, product_only, silent, readonly, etc.
 		if self._settings is None:
 			parent = self.parent
@@ -589,7 +594,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 				return parent.settings
 		return self._settings
 	@settings.setter
-	def settings(self, settings: Settings):
+	def settings(self, settings: _Settings):
 		parent = self.parent
 		if parent is None:
 			self._settings = settings
@@ -603,9 +608,9 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 	def silent(self, value: bool):
 		self.settings['silent'] = value
 
-	class ReadOnlyError(Exception): pass
+	class _ReadOnlyError(Exception): pass
 
-	class ConfigContext:
+	class _ConfigContext:
 		def __init__(self, config: 'ConfigNode', settings: Dict[str, bool]):
 			self.config = config
 			self.old_settings = None
@@ -621,14 +626,14 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 			settings.clear()
 			settings.update(self.old_settings)
 	def context(self, **settings: bool) -> ContextManager:
-		return self.ConfigContext(self, settings)
+		return self._ConfigContext(self, settings)
 		
 
 	def _create(self, component_args: Optional[Tuple] = None, component_kwargs: Optional[Dict[str,Any]] = None,
 	            silent: Optional[bool] = None, creator: Optional[str] = unspecified_argument, **kwargs: Any) -> Any:
 		if creator is unspecified_argument:
 			creator = self.settings.get('creator')
-		creator = self.DefaultCreator if creator is None else self.project.find_artifact('creator', creator).cls
+		creator = self._DefaultCreator if creator is None else self.project.find_artifact('creator', creator).cls
 		out = creator(self, silent=silent, project=self.project,  **kwargs)\
 			.create_product(self, args=component_args, kwargs=component_kwargs, silent=silent)
 		return out
@@ -707,13 +712,13 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 
 
 class ConfigDummyNode(ConfigNode): # output of peek if default is not unspecified_argument but node does not exist
-	ChildrenStructure = list
+	_ChildrenStructure = list
 	def __init__(self, payload: Optional[Any] = unspecified_argument,
 	             parent: Optional[ConfigNode] = None, **kwargs):
 		super().__init__(payload=payload, parent=parent, **kwargs)
 
 	def _get(self, addr: Hashable):
-		raise self.MissingKey(addr)
+		raise self._MissingKey(addr)
 
 	def __repr__(self):
 		return f'{self.__class__.__name__}({self.payload!r})'
@@ -728,10 +733,10 @@ class ConfigDenseNode(AutoTreeDenseNode, ConfigNode):
 	_python_structure = tuple
 
 
-ConfigNode.DummyNode = ConfigDummyNode
-ConfigNode.DefaultNode = ConfigSparseNode
-ConfigNode.SparseNode = ConfigSparseNode
-ConfigNode.DenseNode = ConfigDenseNode
+ConfigNode._DummyNode = ConfigDummyNode
+ConfigNode._DefaultNode = ConfigSparseNode
+ConfigNode._SparseNode = ConfigSparseNode
+ConfigNode._DenseNode = ConfigDenseNode
 
 
 
