@@ -30,6 +30,28 @@ class ConfigManager(AbstractConfigManager):
 		self.registry.new(name, path, **kwargs)
 
 	def register_config_dir(self, root: Union[str, Path], recursive=True, prefix=None, delimiter=None) -> None:
+		'''
+		Registers all yaml files found in the given directory (possibly recursively)
+
+		When recusively checking all directories inside, the internal folder hierarchy is preserved
+		in the name of the config registered, so for example if the given ``path`` points to a
+		directory that contains a directory ``a`` and two files ``f1.yaml`` and ``f2.yaml``:
+
+		Contents of ``path`` and corresponding registered names:
+
+			- ``f1.yaml`` => ``f1``
+			- ``f2.yaml`` => ``f2``
+			- ``a/f3.yaml`` => ``a/f3``
+			- ``a/b/f4.yaml`` => ``a/b/f3``
+
+		If a ``prefix`` is provided, it is appended to the beginning of the registered names
+
+		:param path: path to root directory to search through
+		:param recursive: search recursively through sub-directories for more config yaml files
+		:param prefix: prefix for names of configs found herein
+		:param joiner: string to merge directories when recursively searching (default ``/``)
+		:return: None
+		'''
 		if delimiter is None:
 			delimiter = self._config_path_delimiter
 		if prefix is None:
