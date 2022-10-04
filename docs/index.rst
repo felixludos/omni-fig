@@ -6,24 +6,13 @@
 Welcome to omni-fig!
 ==========================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Intro
-
-   installation
-   quickstart
-   philosophy
-
-.. toctree::
-   :maxdepth: 3
-   :caption: Documentation
-
-   registry
-   config
-   scripts
-   initialization
-   errors
-
+.. automodule:: omnifig.abstract
+    :members:
+    :undoc-members:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__repr__,__str__,__setitem__,__getitem__,__contains__,__init__,__len__,_next_idx,__next__
+    :member-order: bysource
 
 
 Indices and tables
@@ -32,5 +21,4 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
 

@@ -1,76 +1,84 @@
-# Configuration file for the Sphinx documentation builder.
+# -*- coding: utf-8 -*-
 #
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Path setup --------------------------------------------------------------
+import sys, os, pathlib
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-import os
-import sys
-sys.path.insert(0, os.path.abspath('..'))
+###########################
+# adding the isensus code #
+###########################
 
-master_doc = 'index'
+root_source_folder = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root_source_folder))
 
-# -- Project information -----------------------------------------------------
-import omnifig as fig
 
+#######################
+# project information #
+#######################
+
+from omnifig import __version__, __author__
 
 project = 'omnifig'
-
-author = fig.__author__
-
-copyright = '2020, {}'.format(author)
-
-# The full version, including alpha/beta/rc tags
-release = fig.__version__
+author = __author__
+copyright = '2022, {}'.format(author)
 
 
-# -- General configuration ---------------------------------------------------
+###################
+# project version #
+###################
 
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
+version = "v{}".format(__version__)
+
+
+##################
+# sphinx modules #
+##################
+
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
-    'sphinx.ext.imgmath',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.viewcode',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.doctest",
+    "sphinx.ext.napoleon",
     'sphinx.ext.githubpages',
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.githubpages",
     'sphinx_autodoc_typehints',
-    
-    'sphinx.ext.intersphinx',  #
-    # 'sphinx.ext.todo',  #
-    # 'sphinx.ext.mathjax',  #
-    'sphinx.ext.ifconfig',  #
-    # 'sphinx.ext.viewcode',  #
-    # 'sphinx.ext.githubpages',  #
-    'sphinx.ext.graphviz',  #
-    # 'sphinx.ext.autodoc',
-    # 'sphinx.ext.doctest',
-    
-    'sphinx.ext.autosectionlabel',
+    "myst_parser",
 ]
+templates_path = []
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
+master_doc = "index"
+exclude_trees = ["build"]
+pygments_style = "sphinx"
 
-autosectionlabel_prefix_document = True
-autodoc_inherit_docstrings = False
 
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+##############
+# html theme #
+##############
 
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+html_theme = "sphinx_rtd_theme"
+html_theme_options = {}
+html_static_path = []
+htmlhelp_basename = "roboball2ddoc"
 
-add_module_names = False
+
+#####################
+# api documentation #
+#####################
+
+
+# def skip(app, what, name, obj, would_skip, options):
+#     if name == "__init__":
+#         return False
+#     return would_skip
+#
+#
+# def setup(app):
+#     app.connect("autodoc-skip-member", skip)
+#
+#
+# autoclass_content = "both"
+
+
+
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -125,3 +133,8 @@ todo_include_todos = True
 #     'torch': ('http://pytorch.org/docs/master/', None),
 #     'opt_einsum': ('https://optimized-einsum.readthedocs.io/en/stable/', None)
 # }
+
+
+
+
+

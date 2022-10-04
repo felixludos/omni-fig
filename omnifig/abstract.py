@@ -24,7 +24,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 	@property
 	@abc.abstractmethod
-	def root(self) -> 'ConfigNode':
+	def root(self) -> 'AbstractConfig':
 		'''Returns the root node of the config object'''
 		raise NotImplementedError
 
