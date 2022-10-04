@@ -245,8 +245,8 @@ def test_push3():
 	
 	a = A.push_pull('fruit.10', 'veggies')
 	assert a == 'veggies'
-	assert A.pull('fruit.3') == A._empty_value
-	assert A.pull('fruit.7') == A._empty_value
+	assert A.pull('fruit.3') == A.empty_value
+	assert A.pull('fruit.7') == A.empty_value
 	assert A.pull('fruit.10') == 'veggies'
 	assert A.pull('fruit.11', 'nope') == 'nope'
 	assert A.pull('fruit.20', 'no way') == 'no way'
@@ -498,7 +498,7 @@ def test_iteration():
 	answers = A.peek('costs').create()
 
 	node = A.peek('costs')
-	itr = node.pull_children(include_key=True)
+	itr = node.pull_named_children()
 	
 	assert len(node) == 4
 	for _ in range(len(node)):
@@ -523,7 +523,7 @@ def test_iteration():
 	# auto iterate a dict with seq
 	
 	node = A.peek('costs')
-	itr = node.peek_children(include_key=True)
+	itr = node.peek_named_children()
 	
 	assert len(node) == 4
 	for _ in range(len(node)):
@@ -544,7 +544,7 @@ def test_removing():
 	A.push('vogel.papagena', '_x_')
 	
 	node = A.peek('vogel')
-	itr = node.pull_children(include_key=True)
+	itr = node.pull_named_children()
 	
 	assert len(node) == 1
 	assert tuple(next(itr)) == ('papagei', 'parrot')

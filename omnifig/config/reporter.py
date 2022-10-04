@@ -70,7 +70,7 @@ class ConfigReporter(AbstractReporter):
 		indent = max(0, self._node_depth(node) - 1) * self.indent
 		return self.log(f'{self.flair}{indent}CREATING {key}type={cmpn}{mod_info}', silent=silent)
 
-	def get_key(self, search: 'ConfigNode._Search') -> str:
+	def get_key(self, search: 'ConfigNode.Search') -> str:
 
 		queries = search.query_chain
 
@@ -95,7 +95,7 @@ class ConfigReporter(AbstractReporter):
 			node = search.result_node
 			N = len(node)
 
-			t, x = ('list', 'element') if isinstance(node, search.origin._SparseNode) else ('dict', 'item')
+			t, x = ('list', 'element') if isinstance(node, search.origin.SparseNode) else ('dict', 'item')
 			x = x + 's' if N != 1 else x
 			# return f'{key} has {N} {x}:'
 			return f'{key} [{t} with {N} {x}]'

@@ -3,8 +3,10 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 from pathlib import Path
 import io
 import yaml
+import toml
+from collections import OrderedDict
 from c3linearize import linearize
-from omnibelt import Path_Registry, load_yaml, JSONABLE, unspecified_argument
+from omnibelt import Path_Registry, load_yaml, JSONABLE, unspecified_argument, load_json
 from omnibelt.nodes import LocalNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractConfigManager
@@ -15,7 +17,7 @@ _PathEntry = NamedTuple('_PathEntry', [('name', str), ('path', Path)])
 
 class ConfigManager(AbstractConfigManager):
 	_config_path_delimiter = '/'
-	_config_exts = ('yaml', 'yml')
+	_config_exts = ('yaml', 'yml', 'json', 'tml', 'toml')
 	_config_nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
 
 	ConfigNode = ConfigNode
@@ -26,10 +28,11 @@ class ConfigManager(AbstractConfigManager):
 		self.registry = Path_Registry()
 		self.project = project
 
-	def register_config(self, name: str, path: Union[str, Path], **kwargs) -> None:
-		self.registry.new(name, path, **kwargs)
+	def register_config(self, name: str, path: Union[str, Path], **kwargs) -> NamedTuple:
+		return self.registry.new(name, path, **kwargs)
 
-	def register_config_dir(self, root: Union[str, Path], recursive=True, prefix=None, delimiter=None) -> None:
+	def register_config_dir(self, root: Union[str, Path], recursive=True, prefix=None, delimiter=None) \
+			-> List[NamedTuple]:
 		'''
 		Registers all yaml files found in the given directory (possibly recursively)
 
@@ -57,12 +60,14 @@ class ConfigManager(AbstractConfigManager):
 		if prefix is None:
 			prefix = ''
 		root = Path(root)
+		entries = []
 		for ext in self._config_exts:
 			for path in root.glob(f'**/*.{ext}' if recursive else f'*.{ext}'):
 				terms = path.relative_to(root).parts[:-1]
 				name = path.stem
 				ident = prefix + delimiter.join(terms + (name,))
-				self.register_config(ident, path)
+				entries.append(self.register_config(ident, path))
+		return entries
 
 	def _parse_raw_arg(self, arg: str) -> JSONABLE:
 		val = yaml.safe_load(io.StringIO(arg))
@@ -282,9 +287,13 @@ class ConfigManager(AbstractConfigManager):
 		merged.validate()
 		return merged
 	
-	def load_raw_config(self, path: Union[str, Path]) -> AbstractConfig:
+	def load_raw_config(self, path: Union[str, Path]) -> JSONABLE:
 		if path.suffix in ('.yaml', '.yml'):
 			return load_yaml(path, ordered=True)
+		elif path.suffix == '.json':
+			return load_json(path)
+		elif path.suffix in ('.toml', '.tml'):
+			return toml.load(path, _dict=OrderedDict)
 		raise ValueError(f'Unknown config file type: {path}')
 
 	def _configurize(self, raw: JSONABLE, parent: Optional[ConfigNode] = None, **kwargs) -> AbstractConfig:
