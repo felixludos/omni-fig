@@ -120,10 +120,10 @@ def test_pull_simple():
 	
 	a = A.pulls('veggies', 'fruit')
 	assert len(a) == 3 and a[0] == 'apples'
-	assert type(a) == tuple
+	assert type(a) == list
 	
 	a = A.pull('others')
-	assert type(a) == tuple and len(a) == 3 and a[2]['not']['mickey'] == 'mouse'
+	assert type(a) == list and len(a) == 3 and a[2]['not']['mickey'] == 'mouse'
 	
 	a = A.pull('costs')
 	assert type(a) == dict and len(a) == 5 and 'rubies' in a['gems'] and a['steel'] > 1000
