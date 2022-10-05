@@ -14,15 +14,10 @@ from .top import get_current_project, get_profile
 
 prt = get_printer(__name__)
 
-Product = Any
-RawCallableItem = Callable[[Any], Product]
-ConfigCallableItem = Callable[[AbstractConfig], Product]
-ModifierCallableItem = Callable[[ConfigCallableItem], ConfigCallableItem]
-
 
 class _Registration_Decorator:
 	'''Base class for all registration decorators'''
-	def __init__(self, name: Optional[str] = None, **kwargs):
+	def __init__(self, name: Optional[str] = None, **kwargs: Any):
 		'''
 		:param name: name of item to be registered (defaults to its __name__)
 		:param kwargs: additional keyword arguments to pass to :func:`register_script()`
@@ -39,7 +34,7 @@ class _Registration_Decorator:
 		return item
 
 	@staticmethod
-	def register(name: str, item: ConfigCallableItem, **kwargs) -> None:
+	def register(name: str, item: Callable[[AbstractConfig], Any], **kwargs) -> None:
 		raise NotImplementedError
 
 
@@ -47,14 +42,14 @@ class _Project_Registration_Decorator(_Registration_Decorator):
 	'''Registration decorator which registers the item with the current project'''
 
 	@classmethod
-	def register(cls, name: str, item: ConfigCallableItem, project: Optional[AbstractProject] = None,
+	def register(cls, name: str, item: Callable[[AbstractConfig], Any], project: Optional[AbstractProject] = None,
 	             **kwargs) -> None:
 		if project is None:
 			project = get_current_project()
 		cls.register_project(project, name, item, **kwargs)
 
 	@staticmethod
-	def register_project(self, project: AbstractProject, name: str, item: ConfigCallableItem, **kwargs) -> None:
+	def register_project(self, project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any], **kwargs) -> None:
 		raise NotImplementedError
 
 
@@ -71,7 +66,7 @@ class script(_Project_Registration_Decorator):
 		super().__init__(name=name, description=description, hidden=hidden)
 
 	@staticmethod
-	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem,
+	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any],
 	                     description: Optional[str] = None, hidden: Optional[bool] = None, **kwargs) -> None:
 		if description is None and item.__doc__ is not None:
 			description = item.__doc__.split('\n')[0]
@@ -100,7 +95,7 @@ class creator(_Project_Registration_Decorator):
 		super().__init__(name=name)
 
 	@staticmethod
-	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem, **kwargs) -> None:
+	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any], **kwargs) -> None:
 		if not isinstance(project, Profile.Project):
 			prt.error(f'Cannot register creator {name} for project {project} (not a "default" project)')
 		item._creator_name = name
@@ -129,7 +124,7 @@ class component(_Project_Registration_Decorator):
 		super().__init__(name=name, creator=creator, description=description)
 
 	@staticmethod
-	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem,
+	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any],
 	                     creator: Optional[Union[str, AbstractCreator]] = None, **kwargs) -> None:
 		if not isinstance(project, Profile.Project):
 			prt.error(f'Cannot register component {name} for project {project} (not a "default" project)')
@@ -159,7 +154,7 @@ class modifier(_Project_Registration_Decorator):
 		super().__init__(name=name)
 
 	@staticmethod
-	def register_project(project: AbstractProject, name: str, item: ConfigCallableItem, **kwargs) -> None:
+	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any], **kwargs) -> None:
 		if not isinstance(project, Profile.Project):
 			prt.error(f'Cannot register modifier {name} for project {project} (not a "default" project)')
 		project.register_modifier(name, item, **kwargs)
@@ -199,11 +194,11 @@ class _AutofillMixin(_Registration_Decorator):
 			return config.pulls(key, *aliases, default=default)
 		return extract_function_signature(self.item, default_fn=default_fn)
 
-	def top(self, config: AbstractConfig) -> Product:
+	def top(self, config: AbstractConfig) -> Any:
 		args, kwargs = self.autofill(config)
 		return self.item(*args, **kwargs)
 
-	def register(self, name: str, item: RawCallableItem, **kwargs):
+	def register(self, name: str, item: Callable[[Any], Any], **kwargs):
 		super().register(name, self.top, **kwargs)
 
 
@@ -286,34 +281,6 @@ class Meta_Rule(AbstractMetaRule):
 
 
 
-
-
-
-# class AutoComponent(_AutofillMixin, Component): # TODO: add note on Configurable type to automatically fill in args
-# 	'''
-# 	Instead of directly passing the config to an AutoComponent, the necessary args are auto filled and passed in.
-# 	This means AutoComponents are somewhat limited in that they cannot modify the config object and they cannot be
-# 	modified with AutoModifiers.
-#
-# 	Note: AutoComponents are usually components that are created with functions (rather than classes) since they can't
-# 	be automodified. When registering classes as components, you should probably use `Component` instead, and pull
-# 	from the config directly.
-# 	'''
-# 	def __init__(self, name: Optional[str] = None, aliases: Optional[Dict[str, Union[str, Sequence[str]]]] = None):
-# 		'''
-# 		:param name: name of item to be registered (defaults to its __name__)
-# 		:param aliases: alternative names for arguments (can have multiple aliases per argument)
-# 		'''
-# 		super().__init__(name=name, aliases=aliases)
-#
-# 	@property
-# 	def top(self) -> ConfigCallableItem:
-# 		return type(f'Auto_{self.item.__name__}', (self._Autofill_Component_Mixin, self.item),
-# 		            {'_autofill_aliases': self.aliases})
-# TODO: instead of AutoComponent chain @Component and @autofill_with_config
-
-
-
 class autofill_with_config:  # TODO: generally not recommended for types, use Configurable instead
 	'''Decorator that automatically extracts arguments of a function or type with values from the config object'''
 
@@ -356,11 +323,11 @@ class autofill_with_config:  # TODO: generally not recommended for types, use Co
 
 		return extract_function_signature(self.fn, args=args, kwargs=kwargs, default_fn=default_fn)
 
-	def top(self, config: AbstractConfig, *args, **kwargs) -> Product:
+	def top(self, config: AbstractConfig, *args, **kwargs) -> Any:
 		fixed_args, fixed_kwargs = self.autofill(config, args=args, kwargs=kwargs)
 		return self.fn(*fixed_args, **fixed_kwargs)
 
-	def __call__(self, func: RawCallableItem) -> ConfigCallableItem:
+	def __call__(self, func: Callable[[Any], Any]) -> Callable[[AbstractConfig], Any]:
 		if isinstance(func, type):
 			assert not isinstance(func, self._Autofill_Init), \
 				'Cannot apply autofill decorator to a class that already has it'

@@ -1,10 +1,11 @@
-from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
+from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Callable, Type, \
 	Iterator, NamedTuple, ContextManager
 import abc
 from pathlib import Path
-from omnibelt import unspecified_argument, Class_Registry, Primitive, JSONABLE
+from omnibelt import unspecified_argument, Registry, Primitive, JSONABLE
 
 from .mixins import Activatable, FileInfo
+
 
 class AbstractConfig: # TODO: copy, deepcopy, etc
 	'''Abstract class for config objects'''
@@ -365,7 +366,7 @@ class AbstractConfigManager:
 			The entry for the config file with the given name.
 
 		Raises:
-			KeyError: If the config file is not registered.
+			:class:`KeyError`: If the config file is not registered.
 
 		'''
 		raise NotImplementedError
@@ -381,7 +382,7 @@ class AbstractConfigManager:
 			The path to the config file with the given name.
 
 		Raises:
-			KeyError: If the config file is not registered.
+			:class:`KeyError`: If the config file is not registered.
 
 		'''
 		raise NotImplementedError
@@ -394,10 +395,10 @@ class AbstractConfigManager:
 			1. Meta rules to modify the config loading process and run mode.
 			2. Name of the script to run.
 			3. Names of registered config files that should be loaded and merged (in order of precedence).
-			4. Manual config parameters (usually keys, prefixed by "--" and corresponding values)
+			4. Manual config parameters (usually keys, prefixed by :code:`--` and corresponding values)
 
 		Args:
-			argv: List of arguments to parse (expected to be sys.argv[1:]).
+			argv: List of arguments to parse (expected to be :code:`sys.argv[1:]`).
 			script_name: Manually specified name of the script (defaults to what is specified in the resulting config).
 
 		Returns:
@@ -423,7 +424,7 @@ class AbstractConfigManager:
 	def load_raw_config(self, path: Union[str, Path]) -> JSONABLE:
 		'''
 		Loads a config file from the given path and returns the raw config data
-		(made up of standard python objects, such as `dict` and `list`).
+		(made up of standard python objects, such as :py:class:`dict` and :py:class:`list`).
 
 		Args:
 			path: Path to the config file to load.
@@ -432,8 +433,8 @@ class AbstractConfigManager:
 			Config data loaded from the given path.
 
 		Raises:
-			FileNotFoundError: If the config file does not exist.
-			ValueError: If the config file cannot be loaded.
+			:class:`FileNotFoundError`: If the config file does not exist.
+			:class:`ValueError`: If the config file cannot be loaded.
 
 		'''
 		raise NotImplementedError
@@ -565,14 +566,14 @@ class AbstractRunMode(Activatable):
 	def main(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
 		'''
 		Runs the script with the given arguments. First the arguments are parsed into a config object, and then
-		the specified script is run with the config object using `run()`.
+		the specified script is run with the config object using :func:`run()`.
 
-		After parsing the arguments, the config object is validated with `validate_main()`,
-		which can modify the run mode. Before running the script, `self` is activated with `activate()`
+		After parsing the arguments, the config object is validated with :func:`validate_main()`,
+		which can modify the run mode. Before running the script, :py:obj:`self` is activated with :func:`activate()`
 		(which usually loads any required files or packages for the script).
 
 		Args:
-			argv: List of top-level arguments (expected to be sys.argv[1:]).
+			argv: List of top-level arguments (expected to be :code:`sys.argv[1:]`).
 			script_name: specified name of the script
 			(defaults to what is specified in argv when it is parsed into a config object).
 
@@ -594,7 +595,7 @@ class AbstractRunMode(Activatable):
 		'''
 		Runs a script with the given config object and other arguments.
 
-		Before running the script using `run_local()`, the config object is validated with `validate_run()`,
+		Before running the script using :func:`run_local()`, the config object is validated with :func:`validate_run()`,
 		which can modify the run mode.
 
 		Args:
@@ -613,29 +614,27 @@ class AbstractRunMode(Activatable):
 			return transfer.run(config, script_name=script_name)
 		return self.run_local(config, script_name=script_name, args=args, kwargs=kwargs, meta=meta)
 
-	def cleanup(self, *args, **kwargs):
+	def cleanup(self):
 		'''
-		After running the script through `main()`, this method is called to clean up any resources used by the run mode.
-
-		Args:
-			*args: usually unused
-			**kwargs: usually unused
+		After running the script through :func:`main()`, this method is called
+		to clean up any resources used by the run mode.
 
 		Returns:
+			:code:`None`
 
 		'''
 		pass
 
 	def validate_main(self, config: AbstractConfig) -> Optional['AbstractRunMode']:
 		'''
-		Validates the config object after parsing the arguments and before activating `self`
+		Validates the config object after parsing the arguments and before activating :py:obj:`self`
 		(usually loading missing files and packages).
 
 		Args:
 			config: Config object to validate.
 
 		Returns:
-			`None` if the config is valid, otherwise the run mode to transfer to.
+			:code:`None` if the config is valid, otherwise the run mode to transfer to.
 
 		'''
 		pass
@@ -648,7 +647,7 @@ class AbstractRunMode(Activatable):
 			config: Config object to validate.
 
 		Returns:
-			`None` if the config is valid, otherwise the run mode to transfer to.
+			:code:`None` if the config is valid, otherwise the run mode to transfer to.
 
 		'''
 		pass
@@ -661,10 +660,10 @@ class AbstractRunMode(Activatable):
 			1. Meta rules to modify the config loading process and run mode.
 			2. Name of the script to run.
 			3. Names of registered config files that should be loaded and merged (in order of precedence).
-			4. Manual config parameters (usually keys, prefixed by "--" and corresponding values)
+			4. Manual config parameters (usually keys, prefixed by :code:`--` and corresponding values)
 
 		Args:
-			argv: List of arguments to parse (expected to be sys.argv[1:]).
+			argv: List of arguments to parse (expected to be :code:`sys.argv[1:]`).
 			script_name: Manually specified name of the script (defaults to what is specified in the resulting config).
 
 		Returns:
@@ -693,138 +692,412 @@ class AbstractRunMode(Activatable):
 
 
 
-# _ArtifactEntry = NamedTuple('ArtifactEntry', [('name', str), ('value', Type)])
-MetaRuleFunction = Callable[[AbstractConfig, Dict[str, Any]], Optional[AbstractConfig]]
-# _MetaRuleEntry = NamedTuple('MetaRuleEntry', 'fn:MetaRuleFunction code:str priority:int num_args:int')
+class AbstractProject(AbstractRunMode, FileInfo):
+	'''
+	Abstract class for projects. Projects track artifacts (eg. configs and components) in registries
+	and manage loading configs and running scripts.
+	'''
 
-
-
-class AbstractProject(AbstractRunMode, FileInfo): # generally you should extend organization.workspaces.ProjectBase
 	def __init__(self, path: Optional[Union[str, Path]] = None, profile: 'AbstractProfile' = None, **kwargs):
 		super().__init__(path, **kwargs)
 		self._profile = profile
 
 	def __eq__(self, other: 'AbstractProject') -> bool:
+		'''
+		Compares two projects based on their paths.
+
+		Args:
+			other: Another project object.
+
+		Returns:
+			:code:`True` if the projects have the same path, otherwise :code:`False`.
+
+		'''
 		return self.data['info_path'] == other.data['info_path']
 
 	@property
 	def profile(self) -> 'AbstractProfile':
+		'''
+		Profile object that the project is associated with.
+
+		Returns:
+			Profile object.
+
+		'''
 		return self._profile
 
 
-	def iterate_meta_rules(self) -> Iterator:
+	def iterate_meta_rules(self) -> Iterator[NamedTuple]:
+		'''
+		Iterates over all meta rules in the project. By default, this iterates over all meta rules in the profile.
+
+		Returns:
+			Iterator over meta rules in order of priority (highest -> least).
+
+		'''
 		return self._profile.iterate_meta_rules()
 	
-	class UnknownArtifactError(Exception):
-		def __init__(self, artifact_type, ident):
+	class UnknownArtifactError(Registry.NotFoundError):
+		'''Raised when trying to find an artifact that is not registered.'''
+		def __init__(self, artifact_type: str, ident: str):
 			super().__init__(f'{artifact_type} {ident!r} not found')
 			self.artifact_type = artifact_type
 			self.ident = ident
 	
 	def find_artifact(self, artifact_type: str, ident: str,
 	                  default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds an artifact in the project's registries.
+		Artifacts are data or functionality such as configs and components.
+
+		Args:
+			artifact_type: Type of artifact to find (eg. 'config' or 'component').
+			ident: Name of the artifact that was registered.
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			Artifact object, or, if a default value is given and artifact is not found.
+
+		Raises:
+			:class:`UnknownArtifactError`: if the artifact is not found and no default is specified.
+
+		'''
 		raise self.UnknownArtifactError(artifact_type, ident)
 
 	def register_artifact(self, artifact_type: str, ident: str, artifact: Union[Type, Callable],
-	                      **kwargs: Any) -> None:
+	                      **kwargs: Any) -> NamedTuple:
+		'''
+		Registers a new artifact in the project's registries.
+		Overwrites any existing artifact with the same name.
+
+		Args:
+			artifact_type: Type of artifact to register (eg. 'config' or 'component').
+			ident: Name of the artifact to be registered.
+			artifact: Artifact object to register (usually a function, type, or path).
+			**kwargs: Optional additional parameters to store with the artifact.
+
+		Returns:
+			Registration entry for the artifact.
+
+		'''
 		raise NotImplementedError
 
 	def iterate_artifacts(self, artifact_type: str) -> Iterator[NamedTuple]:
+		'''
+		Iterates over all artifacts of the given type in the project's registries.
+
+		Args:
+			artifact_type: Type of artifact to iterate (eg. 'config' or 'component').
+
+		Returns:
+			Iterator over all artifacts of the given type.
+
+		'''
 		raise NotImplementedError
 
 
-	def create_config(self, *parents: str, **parameters: Primitive) -> AbstractConfig:
+	def create_config(self, *configs: str, **parameters: Primitive) -> AbstractConfig:
+		'''
+		Creates a new config object with the given parameters.Creates a config object from
+		the given config file names and provided parameters.
+
+		Args:
+			*configs: Names of registered config files to load and merge (in order of precedence).
+			**parameters: Manual config parameters to populate the config object with.
+
+		Returns:
+			Config object.
+
+		'''
 		raise NotImplementedError
 
-	def quick_run(self, script_name: str, *parents: str, **parameters: JSONABLE) -> Any:
-		config = self.create_config(*parents, **parameters)
+	def quick_run(self, script_name: str, *configs: str, **parameters: JSONABLE) -> Any:
+		'''
+		Composes :func:`create_config() and :func:`run()` into a single method to first create a config object
+		and then run the specified script.
+
+		Args:
+			script_name: Name of the script to run (should be registered).
+			*configs: Names of registered config files to load and merge (in order of precedence).
+			**parameters: Manual config parameters to populate the config object with.
+
+		Returns:
+			Output of the script.
+
+		'''
+		config = self.create_config(*configs, **parameters)
 		return self.run(config, script_name=script_name)
 
 
 
-# _ProjectTypeEntry = NamedTuple('ProjectTypeEntry', [('name', str), ('cls', Type[AbstractProject])])
-
-
-
 class AbstractProfile(FileInfo): # generally you should extend organization.workspaces.ProfileBase
+	'''
+	Abstract classes for profiles. Profiles manage projects and provide meta rules. Unlike projects,
+	generally a runtime should only use a single global instance of a profile.
+	'''
+
 	@classmethod
 	def get_project_type(cls, ident: str) -> NamedTuple:
+		'''
+		Gets the project type entry for the given identifier (from a registry).
+
+		Args:
+			ident: Name of the registered project type.
+
+		Returns:
+			Project type entry.
+
+		'''
 		raise NotImplementedError
 
 	@classmethod
 	def replace_profile(cls, profile: 'AbstractProfile') -> 'AbstractProfile':
+		'''
+		Replaces the current profile instance with the given profile. This is used to set the global profile.
+
+		Args:
+			profile: New profile instance.
+
+		Returns:
+			Old profile instance (which is now replaced).
+
+		'''
 		raise NotImplementedError
 
 	@classmethod
 	def get_profile(cls) -> 'AbstractProfile':
+		'''
+		Gets the current profile instance of the runtime environment.
+
+		Returns:
+			Profile instance.
+
+		'''
 		raise NotImplementedError
 
 	@classmethod
-	def register_meta_rule(cls, name: str, func: MetaRuleFunction, code: str,
-	                       priority: Optional[int] = 0, num_args: Optional[int] = 0) -> None:
+	def register_meta_rule(cls, name: str, func: Callable[[AbstractConfig, Dict[str, Any]], Optional[AbstractConfig]],
+	                       code: str, priority: Optional[int] = 0, num_args: Optional[int] = 0) -> NamedTuple:
+		'''
+		Registers a new meta rule in the profile.
+
+		Meta rules are functions that are applied in order of their priority to the config object
+		before running a script to modify the behavior.
+
+		Args:
+			name: Name of the meta rule.
+			func: Callable meta rule function (input should be config object and dict of meta params,
+			output is None or a new config object).
+			code: Code to invoke the meta rule function (parsed into the config from :code:`sys.argv`).
+			priority: Order in which the meta rule is applied (higher priority is applied first).
+			num_args: When invoking the meta rule from the command line, the number of arguments
+			required for this meta rule
+
+		Returns:
+			Registration entry for the meta rule.
+
+		'''
 		raise NotImplementedError
 
 	@classmethod
-	def get_meta_rule(cls, name: str):
+	def get_meta_rule(cls, name: str) -> NamedTuple:
+		'''
+		Gets the meta rule entry for the given identifier (from the registry).
+
+		Args:
+			name: Name of the registered meta rule.
+
+		Returns:
+			Meta rule entry.
+
+		'''
 		raise NotImplementedError
 
 	@classmethod
-	def iterate_meta_rules(cls) -> Iterator:
+	def iterate_meta_rules(cls) -> Iterator[NamedTuple]:
+		'''
+		Iterates over all registered meta rules.
+
+		Returns:
+			Iterator over all meta rule entries.
+
+		'''
 		raise NotImplementedError
 
 
-	def entry(self, script_name=None) -> None:
+	def entry(self, script_name: Optional[str] = None) -> None:
+		'''
+		Primary entry point for the profile. This method is called when using the :command:`fig` command.
+
+		Args:
+			script_name: Manually specified script name to run (if not provided, will be parsed from :code:`sys.argv`).
+
+		Returns:
+			:code:`None`
+
+		'''
 		raise NotImplementedError
 
-	def initialize(self, *projects: str, **kwargs) -> None:
+	def initialize(self, *projects: str) -> None:
+		'''
+		Initializes the specified projects (including activating them, which generally registers
+		all associated configs and imports files and packages)
+
+		Args:
+			*projects: Identifiers of projects to initialize (activates the current project only, if none is provided).
+
+		Returns:
+			:code:`None`
+
+		'''
 		raise NotImplementedError
 
 	def main(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
+		'''
+		Runs the script with the given arguments using :func:`main()` of the current project.
+
+		Args:
+			argv: List of top-level arguments (expected to be :code:`sys.argv[1:]`).
+			script_name: specified name of the script
+			(defaults to what is specified in argv when it is parsed into a config object).
+
+		Returns:
+			The output of the script.
+
+		'''
 		raise NotImplementedError
 
 	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
 	        kwargs: Optional[Dict[str, Any]] = None, meta: Optional[Dict[str, Any]] = None) -> Any:
+		'''
+		Runs the script with the given arguments using :func:`run()` of the current project.
+
+		Args:
+			config: Config object to run the script with.
+			script_name: Name of the script to run (usually must be registered beforehand to find the function).
+			args: Manual arguments to pass to the script.
+			kwargs: Manual keyword arguments to pass to the script.
+			**meta: Meta arguments to modify the run mode (generally not recommended).
+
+		Returns:
+			The output of the script.
+
+		'''
 		raise NotImplementedError
 
-	def quick_run(self, script_name: str, *parents: str, **args: Any) -> Any:
+	def quick_run(self, script_name: str, *configs: str, **parameters: Any) -> Any:
+		'''
+		Creates a config object and runs the script using :func:`quick_run()` of the current project.
+
+		Args:
+			script_name: Name of the script to run (should be registered).
+			*configs: Names of registered config files to load and merge (in order of precedence).
+			**parameters: Manual config parameters to populate the config object with.
+
+		Returns:
+			Output of the script.
+
+		'''
 		raise NotImplementedError
 
-	def cleanup(self, *args, **kwargs) -> None:
+	def cleanup(self) -> None:
+		'''
+		Calls :func:`cleanup()` of the current project.
+
+		Returns:
+			:code:`None`
+
+		'''
 		raise NotImplementedError
 
 
 	def extract_info(self, other: 'AbstractProfile') -> None:
-		raise NotImplementedError
+		'''
+		Extract data from the provided profile instance and store it in self.
+
+		Recommended to use if a project expects a custom profile different from the currently used one.
+
+		Args:
+			profile: Base profile instance.
+
+		Returns:
+			:code:`None`
+
+		'''
+		return super().extract_info(other)
 
 	def get_current_project(self) -> AbstractProject:
+		'''
+		Gets the current project instance.
+
+		Returns:
+			Current project instance.
+
+		'''
 		raise NotImplementedError
 
 	def switch_project(self, ident: Optional[str] = None) -> AbstractProject:
+		'''
+		Switches the current project to the one with the given identifier.
+
+		Args:
+			ident: Name of the project to switch to, defaults to the default project (with name: None).
+
+		Returns:
+			New current project instance.
+
+		'''
 		raise NotImplementedError
 
 	def iterate_projects(self) -> Iterator[AbstractProject]:
+		'''
+		Iterates over all loaded projects.
+
+		Returns:
+			Iterator over all loaded project instances.
+
+		'''
 		raise NotImplementedError
 
 	def get_project(self, ident: Optional[str] = None) -> AbstractProject:
+		'''
+		Gets the project with the given identifier, if the project is not already loaded, it will be loaded.
+
+		Args:
+			ident: Name of the project to get, defaults to the default project (with name: None).
+
+		Returns:
+			Project instance.
+
+		'''
 		raise NotImplementedError
 
 
 
 class AbstractMetaRule:
-	class TerminationFlag(KeyboardInterrupt): pass
+	'''Alternative interface for meta rules.'''
+
+	class TerminationFlag(KeyboardInterrupt):
+		'''Raised if the subsequent script should not be run.'''
+		pass
 
 	@classmethod
 	def run(cls, config: AbstractConfig, meta: Dict[str, Any]) -> Optional[AbstractConfig]:
+		'''
+		Function called when the meta rule is invoked.
+		If the function returns a config object, it will be used in place of the input here.
+
+		Args:
+			config: Config object to run the script with.
+			meta: Meta arguments to modify the run mode (generally not recommended).
+
+		Returns:
+			New config object to use in place of the input, or :code:`None` to use the input.
+
+		Raises:
+			:class:`TerminationFlag`: If the subsequent script should not be run.
+
+		'''
 		raise NotImplementedError
-
-
-
-
-
-
-
-
-
-
 
 

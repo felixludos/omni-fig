@@ -3,7 +3,8 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 import abc
 import inspect
 from collections import OrderedDict
-from omnibelt import get_printer, unspecified_argument, extract_function_signature, JSONABLE, Primitive, primitive
+from omnibelt import Exportable, get_printer, unspecified_argument, extract_function_signature, \
+	JSONABLE, Primitive, primitive
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager
@@ -12,7 +13,7 @@ from .abstract import AbstractSearch, AbstractReporter
 prt = get_printer(__name__)
 
 
-class ConfigNode(AbstractConfig, AutoTreeNode):
+class ConfigNode(AbstractConfig, AutoTreeNode, Exportable):
 	# _DummyNode: 'ConfigNode' = None
 	Settings = OrderedDict
 
@@ -412,7 +413,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 					child._trace = None if trace is None else trace.sub_search(config, [key])
 					product[key] = child._process(silent=silent)
 					child._trace = old
-				product = config.SparseNode._python_structure(product)
+				# product = config.SparseNode._python_structure(product)
 			
 			elif isinstance(config, config.DenseNode):
 				product = []
@@ -421,7 +422,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode):
 					child._trace = None if trace is None else trace.sub_search(config, [key])
 					product.append(child._process(silent=silent))
 					child._trace = old
-				product = config.DenseNode._python_structure(product)
+				# product = config.DenseNode._python_structure(product)
 			else:
 				raise NotImplementedError(f'Unknown container type: {type(config)}')
 
