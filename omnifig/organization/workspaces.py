@@ -1,4 +1,4 @@
-from typing import Optional, Union, Sequence
+from typing import Optional, Union, Sequence, NamedTuple, Tuple, Any, Dict, List
 from pathlib import Path
 from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry
 
@@ -10,8 +10,20 @@ from ..config import ConfigManager
 prt = get_printer(__name__)
 
 
-class ProjectBase(AbstractProject): # extend this item
+class ProjectBase(AbstractProject):
+	'''
+	Generally, each workspace (e.g. repo, directory, package) should define its own project,
+	which keeps track of all the configs and artifacts defined therein.
+
+	Projects don't just contain all the project specific registries, but can also modify the behavior
+	of the top-level methods such as (such as :func:`main()`, :func:`run()`, etc.).
+
+	It is recommended to subclass this class to create a custom project class with expected functionality
+	(unlike :class:`AbstractProject`) and automatically register it to the global project type registry.
+	'''
+
 	global_type_registry = Class_Registry()
+	'''Global registry for project types (usually used by the profile to create custom project types).'''
 
 	def __init_subclass__(cls, name: Optional[str] = None, **kwargs):
 		super().__init_subclass__()
@@ -20,12 +32,15 @@ class ProjectBase(AbstractProject): # extend this item
 			cls.global_type_registry.new(name, cls)
 
 	@classmethod
-	def get_project_type(cls, ident: str) -> global_type_registry.entry_cls:
+	def get_project_type(cls, ident: str) -> NamedTuple:
+		'''Accesses the project type entry for the given identifier (from a registry).'''
 		return cls.global_type_registry.find(ident)
 
 
 
 class GeneralProject(ProjectBase, name='general'):
+	'''Project class that includes basic functionality such as a script registry and config manager.'''
+
 	_info_file_names = {
 		'omni.fig', 'info.fig', '.omni.fig', '.info.fig',
 		'fig.yaml', 'fig.yml', '.fig.yaml', '.fig.yml',
@@ -34,7 +49,8 @@ class GeneralProject(ProjectBase, name='general'):
 		'project.yaml', 'project.yml', '.project.yaml', '.project.yml',
 	}
 
-	def infer_path(self, path=None):
+	def infer_path(self, path: Optional[Union[str, Path]] = None) -> Path:
+		'''Infers the path of the project from the given path or the current working directory.'''
 		if isinstance(path, str):
 			path = Path(path)
 		if path is None:
@@ -50,10 +66,14 @@ class GeneralProject(ProjectBase, name='general'):
 		prt.warning(f'Could not infer project path from {path} (using blank project)')
 
 
-	class Script_Registry(Function_Registry, components=['description', 'hidden', 'project']): pass
+	class Script_Registry(Function_Registry, components=['description', 'hidden', 'project']):
+		'''Registry for scripts (functions) that can be run from the command line.'''
+		pass
 	Config_Manager = ConfigManager
+	'''Default Config Manager'''
 
-	def __init__(self, path, *, script_registry=None, config_manager=None, **kwargs):
+	def __init__(self, path: Optional[Union[str, Path]], *, script_registry: Optional[Script_Registry] = None,
+	             config_manager: Optional[Config_Manager] = None, **kwargs):
 		if script_registry is None:
 			script_registry = self.Script_Registry()
 		if config_manager is None:
@@ -67,6 +87,11 @@ class GeneralProject(ProjectBase, name='general'):
 		}
 
 	def _activate(self, *args, **kwargs):
+		'''
+		Activates the project including the info from the data file
+		which includes registering all configs (keys: ``config`` and ``configs``)
+		and source files (keys: ``packages``, ``package``, ``src``).
+		'''
 		super()._activate(*args, **kwargs)
 		self.load_configs(self.data.get('configs', []))
 		if self.data.get('auto_config', True):
@@ -80,7 +105,7 @@ class GeneralProject(ProjectBase, name='general'):
 			pkgs = [self.data['package']] + pkgs
 		self.load_src(self.data.get('src', []), pkgs)
 
-	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()):
+	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()) -> None:
 		'''Registers all specified config files and directories'''
 		for path in paths:
 			path = Path(path)
@@ -89,30 +114,28 @@ class GeneralProject(ProjectBase, name='general'):
 			elif path.is_dir():
 				self.register_config_dir(path, recursive=True)
 
-	def load_src(self, srcs: Optional[Sequence[Union[str ,Path]]] = (), packages: Optional[Sequence[str] ] =()):
+	def load_src(self, srcs: Optional[Sequence[Union[str ,Path]]] = (),
+	             packages: Optional[Sequence[str]] = ()) -> None:
 		'''Imports all specified packages and runs the specified python files'''
 		src_files = []
 		for src in srcs:
 			path = self._path / src
 			if path.is_file():
 				src_files.append(str(path))
-		# pkgs = []
-		# for pkg in packages:
-		# 	path = self._path / pkg
-		# 	if path.is_dir():
-		# 		pkgs.append(str(path))
 		include_package(*packages)
 		include_files(*src_files)
 
 	# region Organization
-	def extract_info(self, other: 'GeneralProject'):
+	def extract_info(self, other: 'GeneralProject') -> None:
+		'''Extracts the info from the given project into this project.'''
 		super().extract_info(other)
 		self._path = other._path
 		self._profile = other._profile
 		self.config_manager = other.config_manager
-		self._artifact_registries = other._artifact_registries  # .copy()
+		self._artifact_registries = other._artifact_registries
 
 	def validate(self) -> AbstractProject:
+		'''Validates the project and returns a new project with the validated info.'''
 		requested_type = self.data.get('type', None)
 		if requested_type is not None and requested_type != self._type_name:
 			prt.info(f'Replacing project type {self._type_name!r} with {requested_type!r}')
@@ -124,22 +147,37 @@ class GeneralProject(ProjectBase, name='general'):
 
 	@property
 	def root(self) -> Path:
+		'''The root directory of the project.'''
 		return self._path.parent
 
 	@property
 	def info_path(self) -> Path:
+		'''The path to the info file.'''
 		return self._path
 	# endregion
 
 	# region Running/Ops
 	def create_config(self, *parents: str, **parameters):
+		'''Creates a config with the given parameters using the config manager.'''
 		return self.config_manager.create_config(parents, parameters)
 
 	def parse_argv(self, argv, *, script_name=None) -> AbstractConfig:
+		'''Parses the given command line arguments into a config object.'''
 		return self.config_manager.parse_argv(argv, script_name=script_name)
 
 	TerminationFlag = AbstractMetaRule.TerminationFlag
-	def _check_meta_rules(self, config, meta):
+	def _check_meta_rules(self, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
+		'''
+		Applies the meta rules (registered in the profile) in order of priority using the meta config.
+
+		Args:
+			config: Config object that will be used to run the script.
+			meta: Meta config object for meta rules.
+
+		Returns:
+			The potentially modified config object to use for running the script.
+
+		'''
 		for rule in self._profile.iterate_meta_rules():
 			try:
 				out = rule.fn(config, meta)
@@ -153,7 +191,9 @@ class GeneralProject(ProjectBase, name='general'):
 					config = out
 		return config
 
-	def _run(self, script_entry, config, args=None, kwargs=None):
+	def _run(self, script_entry: Script_Registry.entry_cls, config: AbstractConfig,
+	         args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None) -> Any:
+		'''Runs the given script with the given config.'''
 		if args is None:
 			args = []
 		if kwargs is None:

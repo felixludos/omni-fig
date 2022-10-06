@@ -1,33 +1,39 @@
 from typing import Any, Dict, List, Optional, Tuple, Union, Type, Sequence, Callable
-from omnibelt import auto_init, dynamic_capture, extract_function_signature
-from contextlib import nullcontext
-import sys
-import traceback
 import inspect
+from omnibelt import dynamic_capture, extract_function_signature
 
 from .abstract import AbstractConfig, AbstractConfigurable
 
 
 class Configurable(AbstractConfigurable):
+	'''
+	Mix-in class for objects that can be constructed with a config object.
+
+	It is strongly recommended that components and modifiers inherit from this class
+	to seamlessly fill in missing arguments with the config object.
+	'''
 	_my_config = None
 	@property
 	def my_config(self) -> AbstractConfig:
+		'''The config object that this object is associated with'''
 		return getattr(self, '_my_config', None)
 
 
 	class _fill_config_args:
-		def __init__(self, config, *, silent=None):
+		'''Replaces the regular method and fills in the missing arguments from the config'''
+		def __init__(self, config: AbstractConfig, *, silent: Optional[bool] = None):
 			self.config = config
-			# self.args = args
-			# self.kwargs = kwargs
 			self.silent = silent
 
 		@staticmethod
-		def configurable_parents(cls) -> List[Type['Configurable']]:
+		def configurable_parents(cls: Type) -> List[Type['Configurable']]:
+			'''Returns a list of all the parent classes that are Configurable'''
 			return [c for c in cls.mro() if issubclass(c, Configurable) and c is not Configurable]
 
 		class MissingConfigError(Exception):
-			def __init__(self, product, missing, config=None, msg=None):
+			'''Raised when a method is missing arguments from the config'''
+			def __init__(self, product: Any, missing: List[inspect.Parameter], config: Optional[AbstractConfig] = None,
+			             msg: Optional[str] = None):
 				config_key = ''
 				if config is not None:
 					trace = config.trace
@@ -42,13 +48,38 @@ class Configurable(AbstractConfigurable):
 				self.missing = missing
 				self.config = config
 
-		def find_missing_arg(self, name, default=inspect.Parameter.empty):
+		def find_missing_arg(self, name: str, default: Optional[Any] = inspect.Parameter.empty) -> Any:
+			'''
+			Finds the missing argument in the config (including aliases)
+
+			Args:
+				name: Name of the argument
+				default: Default specified in the method signature
+
+			Returns:
+				The value of the argument from the config
+
+			'''
 			if default is inspect.Parameter.empty:
 				default = self.config._empty_default
 			aliases = self.aliases.get(name, ())
 			return self.config.pulls(name, *aliases, default=default)
 
-		def fix_args(self, method, obj, args, kwargs):
+		def fix_args(self, method: Callable, obj: Any, args: Tuple, kwargs: Dict[str, Any]) \
+				-> Tuple[Tuple, Dict[str, Any]]:
+			'''
+			Fills in the missing arguments from the config given the method signature
+
+			Args:
+				method: Method to fill in the arguments for
+				obj: Object that the method is being called on
+				args: Manually specified arguments
+				kwargs: Manually specified keyword arguments
+
+			Returns:
+				The arguments and keyword arguments filled in from the config and the manually specified ones
+
+			'''
 			fixed_args, fixed_kwargs, missing = extract_function_signature(method, (obj, *args), kwargs,
 			                                                               default_fn=self.find_missing_arg,
 			                                                               include_missing=True)
@@ -57,7 +88,23 @@ class Configurable(AbstractConfigurable):
 			return fixed_args, fixed_kwargs
 
 
-		def __call__(self, owner, method, obj, args, kwargs):
+		def __call__(self, owner: Type, method: Callable, obj: Any, args: Tuple, kwargs: Dict[str, Any]) -> Any:
+			'''
+			Called by the capture to replace the original method call
+
+			See ``omnibelt.tricks.dynamic_capture`` for more details.
+
+			Args:
+				owner: Class where the method is defined
+				method: Method to call
+				obj: Owner object (self in the method)
+				args: Manually specified arguments
+				kwargs: Manually specified keyword arguments
+
+			Returns:
+				The return value of the method
+
+			'''
 			obj._my_config = self.config
 			self.aliases = getattr(method, '_my_config_aliases', {})
 
@@ -68,13 +115,25 @@ class Configurable(AbstractConfigurable):
 	@classmethod
 	def init_from_config(cls, config: AbstractConfig,
 	                     args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
-	                     silent: Optional[bool] = None):
+	                     silent: Optional[bool] = None) -> Any:
+		'''
+		Constructor to initialize a class informed by the config object `config`. This will run the usual constructor
+		``__init__``, except any arguments that are missing from the signature will be filled in from the config.
+
+		Args:
+			config: Config object to use
+			args: Manually specified arguments
+			kwargs: Manually specified keyword arguments
+			silent: If True, no messages are reported when querying the config object.
+
+		Returns:
+			The initialized object
+
+		'''
 		if args is None:
 			args = ()
 		if kwargs is None:
 			kwargs = {}
-
-
 
 		init_capture = dynamic_capture(cls._fill_config_args.configurable_parents(cls),
 		                               cls._fill_config_args(config, silent=silent), '__init__').activate()
@@ -86,12 +145,20 @@ class Configurable(AbstractConfigurable):
 
 
 
-
-class config_aliases: # methods decorator
+class config_aliases:
+	'''Method decorator to add aliases to the config arguments of a method'''
 	def __init__(self, **aliases: Union[Sequence[str], str]):
+		'''
+		Config aliases to store for the method
+
+		Args:
+			**aliases: Mapping of aliases: keys should be the name of the argument in the method signature,
+			and the values should be the name of the argument to query in the config object.
+		'''
 		self.aliases = aliases
 
-	def __call__(self, fn: Callable):
+	def __call__(self, fn: Callable) -> Callable:
+		'''Decorator to add aliases to the config arguments of a method'''
 		if not hasattr(fn, '_my_config_aliases'):
 			setattr(fn, '_my_config_aliases', {})
 		fn._my_config_aliases.update({key: ((val,) if isinstance(val, str) else tuple(val))
@@ -100,101 +167,6 @@ class config_aliases: # methods decorator
 
 
 
-
-
-
-
-################################################# old
-
-
-# class Auto_Configurable(AbstractConfigurable, auto_init):
-# 	_my_config = None
-#
-# 	@property
-# 	def my_config(self) -> AbstractConfig:
-# 		return getattr(self, '_my_config', None)
-#
-# 	class MissingConfigError(Exception):
-# 		def __init__(self, product, missing, config=None, msg=None):
-# 			config_key = ''
-# 			if config is not None:
-# 				trace = config.trace
-# 				if trace is not None:
-# 					config_key = f'{config.reporter.get_key(trace)}: '
-# 			missing = [repr(p.name) for p in missing]
-# 			if msg is None:
-# 				msg = f'{config_key}{product.__name__} is missing {", ".join(missing)}'
-# 			super().__init__(msg)
-# 			self.product = product
-# 			self.missing = missing
-# 			self.config = config
-#
-# 	def _fix_missing_args(self, missing: List[inspect.Parameter], src: Type, method: Callable,
-# 	                      args: Tuple, kwargs: Dict[str, Any]):
-# 		raise self.MissingConfigError(type(self), missing, self.my_config)
-#
-# 	class _auto_method_arg_fixer(auto_init._auto_method_arg_fixer):
-# 		def __init__(self, method: Callable, src: Type['Configurable'], obj: 'Configurable', **kwargs):
-# 			super().__init__(method=method, src=src, obj=obj, **kwargs)
-# 			self.config = obj.my_config
-# 			self.aliases = getattr(method, '_my_config_aliases', {})
-#
-# 		def __call__(self, key: str, default: Optional[Any] = inspect.Parameter.empty) -> Any:
-# 			if self.config is None:
-# 				return super().__call__(key, default=default)
-# 			if default is inspect.Parameter.empty:
-# 				default = self.config.empty_default
-# 			aliases = self.aliases.get(key, ())
-# 			return self.config.pulls(key, *aliases, default=default)
-#
-# 	@classmethod
-# 	def init_from_config(cls, config: AbstractConfig,
-# 	                     args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, *,
-# 	                     silent: Optional[bool] = None):
-# 		if args is None:
-# 			args = ()
-# 		if kwargs is None:
-# 			kwargs = {}
-# 		cls._my_config = config
-# 		with config.silence(silent):
-# 			obj = cls(*args, **kwargs)
-# 		del cls._my_config
-# 		obj._my_config = config
-# 		return obj
-
-
-
-
-# class OldConfigurable:
-# 	'''
-# 	Removes the config object `A` from the __init__() to clean up the init stream.
-#
-# 	This class should be subclassed when creating components/modifiers,
-# 	especially when those components/modifiers also subclass types that
-# 	do not use the config object.
-# 	'''
-# 	def __init__(self, A, _req_args=unspecified_argument,
-# 	             _req_kwargs=unspecified_argument, **kwargs):
-#
-# 		if _req_args is unspecified_argument:
-# 			_req_args = A.pull('_req_args', (), silent=True)
-# 		if _req_kwargs is unspecified_argument:
-# 			_req_kwargs = A.pull('_req_kwargs', {}, silent=True)
-#
-# 		# if _req_kwargs is None:
-# 		# 	_req_kwargs = kwargs
-#
-# 		try:
-# 			walled = isinstance(self, InitWall)
-# 		except ValueError:
-# 			walled = True
-#
-# 		if walled:
-# 			super().__init__(_req_args=_req_args, _req_kwargs=_req_kwargs, **kwargs)
-# 		else:
-# 			kwargs.update(_req_kwargs)
-# 			super().__init__(**kwargs)
-# 			# super().__init__(*_req_args, **_req_kwargs)
 
 
 

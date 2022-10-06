@@ -1,6 +1,5 @@
 from .organization import get_profile, Profile, ProfileBase, ProjectBase, GeneralProject
-from .registration import autofill_with_config, meta_rule, Meta_Rule, \
-	script, component, modifier, creator, autocomponent, autoscript
+from .registration import meta_rule, Meta_Rule, script, component, modifier, creator, autocomponent, autoscript
 from .top import get_current_project, get_project, switch_project, iterate_projects, \
 	entry, main, run, quick_run, initialize, cleanup, create_config
 

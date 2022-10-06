@@ -13,12 +13,16 @@ LIB_PATH = os.path.dirname(__file__)
 # region Source Files
 
 _loaded_files = {}
-def include_files(*paths):
+def include_files(*paths: str):
 	'''
 	Executes all provided paths to python files that have not already been run.
-	
-	:param paths: paths to python files to be executed (if not already)
-	:return: None
+
+	Args:
+		paths: paths to python files to be executed (if not already)
+
+	Returns:
+		:code:`None`
+
 	'''
 	global _load_counter
 	
@@ -40,12 +44,16 @@ def include_files(*paths):
 
 
 
-def include_package(*packages):
+def include_package(*packages: str):
 	'''
 	Imports packages based on their names
-	
-	:param packages: list of package names to be imported
-	:return: None
+
+	Args:
+		packages: list of package names to be imported
+
+	Returns:
+		:code:`None`
+
 	'''
 	for pkg in packages:
 		importlib.import_module(pkg)

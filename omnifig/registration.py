@@ -1,15 +1,8 @@
-from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator, NewType
+from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Callable
 from inspect import Parameter
 from omnibelt import extract_function_signature, get_printer
-# from .top import register_script, register_component, register_modifier, register_creator
-# from .config import Config
-# from .novo_root import get_current_project, ProjectBase, GeneralProject, Profile
-# from .util import autofill_args
 
-from .abstract import AbstractScript, AbstractCreator, AbstractComponent, AbstractModifier, \
-	AbstractConfig, AbstractProject, AbstractMetaRule
-from .organization import GeneralProject, Profile
+from .abstract import AbstractCreator, AbstractConfig, AbstractProject, AbstractMetaRule
 from .top import get_current_project, get_profile
 
 prt = get_printer(__name__)
@@ -19,14 +12,17 @@ class _Registration_Decorator:
 	'''Base class for all registration decorators'''
 	def __init__(self, name: Optional[str] = None, **kwargs: Any):
 		'''
-		:param name: name of item to be registered (defaults to its __name__)
-		:param kwargs: additional keyword arguments to pass to :func:`register_script()`
+
+		Args:
+			name: name of item to be registered (defaults to its __name__)
+			**kwargs: additional keyword arguments to pass to :func:`register_script()`
 		'''
 		self.name = name
 		self.kwargs = kwargs
 		self.item = None
 
 	def __call__(self, item: Callable) -> Callable:
+		'''Decorator call that registers the item. Leaves the decorated item unchanged.'''
 		if self.name is None:
 			self.name = item.__name__
 		self.item = item
@@ -35,6 +31,7 @@ class _Registration_Decorator:
 
 	@staticmethod
 	def register(name: str, item: Callable[[AbstractConfig], Any], **kwargs) -> None:
+		'''Must be implemented by subclasses to register the item'''
 		raise NotImplementedError
 
 
@@ -44,24 +41,34 @@ class _Project_Registration_Decorator(_Registration_Decorator):
 	@classmethod
 	def register(cls, name: str, item: Callable[[AbstractConfig], Any], project: Optional[AbstractProject] = None,
 	             **kwargs) -> None:
+		'''Registers the item with the current project using :func:`get_current_project()`.'''
 		if project is None:
 			project = get_current_project()
 		cls.register_project(project, name, item, **kwargs)
 
 	@staticmethod
-	def register_project(self, project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any], **kwargs) -> None:
+	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any],
+	                     **kwargs) -> None:
+		'''Must be implemented by subclasses to register the item with the current project'''
 		raise NotImplementedError
 
 
 
 class script(_Project_Registration_Decorator):
-	'''Decorator to register a script'''
+	'''
+	Decorator to register a script.
+
+	Scripts are callable objects (usually functions) with only one input argument (the config object) and can be called
+	from the command line using the :code:`fig` command.
+	'''
 	def __init__(self, name: Optional[str] = None, description: Optional[str] = None, *,
 	             hidden: bool = None) -> None:
 		'''
-		:param name: name of item to be registered (defaults to its __name__)
-		:param description: a short description of what the script does (defaults to first line of its docstring)
-		:param hidden: if True, the script will not be listed in the help menu
+
+		Args:
+			name: name of item to be registered (defaults to its __name__)
+			description: a short description of what the script does (defaults to first line of its docstring)
+			hidden: if True, the script will not be listed in the help menu
 		'''
 		super().__init__(name=name, description=description, hidden=hidden)
 
@@ -72,100 +79,93 @@ class script(_Project_Registration_Decorator):
 			description = item.__doc__.split('\n')[0]
 		if hidden is None:
 			hidden = name.startswith('_')
-		if not isinstance(project, GeneralProject):
-			prt.error(f'Cannot register script {name} for project {project} (not a "general" project)')
-		project.register_script(name, item, description=description, hidden=hidden, **kwargs)
-
-
-
-# class Script(AbstractScript):
-# 	def __init_subclass__(cls, script_name: str = None, description: Optional[str] = None, **kwargs):
-# 		super().__init_subclass__(**kwargs)
-# 		if script_name is not None:
-# 			script(script_name, description=description)(cls)
+		project.register_artifact('script', name, item, description=description, hidden=hidden, **kwargs)
 
 
 
 class creator(_Project_Registration_Decorator):
+	'''
+	Decorator to register a creator.
+
+	Creators are generally subclasses of :class:`AbstractCreator` and are used to create objects from the config.
+
+	Usually, the default creator is sufficient, but this decorator can be used to register a custom creator.
+	'''
 	def __init__(self, name: Optional[str] = None):
 		'''
-		:param name: name of item to be registered (defaults to its __name__)
-		:param description: a short description of what the script does (defaults to first line of its docstring)
+
+		Args:
+			name: name of item to be registered (defaults to its __name__)
 		'''
 		super().__init__(name=name)
 
 	@staticmethod
 	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any], **kwargs) -> None:
-		if not isinstance(project, Profile.Project):
-			prt.error(f'Cannot register creator {name} for project {project} (not a "default" project)')
 		item._creator_name = name
-		project.register_creator(name, item, **kwargs)
-
-
-
-# class Creator(AbstractCreator):
-# 	_creator_name = None
-# 	def __init_subclass__(cls, creator_name: str = None, **kwargs):
-# 		super().__init_subclass__(**kwargs)
-# 		if creator_name is not None:
-# 			creator(creator_name)(cls)
+		project.register_artifact('creator', name, item, **kwargs)
 
 
 
 class component(_Project_Registration_Decorator):
-	'''Decorator to register a component (expected to be a type)'''
-	def __init__(self, name: Optional[str] = None, description: Optional[str] = None,
-	             creator: Optional[Union[str, AbstractCreator]] = None):
+	'''
+	Decorator to register a component.
+
+	Components are (usually) classes, and can be automatically be instantiated from the config object
+	(using the ``_type`` key).
+
+	There are generally two different ways to use components. Both use a creator (see :class:`AbstractCreator`):
+		1. If the component is a subclass of :class:`Configurable`,
+			arguments in __init__ can be automatically be filled in with the config object.
+		2. Otherwise, the component will be instantiated (by default) with the following signature:
+			:code:`config, *args, **kwargs`, where :code:`config` is the config object,
+			while :code:`*args` and :code:`**kwargs` are arguments manually passed to the creator.
+			This is the signature expected for :func:`init_from_config()` if the component
+			is a subclass of :class:`AbstractConfigurable` and :func:`__init__` otherwise.
+
+	'''
+	def __init__(self, name: Optional[str] = None, description: Optional[str] = None, creator: Optional[str] = None):
 		'''
-		:param name: name of item to be registered (defaults to its __name__)
-		:param description: a short description of what the script does (defaults to first line of its docstring)
-		:param creator: name of the creator that should be used to create this component
+
+		Args:
+			name: name of item to be registered (defaults to its __name__)
+			description: a short description of what the script does (defaults to first line of its docstring)
+			creator: name of the creator that should be used to create this component (generally not recommended)
 		'''
 		super().__init__(name=name, creator=creator, description=description)
 
 	@staticmethod
 	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any],
-	                     creator: Optional[Union[str, AbstractCreator]] = None, **kwargs) -> None:
-		if not isinstance(project, Profile.Project):
-			prt.error(f'Cannot register component {name} for project {project} (not a "default" project)')
-		project.register_component(name, item, creator=creator, **kwargs)
-
-
-
-# class Component(AbstractComponent):
-# 	def __init_subclass__(cls, component_name: str = None, creator: Optional[str] = None, **kwargs):
-# 		super().__init_subclass__(**kwargs)
-# 		if component_name is not None:
-# 			component(component_name, creator=creator)(cls)
+	                     description: Optional[str] = None, creator: Optional[Union[str, AbstractCreator]] = None,
+	                     **kwargs) -> None:
+		if description is None and item.__doc__ is not None:
+			description = item.__doc__.split('\n')[0]
+		project.register_artifact('component', name, item, description=description, creator=creator, **kwargs)
 
 
 
 class modifier(_Project_Registration_Decorator):
-	'''Decorator to register a modifier (expected be a type)
-
-	Modifiers are "runtime mixins" for components. When specifying a component to be modified with the `_mod` key
-	in the config, a new type is dynamically created which is a child of all the specified modifiers as well as
-	the original component.
 	'''
-	def __init__(self, name: Optional[str] = None):
+	Decorator to register a modifier.
+
+	Modifiers are "runtime mixins" for components and must be classes. When specifying a component to be modified
+	with the ``_mod`` key in the config, a new type is dynamically created for which the bases are all the specified
+	modifiers followed by the original component.
+	'''
+	def __init__(self, name: Optional[str] = None, description: Optional[str] = None):
 		'''
-		:param name: name of item to be registered (defaults to its __name__)
+
+		Args:
+			name: name of item to be registered (defaults to its __name__)
+			description: a short description of what the script does (defaults to first line of its docstring)
 		'''
-		super().__init__(name=name)
+		super().__init__(name=name, description=description)
 
 	@staticmethod
-	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any], **kwargs) -> None:
-		if not isinstance(project, Profile.Project):
-			prt.error(f'Cannot register modifier {name} for project {project} (not a "default" project)')
-		project.register_modifier(name, item, **kwargs)
-
-
-
-# class Modifier(AbstractModifier):
-# 	def __init_subclass__(cls, modifier_name: str = None, **kwargs):
-# 		super().__init_subclass__(**kwargs)
-# 		if modifier_name is not None:
-# 			component(modifier_name)(cls)
+	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any],
+	                     description: Optional[str] = None, **kwargs) -> None:
+		if description is None and item.__doc__ is not None:
+			description = item.__doc__.split('\n')[0]
+		project.register_artifact('modifier', name, item, description=description, **kwargs)
 
 
 
@@ -175,16 +175,31 @@ class _AutofillMixin(_Registration_Decorator):
 	def __init__(self, name: Optional[str] = None,
 	             aliases: Optional[Dict[str,Union[str,Sequence[str]]]] = None, **kwargs):
 		'''
-		:param name: name of item to be registered (defaults to its __name__)
-		:param aliases: alternative names for arguments (can have multiple aliases per argument)
-		:param kwargs: additional keyword arguments to pass to :func:`register_script()`
+
+		Args:
+			name: name of item to be registered (defaults to its __name__)
+			aliases: alternative names for arguments (can have multiple aliases per argument)
+			**kwargs: additional keyword arguments to pass to :func:`register_script()`
 		'''
 		if aliases is None:
 			aliases = {}
 		super().__init__(name=name, **kwargs)
 		self.aliases = aliases
 
-	def autofill(self, config: AbstractConfig) -> Tuple[List[Any], Dict[str, Any]]:
+	def autofill(self, config: AbstractConfig, args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None) \
+			-> Tuple[List[Any], Dict[str, Any]]:
+		'''
+		Autofill arguments needed for the original item (which was decorated) from config.
+
+		Args:
+			config: Config object to autofill from
+			args: Manually specified arguments
+			kwargs: Manually specified keyword arguments
+
+		Returns:
+			Arguments to pass to the original item
+
+		'''
 		def default_fn(key, default):
 			if default is Parameter.empty:
 				default = config._empty_default
@@ -192,11 +207,24 @@ class _AutofillMixin(_Registration_Decorator):
 			if isinstance(aliases, str):
 				aliases = (aliases,)
 			return config.pulls(key, *aliases, default=default)
-		return extract_function_signature(self.item, default_fn=default_fn)
+		return extract_function_signature(self.item, args=args, kwargs=kwargs, default_fn=default_fn)
 
-	def top(self, config: AbstractConfig) -> Any:
-		args, kwargs = self.autofill(config)
-		return self.item(*args, **kwargs)
+	def top(self, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
+		'''
+		Replacement item to be registered, which first autofills arguments
+		from the config and then calls the original item.
+
+		Args:
+			config: Config object to autofill from
+			*args: Manually specified arguments
+			**kwargs: Manually specified keyword arguments
+
+		Returns:
+			Result of calling the original item
+
+		'''
+		fixed_args, fixed_kwargs = self.autofill(config, args=args, kwargs=kwargs)
+		return self.item(*fixed_args, **fixed_kwargs)
 
 	def register(self, name: str, item: Callable[[Any], Any], **kwargs):
 		super().register(name, self.top, **kwargs)
@@ -204,67 +232,91 @@ class _AutofillMixin(_Registration_Decorator):
 
 
 class autoscript(_AutofillMixin, script):
-	'''Convienence decorator to register scripts where the arguments are automatically extracted from the config'''
+	'''
+	Convienence decorator to register scripts where the arguments of the script signature
+	are automatically extracted from the config before running the script.
+
+	Note:
+		This is generally only recommended for simple, short scripts (since it severely limits the usage of the
+		config object by the script).
+	'''
 	def __init__(self, name: Optional[str] = None, description: Optional[str] = None,
 	             aliases: Optional[Dict[str, Union[str, Sequence[str]]]] = None, **kwargs):
 		'''
-		:param name: name of item to be registered (defaults to its __name__)
-		:param description: a short description of what the script does (defaults to first line of its docstring)
-		:param aliases: alternative names for arguments (can have multiple aliases per argument)
+
+		Args:
+			name: name of item to be registered (defaults to its __name__)
+			description: a short description of what the script does (defaults to first line of its docstring)
+			aliases: alternative names for arguments (can have multiple aliases per argument)
 		'''
 		super().__init__(name, description=description, aliases=aliases, **kwargs)
 
 
 
 class autocomponent(_AutofillMixin, component):
-	'''Convienence decorator to register components where the arguments are automatically extracted from the config'''
+	'''
+	Convienence decorator to register components where the arguments of the component function
+	are automatically extracted from the config
+
+	Note:
+		This is generally only recommended for simple components that are functions (rather than classes),
+		since class components should simply subclass :class:`Configurable` for effectively the same behavior.
+	'''
 	def __init__(self, name: Optional[str] = None, description: Optional[str] = None,
 	             aliases: Optional[Dict[str, Union[str, Sequence[str]]]] = None,
 	             creator: Optional[Union[str, AbstractCreator]] = None):
 		'''
-		:param name: name of item to be registered (defaults to its __name__)
-		:param description: a short description of what the script does (defaults to first line of its docstring)
-		:param aliases: alternative names for arguments (can have multiple aliases per argument)
-		:param creator: name of the creator that should be used to create this component
+
+		Args:
+			name: name of item to be registered (defaults to its __name__)
+			description: a short description of what the script does (defaults to first line of its docstring)
+			aliases: alternative names for arguments (can have multiple aliases per argument)
+			creator: name of the creator that should be used to create this component
 		'''
 		super().__init__(name=name, creator=creator, description=description, aliases=aliases)
 	
-	
-	
-# class AutoScript(AbstractScript):
-# 	def __init_subclass__(cls, script_name: str = None, description: Optional[str] = None,
-# 	                      aliases: Optional[Dict[str, Union[str, Sequence[str]]]] = None, **kwargs):
-# 		super().__init_subclass__(**kwargs)
-# 		if script_name is not None:
-# 			autoscript(script_name, description=description, aliases=aliases)(cls)
-
 
 
 class meta_rule(_Registration_Decorator):
-	'''Decorator to register a modifier (expected be a type)
+	'''
+	Decorator to register a meta rule.
 
-	Modifiers are "runtime mixins" for components. When specifying a component to be modified with the `_mod` key
-	in the config, a new type is dynamically created which is a child of all the specified modifiers as well as
-	the original component.
+	Meta rules are called by a project before a script is run, to enable modifying the config object
+	or even the script itself. Meta rules must be a callable that takes a config object and a dict
+	of meta settings as input.
+
+	Note:
+		It's generally recommended not to use this decorator, and subclass :class:`MetaRule` instead
+		(which registers automatically).
+
 	'''
 	def __init__(self, name: str, code: str, description: Optional[str] = None,
 	             priority: Optional[int] = 0, num_args: Optional[int] = 0, **kwargs):
 		'''
-		:param name: name of item to be registered (defaults to its __name__)
+
+		Args:
+			name: name of item to be registered (defaults to its __name__)
+			code: code to invoke the meta rule from the command line (without the `-` prefix)
+			description: a short description of what the meta rule does (defaults to first line of its docstring)
+			priority: priority of the meta rule (higher priority meta rules are run first)
+			num_args: number of arguments that the meta rule takes (used when parsing :code:`sys.argv`)
 		'''
 		super().__init__(name=name, code=code, description=description, priority=priority, num_args=num_args, **kwargs)
 
 	@staticmethod
-	def register(name: str, func: Callable, *, code: str, description: Optional[str] = None,
-	                       priority: Optional[int] = 0, num_args: Optional[int] = 0) -> None:
-		get_profile().register_meta_rule(name, func, code=code, description=description,
-		                                 priority=priority, num_args=num_args)
-
+	def register(name: str, item: Callable[[AbstractConfig, AbstractConfig], Optional[AbstractConfig]], *,
+	             code: str, description: Optional[str] = None, priority: Optional[int] = 0,
+	             num_args: Optional[int] = 0) -> None:
+		'''Registers a meta rule to the profile (so it is used by all projects).'''
+		get_profile().register_meta_rule(name, item, code=code, description=description, priority=priority,
+		                                 num_args=num_args)
 
 
 
 class Meta_Rule(AbstractMetaRule):
-	def __init_subclass__(cls, code=None, name=None, priority=0, num_args=0, description=None, **kwargs):
+	'''Recommended parent class for meta rules.'''
+	def __init_subclass__(cls, code: Optional[str] = None, name: Optional[str] = None, priority: int = 0,
+	                      num_args: int = 0, description: Optional[str] = None, **kwargs):
 		super().__init_subclass__(**kwargs)
 		if code is not None and name is None:
 			prt.warning(f'No name for {Meta_Rule.__name__} {cls.__name__} provided, will default to {cls.__name__!r}')
@@ -276,148 +328,20 @@ class Meta_Rule(AbstractMetaRule):
 			meta_rule(name=name, code=code, priority=priority, num_args=num_args, description=description)(cls.run)
 
 	@classmethod
-	def run(cls, config: AbstractConfig, meta: AbstractConfig):
+	def run(cls, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
+		'''
+		Called before a specified script is run (usually found in the `meta` config with key :code:`script_name`).
+
+		Args:
+			config: Config object that will be used to run the script (unless it is modified here)
+			meta: Meta config object that contains meta settings (such as the script name)
+
+		Returns:
+			Modified config object (or :code:`None` if no modification is needed)
+
+		'''
 		pass
 
-
-
-class autofill_with_config:  # TODO: generally not recommended for types, use Configurable instead
-	'''Decorator that automatically extracts arguments of a function or type with values from the config object'''
-
-	def __init__(self, _=None, /, **aliases):
-		if _ is not None:
-			raise TypeError(f'This decorator must be instantiated, so it should end in "()"')
-		self.aliases = aliases.copy()
-		self.fn = _
-
-	class _Autofill_Init:
-		_autofill_aliases = None
-
-		def _autofill_init(self, config: AbstractConfig, kwargs: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
-			def default_fn(key, default):
-				if default is Parameter.empty:
-					default = config._empty_default
-				if self._autofill_aliases is None:
-					aliases = ()
-				else:
-					aliases = self._autofill_aliases.get(key, ())
-					if isinstance(aliases, str):
-						aliases = (aliases,)
-				return config.pulls(key, *aliases, default=default)
-
-			return extract_function_signature(super().__init__, kwargs=kwargs, default_fn=default_fn)
-
-		def __init__(self, config: AbstractConfig, **kwargs):
-			args, kwargs = self._autofill_init(config, **kwargs)
-			super().__init__(*args, **kwargs)
-
-	def autofill(self, config: AbstractConfig, args: Optional[Tuple] = None,
-	             kwargs: Optional[Dict[str, Any]] = None) -> Tuple[List[Any], Dict[str, Any]]:
-		def default_fn(key, default):
-			if default is Parameter.empty:
-				default = config._empty_default
-			aliases = self.aliases.get(key, ())
-			if isinstance(aliases, str):
-				aliases = (aliases,)
-			return config.pulls(key, *aliases, default=default)
-
-		return extract_function_signature(self.fn, args=args, kwargs=kwargs, default_fn=default_fn)
-
-	def top(self, config: AbstractConfig, *args, **kwargs) -> Any:
-		fixed_args, fixed_kwargs = self.autofill(config, args=args, kwargs=kwargs)
-		return self.fn(*fixed_args, **fixed_kwargs)
-
-	def __call__(self, func: Callable[[Any], Any]) -> Callable[[AbstractConfig], Any]:
-		if isinstance(func, type):
-			assert not isinstance(func, self._Autofill_Init), \
-				'Cannot apply autofill decorator to a class that already has it'
-			return type(self.rename_fmt.format(name=func.__name__), (self._Autofill_Init, func),
-			            {'_autofill_aliases': self.aliases})
-		self.fn = func
-		return self.top
-
-
-
-
-
-
-# class Modification: # TODO: old version of modifier
-# 	'''
-# 	Decorator to register a modifier
-#
-# 	NOTE: a :class:`Modifier` is usually not a type/class, but rather a function
-# 	(except :class:`AutoModifiers`, see below)
-#
-# 	The modifier signature is expected to be: (component_type) -> component_type
-# 	'''
-#
-#
-# class ConfigModifier(Modifier):
-# 	pass
-#
-#
-# class AutoModifier(Modifier):
-# 	'''
-# 	Can be used to automatically register modifiers that combine types
-#
-# 	To keep component creation as clean as possible, modifier types should allow arguments to their __init__
-# 	(other than the Config object) and only call pull on arguments not provided, that way child classes of
-# 	the modifier types can specify defaults for the modifications without calling pull() multiple times
-# 	on the same arg.
-#
-# 	Note: in a way, this converts components to modifiers (but think before using). This turns the modified
-# 	component into a child class of this modifier and its previous type.
-#
-# 	In short, Modifiers are used for wrapping of components, AutoModifiers are used for subclassing components
-#
-# 	:param name: if not provided, will use the __name__ attribute.
-# 	:return: decorator to decorate a class
-# 	'''
-# 	def create_modified_component(self, component):
-# 		self.product = component if issubclass(component, self.mod_cls) \
-# 			else type('{}_{}'.format(self.mod_cls.__name__, component.__name__), (self.mod_cls, component), {})
-# 		return self.product
-#
-#
-# 	def __call__(self, cls):
-# 		if self.name is None:
-# 			self.name = cls.__name__
-# 		self.mod_cls = cls
-# 		super().__call__(self.create_modified_component)
-# 		return cls
-#
-#
-#
-# class Modification(Modifier):
-# 	'''
-# 	A kind of Modifier that modifies the component after it is created,
-# 	and then returns the modified component
-#
-# 	expects a callable with input (component, config)
-#
-# 	Modifications should almost always be applied after all other modifiers,
-# 	so they should appear at the end of _mod list
-#
-# 	:param name: name to register
-# 	:return: a decorator expecting the modification function
-# 	'''
-#
-# 	def top(self, component):
-# 		self.component_fn = component
-# 		return self.create_and_modify
-#
-#
-# 	def create_and_modify(self, config):
-# 		component = self.component_fn(config)
-# 		return self.fn(component, config)
-#
-#
-# 	def __call__(self, fn):
-# 		if self.name is None:
-# 			self.name = fn.__name__
-# 		self.fn = fn
-# 		super().__call__(self.top)
-# 		return fn
 
 
 

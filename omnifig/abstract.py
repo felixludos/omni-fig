@@ -692,7 +692,7 @@ class AbstractRunMode(Activatable):
 
 
 
-class AbstractProject(AbstractRunMode, FileInfo):
+class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 	'''
 	Abstract class for projects. Projects track artifacts (eg. configs and components) in registries
 	and manage loading configs and running scripts.
@@ -830,7 +830,7 @@ class AbstractProject(AbstractRunMode, FileInfo):
 
 
 
-class AbstractProfile(FileInfo): # generally you should extend organization.workspaces.ProfileBase
+class AbstractProfile(FileInfo, Activatable): # generally you should extend organization.workspaces.ProfileBase
 	'''
 	Abstract classes for profiles. Profiles manage projects and provide meta rules. Unlike projects,
 	generally a runtime should only use a single global instance of a profile.
@@ -877,7 +877,7 @@ class AbstractProfile(FileInfo): # generally you should extend organization.work
 
 	@classmethod
 	def register_meta_rule(cls, name: str, func: Callable[[AbstractConfig, Dict[str, Any]], Optional[AbstractConfig]],
-	                       code: str, priority: Optional[int] = 0, num_args: Optional[int] = 0) -> NamedTuple:
+	                       *, code: str, priority: Optional[int] = 0, num_args: Optional[int] = 0) -> NamedTuple:
 		'''
 		Registers a new meta rule in the profile.
 

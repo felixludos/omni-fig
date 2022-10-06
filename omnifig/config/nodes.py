@@ -13,7 +13,7 @@ from .abstract import AbstractSearch, AbstractReporter
 prt = get_printer(__name__)
 
 
-class ConfigNode(AbstractConfig, AutoTreeNode, Exportable):
+class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml', '.fig.yaml']):
 	# _DummyNode: 'ConfigNode' = None
 	Settings = OrderedDict
 
