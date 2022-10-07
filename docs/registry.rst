@@ -1,9 +1,9 @@
-Registries
+Registry
 ==========
 
 At the heart of good code organization is a flexible yet powerful way to add new features or functionality to a past, current, and even future projects. ``omni-fig`` accomplishes this by relying on registries to manage all of the most important pieces of code that may be explicitly addressed/referred to in the config.
 
-The first registry registers all scripts which are essentially the top level interface for how a user is to interact with the code (by calling scripts). These scripts can be called from the terminal (see :ref:`common:Running Scripts` for more details and examples) or executed in environments like jupyter notebooks or an IDE debugger (eg. Pycharm).
+The first registry registers all scripts which are essentially the top level interface for how a user is to interact with the code (by calling scripts). These scripts can be called from the terminal (see :ref:`scripts:Running Scripts` for more details and examples) or executed in environments like jupyter notebooks or an IDE debugger (eg. Pycharm).
 
 Next, is the component registry. A component is any atomic piece of code that might be specified in the config. As the config object is a yaml file, there are no python classes or objects there in (aside from dicts, lists and primitives). Instead, if the user wants to use a user defined class or function, it can be registered as a component, and then the component can be referred to in the config with the key ``_type``.
 
@@ -17,17 +17,17 @@ For an extended example in how all three registries might be used for a simple p
     import random
     import omnifig as fig
 
-    @fig.script('sample-low-prob')
-    def sample_low_prob(config): # config object
+    @fig.Script('sample-low-prob')
+    def sample_low_prob(A): # config object
 
-        mylogger = config.pull('logger') # create a logger object according to specifications in the config
+        mylogger = A.pull('logger') # create a logger object according to specifications in the config
 
-        num_events = config.pull('num_events', 10) # default value is 10 if "num_events" is not specified in the config
+        num_events = A.pull('num_events', 10) # default value is 10 if "num_events" is not specified in the config
 
-        interest_criterion = config.pull('criterion', 5.)
-        important_criterion = config.pull('important_criterion', 5.2)
+        interest_criterion = A.pull('criterion', 5.)
+        important_criterion = A.pull('important_criterion', 5.2)
 
-        mu, sigma = config.pull('mu',0.), config.pull('sigma', 1.)
+        mu, sigma = A.pull('mu',0.), A.pull('sigma', 1.)
         sigma = max(sigma, 1e-8) # ensure sigma is positive
 
         print('Sampling...')
@@ -52,22 +52,20 @@ In this example project, we may require a logger (called ``logger`` above) to pr
 
 .. code-block:: python
 
-    @fig.autocomponent('stdout') # automatically pulls all arguments in signature before creating
+    @fig.AutoComponent('stdout') # automatically pulls all arguments in signature before creating
     def _get_stdout(): # in this case, we don't need any arguments
         return sys.stdout
 
-    @fig.autocomponent('file')
+    @fig.AutoComponent('file')
     def _get_file(path):
         return open(path, 'a+')
 
-    @fig.component('mylogger')
-    class Logger(fig.Configurable): # Subclassing Configurable allows automatically fills in the arguments
-        def __init__(self, always_log=False, print_stream=None, credits=None): # arguments pulled from the config object
-            self.always_log = always_log # value defaults to False if not found in the config
-            self.print_stream = print_stream # values can also be components themselves
-            if credits is None:
-                credits = []
-            self.credits = credits # pulled values can also be dicts or lists (with defaults)
+    @fig.Component('mylogger')
+    class Logger:
+        def __init__(self, A): # "A" refers to the config object
+            self.always_log = A.pull('always_log', False) # value defaults to False if not found in the config
+            self.print_stream = A.pull('print_stream', None) # values can also be components themselves
+            self.credits = A.pull('credits', []) # pulled values can also be dicts or lists (with defaults)
             if not isinstance(self.credits, list):
                 self.credits = list(self.credits)
 
@@ -111,15 +109,17 @@ To add on to our previous example:
 
 .. code-block:: python
 
-    @fig.modifier('multi')
-    class MultiStream(fig.Configurable):
-        # use this decorator to search for arguments in multiple places in the config
-        @fig.config_aliases(print_stream=['print_streams'])
-        def __init__(self, print_stream=(), **kwargs):
-            if not isinstance(print_stream, (list, tuple)):
-                print_stream = [print_stream]
+    @fig.AutoModifier('multi')
+    class MultiStream:
+        def __init__(self, A):
 
-            super().__init__(print_stream=print_stream, **kwargs) # initialize original component class
+            streams = A.pull('print_streams', '<>print_stream', []) # use prefix "<>" to default to a different key
+            if not isinstance(streams, (list, tuple)):
+                streams = [streams]
+
+            A.push('print_stream', None) # push to replace values in the config
+
+            super().__init__(A) # initialize any dynamically added superclasses (-> Logger)
 
             self.print_streams = streams
 
@@ -134,15 +134,13 @@ To add on to our previous example:
             for stream in self.print_streams:
                 stream.close()
 
-    @fig.modifier('remove-credits')
-    class RemoveNames(fig.Configurable):
-        def __init__(self, remove_names=None, credits=None, **kwargs):
-            if credits is not None and remove_names is not None:
-                for name in remove_names:
-                    if name in credits:
-                        credits.remove(name)
-                        print(f'Removed {name} from credits')
-            super().__init__(credits=credits, **kwargs)
+    @fig.Modification('remove-credits')
+    def remove_names(logger, A):
+        for name in A.pull('remove_names', []):
+            if name in logger.credits:
+                logger.credits.remove(name)
+                print(f'Removed {name} from credits')
+        return logger
 
 And some associated configs might include (``config3``):
 
@@ -177,19 +175,13 @@ Another part of this example that warrants careful consideration is how the :fun
 
 Note that the :func:`AutoModifier` can be paired with, in principle, any component (although some will raise errors), which effectively means an :func:`AutoModifier` allows changing the behavior of any component, even ones that haven't even been written yet. While :func:`AutoModifier` is one of the most powerful features of the registry system in ``omni-fig``, they are consequently also rather advanced, so particular care must be taken when using them.
 
-
-.. automodule omnifig.decorators
-
-
-Artifacts
----------
-
-[artifacts info]
-
-
-Configurable
-------------
-
-[configurable info]
+.. automodule:: omnifig.decorators
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,get_script,_make_post_mod,_Script_Registry,_Component_Registry,_Modifier_Registry
+    :member-order: bysource
 
 

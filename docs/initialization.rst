@@ -1,44 +1,5 @@
-Organization
-============
-
-[organization info]
-
-
 Initialization
---------------
-
-[initialization info]
-
-
-Profiles
---------
-
-[profiles info]
-
-
-Projects
---------
-
-[projects info]
-
-
-Meta Rules
-----------
-
-[rules info]
-
-
-Mix-ins
--------
-
-[mix-ins info]
-
-
-Multi-processing
-----------------
-
-[farming info]
-
+==============
 
 It is strongly encouraged to *initialize* omni-fig before running any scripts. When calling a script from the terminal using the ``fig`` command, omni-fig will initialize automatically, but when running in a separate environment (such as in a jupyter notebook), it is suggested to call :func:`omnifig.initialize()` after importing the package. More info about :func:`initialize` can be found in :ref:`scripts:Running Scripts`.
 
@@ -76,7 +37,14 @@ The most important contents of the profile file (all of which are optional):
 - ``global_settings`` - dictionary of setting names and values to be set during loading
 - ``autoload_local`` - bool to specify whether the project in the current working directory should be loaded (default: ``True``)
 
-.. automodule omnifig.profiles
+.. automodule:: omnifig.profiles
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,mtype
+    :member-order: bysource
 
 Projects
 --------
@@ -94,7 +62,14 @@ The directory that contains the project info file (``.fig.yml``) is defined as t
 
 When a project is loaded, first the desired type is identified. As a result, you can subclass the :class:`Project` class and override the behavior of project objects. Note that this is a fairly advanced featured and should be used only when absolutely necessary (atm I'm not sure why I added this feature in the first place).
 
-.. automodule omnifig.organization
+.. automodule:: omnifig.organization
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__str__,__repr__
+    :member-order: bysource
 
 
 Meta Rules
@@ -104,7 +79,14 @@ Meta rules allows changing any script's behavior before it is run, primarily by 
 
 Before a script is executed, all registered meta rules are executed in order of priority (low to high). Since all meta rules are always executed, each rule is expected to check the meta config object whether it has been activated and act accordingly. Note that every meta rule is given the loaded config (and separately the meta config) and returns the config after making whatever changes are desired.
 
-.. automodule omnifig.rules
+.. automodule:: omnifig.rules
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,_Rules_Registry,view_meta_rules,meta_rule_fns
+    :member-order: bysource
 
 
 Help Rule
@@ -114,7 +96,14 @@ As a particularly useful example of how meta rules can be used, the "help rule" 
 
 Note that by subclassing and reregistering this rule, the help message and behavior can easily be augmented.
 
-.. automodule omnifig.common.help
+.. automodule:: omnifig.common.help
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__
+    :member-order: bysource
 
 
 
@@ -123,7 +112,14 @@ Run Modes
 
 The run mode is a component that is created using the meta config object. Aside from any user defined functionality, the run mode responsible for identifying the script that should be run (by default saved to ``script_name`` in the meta config), find the corresponding function (usually using :meth:`self.get_script_info`), execute it with the provided config, and finally return the output.
 
-.. automodule omnifig.modes
+.. automodule:: omnifig.modes
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__
+    :member-order: bysource
 
 Debug Mode
 **********
@@ -132,7 +128,14 @@ The debug mode serves as a good example for how run modes can be used. During de
 
 The debug mode is activated using a meta rule (``-d`` => ``debug``), which then changes the run mode to the debug run mode (registered under ``run_mode/debug``. Finally, the debugger also automatically updates the config to include a ``debug`` config (registered as ``debug``)
 
-.. automodule omnifig.common.debug
+.. automodule:: omnifig.common.debug
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__
+    :member-order: bysource
 
 
 Utilities
@@ -144,29 +147,22 @@ this should give you a sense for where some of the functionality from behind the
 Generally, it should not be necessary for a user to call any of these utilities, but they may be useful to
 add or change the behavior of ``omni-fig``.
 
-.. automodule omnifig.external
+.. automodule:: omnifig.external
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,_Config_Registry
+    :member-order: bysource
 
 
-.. automodule omnifig.loading
-
-.. role:: py(code)
-   :language: python
-
-
-
-[todo]
-
-Topics
-------
-
-- package vs leaf projects
-- project maintenance (levels)
-
-Topics
-------
-
-- package vs leaf projects
-- project maintenance (levels)
-- good project hygiene
-- dependencies and related projects
+.. automodule:: omnifig.loading
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__enter__,__exit__
+    :member-order: bysource
 

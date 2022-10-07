@@ -1,7 +1,5 @@
-.. _common:
-
-Default Behavior
-================
+Running Scripts
+===============
 
 There are several ways to run scripts that are registered using ``omni-fig``. The most common way is through the command line using the ``fig`` command or from a different environment (eg. a jupyter notebook) using :func:`run()` or :func:`quick_run()` (depending on if the config has already been loaded or not).
 
@@ -45,25 +43,12 @@ The equivalent command without using ``main.py`` is:
     fig -d myscript myconfig1 myconfig2 --myflag --myvalue 1234
 
 
-.. automodule omnifig.running
-
-
-Top-level interface
--------------------
-
-By default, these functions provide all the basic and most important features of this package. However, they usually delegate all the real heavy-lifting to the "current" project or profile, so for more fine-grain control over exactly how your code gets organized and additional customization, take a look at the full documentation (particularly the sections about profiles and projects).
-
-.. automodule omnifig.top
-
-
-Running Scripts
----------------
-
-[running scripts info]
-
-
-Top-Level Targets
------------------
-
-[top level info]
+.. automodule:: omnifig.running
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__
+    :member-order: bysource
 
