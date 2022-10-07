@@ -968,7 +968,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		raise NotImplementedError
 
 	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
-	        kwargs: Optional[Dict[str, Any]] = None, meta: Optional[Dict[str, Any]] = None) -> Any:
+	        kwargs: Optional[Dict[str, Any]] = None, **meta: Any) -> Any:
 		'''
 		Runs the script with the given arguments using :func:`run()` of the current project.
 

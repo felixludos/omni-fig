@@ -196,7 +196,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		return self.get_current_project().main(argv, script_name=script_name)
 	
 	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
-	        kwargs: Optional[Dict[str, Any]] = None):
+	        kwargs: Optional[Dict[str, Any]] = None, **meta: Any):
 		'''
 		Runs the script with the given arguments using :func:`run()` of the current project.
 
@@ -213,7 +213,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		'''
 		return self.get_current_project().run(config, script_name=script_name, args=args, kwargs=kwargs)
 	
-	def quick_run(self, script_name, *parents, **args):
+	def quick_run(self, script_name, *configs, **parameters):
 		'''
 		Creates a config object and runs the script using :func:`quick_run()` of the current project.
 
@@ -226,7 +226,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 			Output of the script.
 
 		'''
-		return self.get_current_project().quick_run(script_name, *parents, **args)
+		return self.get_current_project().quick_run(script_name, *configs, **parameters)
 	
 	def cleanup(self, *args: Any, **kwargs: Any) -> None:
 		'''

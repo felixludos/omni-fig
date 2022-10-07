@@ -100,9 +100,13 @@ class GeneralProject(ProjectBase, name='general'):
 				if path.is_dir():
 					self.load_configs([path])
 					
-		pkgs = self.data.get('packages', [])
+		pkgs = self.data.get('modules', [])
+		if 'module' in self.data:
+			pkgs = [self.data['module']] + pkgs
 		if 'package' in self.data:
 			pkgs = [self.data['package']] + pkgs
+		if 'packages' in self.data:
+			pkgs = self.data['packages'] + pkgs
 		self.load_src(self.data.get('src', []), pkgs)
 
 	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()) -> None:

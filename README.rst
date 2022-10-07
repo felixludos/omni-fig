@@ -31,10 +31,10 @@ Configuration and project organization without compromises
 
 .. _page: https://www.notion.so/felixleeb/omni-fig-c5223f0ca9e54eb4b8d9749aade4a9d3
 
-This package contains a powerful config system for you to provide arguments/information to your scripts (as python objects, separate yaml files, or from the terminal directly) and enables your code to be run in a variety of execution environments (from the terminal, in a jupyter notebook, through an IDE debugger, etc.).
+This package contains a powerful config system for you to provide arguments/information to your scripts (as separate yaml files, from the terminal, or directly in python) to enable your code to be conveniently run in a variety of execution environments (from the terminal, in a jupyter notebook, through an IDE debugger, etc.).
 
 
-The primary way to use this package is to create *projects* containing python source files and yaml (info and config) files (an example of which is discussed below). Each project uses ``Component``, ``Modifier``, and ``Script`` to register any
+The primary way to use this package is to create *projects* containing python source files and yaml (info and config) files (an example of which is discussed below). Each project uses ``component``, ``modifier``, and ``script`` to register artifacts which can then be referenced in the config.
 
 For lots of detailed examples in how the config system works, see the unit tests in ``tests/test_config.py`` and the documentation_, which also includes some examples.
 
@@ -65,7 +65,7 @@ Quickstart
 
 .. quickstart-marker-do-not-remove
 
-A project only requires a yaml file called ``.fig.yml`` or similar (see documentation_), however, it is also suggested to create a directory called ``config`` to contain any config yaml files that should automatically be registered when the project is loaded. Usually, when loading a project, that requires running some python files, relative path to the top level source file to run should be specified in the project info file (``.fig.yml``) under the key ``src``. Below is an example of a simple ``omni-fig`` project with all the suggested bells and whistles:
+A project only requires a yaml file called ``.fig.yml`` (see documentation_), however, it is also suggested to create a directory called ``config/`` to contain any config yaml files that should automatically be registered when the project is loaded. Usually, when loading a project, that requires running/importing some python files, relative path to the top level source file to run should be specified in the project info file (``.fig.yml``) under the key ``src`` and any modules should be specified with ``module``. Below is an example of a simple ``omni-fig`` project with all the suggested bells and whistles:
 
 .. code-block::
 
@@ -80,8 +80,8 @@ A project only requires a yaml file called ``.fig.yml`` or similar (see document
     │   └── debug.yaml - config to be automatically used in debug mode
     │
     ├── src/ - any python source files
-    │   ├── __init__.py - python file to be called to load project as a package into omnifig.projects
-    │   ├── script1.py - any additional source files
+    │   ├── __init__.py - python file to be called to load project as a module into omnifig.projects
+    │   ├── script1.py - any additional source files part of the module
     │   └── ...
     │
     ├── .fig.yml - project info file
@@ -92,32 +92,32 @@ For the example above, ``.fig.yml`` should contain something like:
 .. code-block:: yaml
 
     name: myproject
-    package: src
+    module: src
 
-To specify that ``src/`` contains the code neccessary load the project.
+To specify that ``src/`` contains the code necessary load the project.
 
-Inside the python package ``src/`` you can register any ``Components``, ``Modifiers``, ``Scripts``, or configs needed for the project. For example, ``src/__init__.py`` might look like:
+Inside the python package ``src/`` you can register any ``component``s, ``modifier``s, ``script``s, or configs needed for the project. For example, ``src/__init__.py`` might look like:
 
 .. code-block:: python
 
     import omnifig as fig
 
-    @fig.Component('myconverter') # registers a new component (any class or function to be specified in the config)
-    class Converter:
-        def __init__(self, A): # when creating a component, the input is the config object at the corresponding node
-            self.rates = A.pull('rates', {})
+    @fig.component('myconverter') # registers a new component (any class or function to be specified in the config)
+    class Converter(fig.Configurable):
+        def __init__(self, rates=None): # when creating a component, the input is the config object at the corresponding node
+            if rates is None:
+                rates = {}
+            self.rates = rates
 
         def to_usd(self, value, currency):
-            if currency in self.rates:
-                return value / self.rates[currency]
-            return value
+            return value / self.rates.get(currency, 1.)
 
-    @fig.AutoModifier('sketchy') # registers a new automodifier (used to dynamically modify components)
-    class Sketchy:
-        def __init__(self, A):
-            super().__init__(A) # AutoModifiers become subclasses of the Component they modify
+    @fig.modifier('sketchy') # registers a new modifier (used to dynamically modify components)
+    class Sketchy(fig.Configurable):
+        def __init__(self, fudge_the_numbers=True, **kwargs):
+            super().__init__(**kwargs) # modifiers become subclasses of the component they modify
 
-            self.fudge_the_numbers = A.pull('fudge_the_numbers', True)
+            self.fudge_the_numbers = fudge_the_numbers
 
         def to_usd(self, value, currency):
             value = super().to_usd(value, currency)
@@ -125,8 +125,7 @@ Inside the python package ``src/`` you can register any ``Components``, ``Modifi
                 return value * 0.9
             return value
 
-
-    @fig.Script('myscript', description='Does something awesome') # registers a new script called "myscript"
+    @fig.script('myscript', description='Does something awesome') # registers a new script called "myscript"
     def run_train_model(A): # config object containing all necessary config info
         print('Running myscript!')
 
@@ -140,14 +139,18 @@ Inside the python package ``src/`` you can register any ``Components``, ``Modifi
         # also this will automatically create the node "other_branch" if it doesn't already exist
         arg3 = A.push('other_branch.arg3', 'myvalue', overwrite=False)
 
+        # using `pulls()`, you can check multiple keys and return a default value if none of them are found
+        name = A.pulls('name', 'nickname', default='-unknown-')
+        print('Hello', name)
+
         # when a node (eg. "converter") contains the key "_type" (and optionally "_mod") it is treated as a component
         A.push('converter._type', 'myconverter', overwrite=False)
 
         # values can be lists/dicts (even nested)
+        # you can also use "silent" to suppress messages to stdout when pulling values
+        budget, unit = A.pull('mymoney', [1000000000, 'Zimbabwe-dollars'], silent=True)
 
-        budget, unit = A.pull('mymoney', [1000000000, 'Zimbabwe-dollars'])
-
-        converter = A.pull('converter', None) # when pulling components, they objects are automatically created
+        converter = A.pull('converter', None) # when pulling components, the objects are automatically created
 
         if converter is not None:
             budget = converter.to_usd(budget, unit)
@@ -162,7 +165,7 @@ Inside the python package ``src/`` you can register any ``Components``, ``Modifi
         return msg # anything this script should return
 
 
-Any function or class that should be specified in the config should be registered as a ``Component``. When "pulling" a component (a config node that contains the "_type" key), the config system will automatically get the corresponding class/function and run it (returning the created instance/output). You can also define and register ``Modifiers`` to dynamically specify modifications that you want to make to the components in the config (using the "_mod" key in the same node as "_type").
+Any function or class that should be specified in the config should be registered as a ``component``. When "pulling" a component (a config node that contains the ``_type`` key), the config system will automatically get the corresponding class/function and call it (returning the created instance/output). You can also define and register ``modifier``s to dynamically specify mix-ins that you want to make to the components in the config (using the ``_mod`` key in the same node as ``_type``).
 
 
 It is highly recommended that you create a profile info yaml file and set the environment variable ``FIG_PROFILE`` to the full path to that profile info file. For example, the profile might contain:
@@ -186,7 +189,7 @@ With this setup, you should be able to run all of the below (from the terminal i
     # execute myscript in debug mode ("-d") and with config file "dir1/myconfig2"
     fig -d myscript dir1/myconfig2
 
-    # execute myscript with "myconfig1" as config updated by command line argument
+    # execute myscript with "myconfig1" as config updated by command line argument "arg1"
     fig myscript myconfig1 --arg1 cmdline
 
     # execute myscript with merged config file and command line arguments
@@ -203,23 +206,24 @@ You might also load and run scripts in this project from a jupyter notebook (or 
 
     import omnifig as fig
 
-    fig.initialize('myproject') # load profile and project
+    fig.initialize('myproject') # load all source files and configs associated with the project
 
-    A = fig.get_config('dir1/myconfig2', 'config1') # positional arguments can be names of registered config files
+    A = fig.create_config('dir1/myconfig2', 'config1') # positional arguments should be names of registered config files
     out1 = fig.run('myscript', A)
 
-    B = fig.get_config('config1', arg1=[1,2,3]) # keyword arguments are much like command line arguments
+    B = fig.create_config('config1', arg1=[1,2,3]) # keyword arguments are much like command line arguments
     out2 = fig.run('myscript', B, debug=True) # meta arguments (such as "debug") can be set using keyword args in run()
 
-    C = fig.get_config(arg1='something', arg2='another thing')
+    C = fig.create_config(arg1='something', arg2='another thing')
     C.update(B)
     C.push('arg1', 'something else') # the config object can be modified with push()/update()
     out3 = fig.run('myscript', C)
 
-    # quick_run effectively combines get_config and
+    # quick_run effectively combines create_config() and run()
     out4 = fig.quick_run('myscript', 'config1', use_gpu=True)
 
-While this example should give you a basic idea for what a project might look like, this only touches on the basics of what you can do with ``omni-fig``. I strongly recommend you check out the documentation_. for more information, additionally there are some examples of real projects that use ``omni-fig`` such as omnilearn_ and No-Nonsense-News_ .
+
+While this example should give you a basic idea for what a project might look like, this only touches on the basics of what you can do with ``omni-fig``. I strongly recommend you check out the documentation_ for more information and examples.
 
 .. _documentation: https://omnifig.readthedocs.io/
 
@@ -235,18 +239,29 @@ Citation
 If you used `omnifig` in your work, please cite it using:
 
 
-Road to 1.0
-===========
+.. code-block:: tex
 
-Major features to be added in the near future:
+   @misc{leeb2022omnifig,
+     title = {Omni-fig: Configuration and Project Management for Python},
+     author = {Leeb, Felix},
+     publisher = {GitHub},
+     year = {2022}
+   }
 
-- configuration macros for modifying every part of the config behavior
-- customized the print messages or logging when using a config
-- enable multi-processing with registered artifacts
-- server run mode to submit, monitor, and schedule commands
-- full coverage with unit tests
-- clean up global settings and env variables
 
-Feedback and contributions are always welcome.
+
+.. Road to 1.0
+	===========
+
+	Major features to be added in the near future:
+
+	- configuration macros for modifying every part of the config behavior
+	- customized the print messages or logging when using a config
+	- enable multi-processing with registered artifacts
+	- server run mode to submit, monitor, and schedule commands
+	- full coverage with unit tests
+	- clean up global settings and env variables
+
+	Feedback and contributions are always welcome.
 
 .. end-setup-marker-do-not-remove
