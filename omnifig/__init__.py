@@ -4,10 +4,9 @@ from .top import get_current_project, get_project, switch_project, iterate_proje
 	entry, main, run, quick_run, initialize, cleanup, create_config
 
 from . import config as _config
+from . import rules as _rules
 
 from .configurable import Configurable, config_aliases
-# from .farming import Farmer, Worker
-from . import rules as _rules
 
 import os
 __info__ = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py')}
