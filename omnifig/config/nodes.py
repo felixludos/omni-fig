@@ -2,6 +2,7 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 	Iterator, NamedTuple, ContextManager
 import abc
 import inspect
+import yaml
 from collections import OrderedDict
 from omnibelt import Exportable, get_printer, unspecified_argument, extract_function_signature, \
 	JSONABLE, Primitive, primitive
@@ -309,11 +310,18 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 			line = f'CREATING {self._format_component(key, component_type, modifiers, creator_type)}'
 			return self.log(self._stylize(node, line), silent=silent)
 
-	
+
+	class CycleError(RuntimeError):
+		def __init__(self, config):
+			super().__init__(f'Cycle detected for {config.my_address()}')
+			self.config = config
+
 	class DefaultCreator(AbstractCreator):
 		_config_component_key = '_type'
 		_config_modifier_key = '_mod'
 		_config_creator_key = '_creator'
+
+		_creation_context = None
 		
 		@classmethod
 		def replace(cls, creator: 'ConfigNode.DefaultCreator', config, *, component_type: Optional[str] = None,
@@ -411,7 +419,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 				for key, child in config.children():
 					old = child._trace
 					child._trace = None if trace is None else trace.sub_search(config, [key])
-					product[key] = child._process(silent=silent)
+					product[key] = child.pull(silent=silent)
 					child._trace = old
 				# product = config.SparseNode._python_structure(product)
 			
@@ -420,7 +428,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 				for key, child in config.children():
 					old = child._trace
 					child._trace = None if trace is None else trace.sub_search(config, [key])
-					product.append(child._process(silent=silent))
+					product.append(child.pull(silent=silent))
 					child._trace = old
 				# product = config.DenseNode._python_structure(product)
 			else:
@@ -435,6 +443,22 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 			config._trace = None
 			return payload
 
+		def _setup_context(self, config: 'ConfigNode') -> None:
+			table = ConfigNode.DefaultCreator._creation_context
+			if table is None:
+				ConfigNode.DefaultCreator._creation_context = {config: True}
+			else:
+				if config in table:
+					raise config.CycleError(config)
+				table[config] = False
+
+		def _end_context(self, config: 'ConfigNode', product: Any) -> None:
+			reset = ConfigNode.DefaultCreator._creation_context.get(config, None)
+			if reset:
+				ConfigNode.DefaultCreator._creation_context = None
+			elif reset is not None:
+				del ConfigNode.DefaultCreator._creation_context[config]
+
 		def create_product(self, config: 'ConfigNode', args: Optional[Tuple] = None,
 		           kwargs: Optional[Dict[str,Any]] = None, *, silent: Optional[bool] = None) -> Any:
 			if args is None:
@@ -447,7 +471,8 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 			transfer = self.validate(config)
 			if transfer is not None:
 				return transfer.create_product(config, args=args, kwargs=kwargs)
-			
+
+			self._setup_context(config)
 			if self.component_type is None:
 				if config.has_payload:
 					value = self._create_primitive(config, silent=silent)
@@ -455,6 +480,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 					value = self._create_container(config, silent=silent)
 			else:
 				value = self._create_component(config, args=args, kwargs=kwargs, silent=silent)
+			self._end_context(config, value)
 			return value
 			
 
@@ -552,6 +578,14 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 		if self.settings is None:
 			self.settings = self.Settings()
 
+	def __eq__(self, other):
+		return type(self) == type(other) \
+		       and id(self.root) == id(other.root) \
+		       and self.my_address() == other.my_address()
+
+	def __hash__(self):
+		return hash(self.my_address())
+
 	@property
 	def project(self):
 		if self._project is None:
@@ -567,12 +601,12 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 		else:
 			parent.project = project
 
-	@property
-	def root(self) -> 'ConfigNode':
-		parent = self.parent
-		if parent is None:
-			return self
-		return parent.root
+	# @property
+	# def root(self) -> 'ConfigNode':
+	# 	parent = self.parent
+	# 	if parent is None:
+	# 		return self
+	# 	return parent.root
 
 	@property
 	def manager(self):
@@ -688,8 +722,12 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 			for _, child in self.children():
 				child.clear_product(recursive=recursive)
 
+	def to_yaml(self, stream=None, default_flow_style=None, sort_keys=True, **kwargs: Any) -> None:
+		return yaml.dump(self.to_python(), stream, default_flow_style=default_flow_style, sort_keys=sort_keys,
+		                 **kwargs)
+
 	def __str__(self):
-		return f'{self.__class__.__name__}[{len(self)} children]({", ".join(key for key, _ in self.children())})'
+		return self.to_yaml()
 
 	def __repr__(self):
 		return f'<{self.__class__.__name__} {len(self)} children>'
@@ -746,7 +784,7 @@ class ConfigSparseNode(AutoTreeSparseNode, ConfigNode):
 
 
 class ConfigDenseNode(AutoTreeDenseNode, ConfigNode):
-	_python_structure = tuple
+	_python_structure = list
 
 
 # ConfigNode._DummyNode = ConfigDummyNode

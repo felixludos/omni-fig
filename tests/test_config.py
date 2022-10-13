@@ -576,8 +576,29 @@ def test_raw_and_cousins():
 	assert c.x is None
 	assert c.a14 == 'success'
 	assert c.a14b == 'next'
+
+	# testing printing
+
+	print(A)
+	print()
+	print(fig.create_config('test3'))
 	
 	
 # TODO: unit tests checking the printed output when pulling/pushing objects
+
+
+def test_pull_cycle():
+
+	A = fig.create_config()
+
+	A.push('a', ['<>a'])
+
+	try:
+		out = A.pull('a')
+	except A.CycleError as e:
+		assert e.config.my_address() == ('a',)
+	else:
+		assert False, 'CycleError not raised'
+
 
 
