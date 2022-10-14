@@ -1,11 +1,11 @@
 from typing import Any, Dict, List, Optional, Tuple, Union, Type, Sequence, Callable
 import inspect
-from omnibelt import dynamic_capture, extract_function_signature
+from omnibelt import dynamic_capture, extract_function_signature, Modifiable
 
 from .abstract import AbstractConfig, AbstractConfigurable
 
 
-class Configurable(AbstractConfigurable):
+class Configurable(AbstractConfigurable, Modifiable):
 	'''
 	Mix-in class for objects that can be constructed with a config object.
 

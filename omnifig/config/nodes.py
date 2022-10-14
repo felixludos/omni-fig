@@ -5,7 +5,7 @@ import inspect
 import yaml
 from collections import OrderedDict
 from omnibelt import Exportable, get_printer, unspecified_argument, extract_function_signature, \
-	JSONABLE, Primitive, primitive
+	JSONABLE, Primitive, primitive, Modifiable
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager
@@ -382,19 +382,26 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 				if type(self) != entry.cls:
 					return entry.cls.replace(self, config).validate(config)
 
+		@staticmethod
+		def _modify_component(component, modifiers=()):
+			cls = component.cls
+			mods = [mod.cls for mod in modifiers]
+			if issubclass(cls, Modifiable):
+				return cls.inject_mods(*mods)
+			# default subclass
+			if len(mods):
+				bases = (*reversed(mods), cls)
+				cls = type('_'.join(base.__name__ for base in bases), bases, {})
+			return cls
+
 		def _create_component(self, config: 'ConfigNode', args: Tuple, kwargs: Dict[str, Any],
 		                      silent: bool = None) -> Any:
 			config.reporter.create_component(config, component_type=self.component_type, modifiers=self.modifiers,
 			                                 creator_type=self._creator_name, silent=silent)
-
-			cls = self.component_entry.cls
+			cls = self._modify_component(self.component_entry,
+			                             [self.project.find_artifact('modifier', mod) for mod in self.modifiers])
 			# assert isinstance(cls, type), f'This creator can only be used for components that are classes: {cls!r}'
-			
-			mods = [self.project.find_artifact('modifier', mod).cls for mod in self.modifiers]
-			if len(mods):
-				bases = (*reversed(mods), cls)
-				cls = type('_'.join(base.__name__ for base in bases), bases, {})
-			
+
 			if isinstance(cls, type) and issubclass(cls, AbstractConfigurable):
 				obj = cls.init_from_config(config, args, kwargs, silent=silent)
 			else:
@@ -601,12 +608,6 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 		else:
 			parent.project = project
 
-	# @property
-	# def root(self) -> 'ConfigNode':
-	# 	parent = self.parent
-	# 	if parent is None:
-	# 		return self
-	# 	return parent.root
 
 	@property
 	def manager(self):
