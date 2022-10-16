@@ -18,10 +18,10 @@ class Configurable(AbstractConfigurable, Modifiable):
 		'''The config object that this object is associated with'''
 		return getattr(self, '_my_config', None)
 
-
-	class _fill_config_args:
+	class _config_builder_type:
 		'''Replaces the regular method and fills in the missing arguments from the config'''
-		def __init__(self, config: AbstractConfig, *, silent: Optional[bool] = None):
+		def __init__(self, product: 'Configurable', config: AbstractConfig, *, silent: Optional[bool] = None):
+			self.product = product
 			self.config = config
 			self.silent = silent
 
@@ -88,7 +88,7 @@ class Configurable(AbstractConfigurable, Modifiable):
 			return fixed_args, fixed_kwargs
 
 
-		def __call__(self, owner: Type, method: Callable, obj: Any, args: Tuple, kwargs: Dict[str, Any]) -> Any:
+		def fixer(self, owner: Type, method: Callable, obj: Any, args: Tuple, kwargs: Dict[str, Any]) -> Any:
 			'''
 			Called by the capture to replace the original method call
 
@@ -111,6 +111,19 @@ class Configurable(AbstractConfigurable, Modifiable):
 			fixed_args, fixed_kwargs = self.fix_args(method, obj, args, kwargs)
 			return method(*fixed_args, **fixed_kwargs)
 
+		def build(self, *args, **kwargs):
+
+			init_capture = dynamic_capture(self.configurable_parents(self.product), self.fixer, '__init__').activate()
+
+			obj = self.product(*args, **kwargs)
+
+			init_capture.deactivate()
+			return obj
+
+
+	@classmethod
+	def _config_builder(cls, config, silent=None):
+		return cls._config_builder_type(cls, config, silent=silent)
 
 	@classmethod
 	def init_from_config(cls, config: AbstractConfig,
@@ -134,14 +147,7 @@ class Configurable(AbstractConfigurable, Modifiable):
 			args = ()
 		if kwargs is None:
 			kwargs = {}
-
-		init_capture = dynamic_capture(cls._fill_config_args.configurable_parents(cls),
-		                               cls._fill_config_args(config, silent=silent), '__init__').activate()
-
-		obj = cls(*args, **kwargs)
-
-		init_capture.deactivate()
-		return obj
+		return cls._config_builder(config, silent=silent).build(*args, **kwargs)
 
 
 
