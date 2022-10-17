@@ -177,8 +177,11 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		self.activate(**kwargs)
-		for project in projects:
-			self.get_project(project)
+		if len(projects):
+			for project in projects:
+				self.get_project(project).activate()
+		else:
+			self.get_current_project().activate()
 	
 	def main(self, argv: Sequence[str], *, script_name: str = None) -> None:
 		'''

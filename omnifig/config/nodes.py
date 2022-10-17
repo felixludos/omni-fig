@@ -8,7 +8,8 @@ from omnibelt import Exportable, get_printer, unspecified_argument, extract_func
 	JSONABLE, Primitive, primitive, Modifiable
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
-from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager
+from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager, \
+	AbstractCustomArtifact
 from .abstract import AbstractSearch, AbstractReporter
 
 prt = get_printer(__name__)
@@ -39,7 +40,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 				idx = str(idx)
 				node.set(idx, cls.from_raw(value, parent=node, parent_key=idx, **kwargs), **kwargs)
 		else:
-			node = cls._DefaultNode(payload=raw, parent=parent, parent_key=parent_key, **kwargs)
+			node = cls.DefaultNode(payload=raw, parent=parent, parent_key=parent_key, **kwargs)
 		return node
 	
 	
@@ -180,6 +181,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 						return self.process_node(result)
 			return node
 
+	SearchFailed = Search.SearchFailed
 
 	class Reporter(AbstractReporter):
 		def __init__(self, indent: str = ' > ', flair: str = '| ', transfer: str = ' --> ', colon:str = ': ',
@@ -316,6 +318,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 			super().__init__(f'Cycle detected for {config.my_address()}')
 			self.config = config
 
+
 	class DefaultCreator(AbstractCreator):
 		_config_component_key = '_type'
 		_config_modifier_key = '_mod'
@@ -385,6 +388,10 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 		@staticmethod
 		def _modify_component(component, modifiers=()):
 			cls = component.cls
+			if isinstance(cls, AbstractCustomArtifact):
+				cls = cls.top
+				if len(modifiers) > 0:
+					raise ValueError(f'Cannot apply modifiers to custom artifacts: {component.name!r}')
 			mods = [mod.cls for mod in modifiers]
 			if issubclass(cls, Modifiable):
 				return cls.inject_mods(*mods)

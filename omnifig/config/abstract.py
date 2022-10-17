@@ -10,7 +10,7 @@ class AbstractSearch:
 	def __init__(self, origin: AbstractConfig, queries: Optional[Sequence[str]], default: Optional[Any], **kwargs):
 		super().__init__(**kwargs)
 
-	class SearchFailed(KeyError):
+	class SearchFailed(AbstractConfig.SearchFailed):
 		def __init__(self, *queries: str):
 			super().__init__(', '.join(queries))
 			self.queries = queries

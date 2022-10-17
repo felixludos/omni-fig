@@ -12,6 +12,9 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 	_empty_default = unspecified_argument
 
+	class SearchFailed(KeyError):
+		pass
+
 	@property
 	@abc.abstractmethod
 	def project(self) -> 'AbstractProject':
@@ -487,9 +490,19 @@ class AbstractConfigManager:
 		raise NotImplementedError
 
 
+class AbstractCustomArtifact:
+	@staticmethod
+	def top(config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
+		raise NotImplementedError
+
+	def get_wrapped(self) -> Union[Callable, Type]:
+		raise NotImplementedError
+
+
 class AbstractScript:
 	'''Abstract class for scripts. (generally doesn't have to be used)'''
-	def __call__(self, config: AbstractConfig):
+
+	def __call__(self, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 		raise NotImplementedError
 
 
@@ -743,7 +756,12 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 			super().__init__(f'{artifact_type} {ident!r} not found')
 			self.artifact_type = artifact_type
 			self.ident = ident
-	
+
+
+	def xray(self, artifact, sort=False, reverse=False, as_dict=False):
+		raise NotImplementedError
+
+
 	def find_artifact(self, artifact_type: str, ident: str,
 	                  default: Optional[Any] = unspecified_argument) -> NamedTuple:
 		'''

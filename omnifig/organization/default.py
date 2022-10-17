@@ -144,7 +144,7 @@ class Profile(ProfileBase, default_profile=True):
 			if proj.name in self._loaded_projects:
 				prt.warning('project name already loaded: %s (will now overwrite)', proj.name)
 
-		if ident is not None:
+		if ident is not None: # TODO: fix error handling
 			assert proj.name == ident, 'project name does not match profiles name for it: ' \
 			                           '%s != %s' % (proj.name, ident)
 		# self._loaded_projects[ident] = proj.name

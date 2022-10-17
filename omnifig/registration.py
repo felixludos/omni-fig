@@ -1,8 +1,8 @@
-from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Callable
+from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Callable, Type
 from inspect import Parameter
 from omnibelt import extract_function_signature, get_printer
 
-from .abstract import AbstractCreator, AbstractConfig, AbstractProject, AbstractMetaRule
+from .abstract import AbstractCreator, AbstractConfig, AbstractProject, AbstractMetaRule, AbstractCustomArtifact
 from .top import get_current_project, get_profile
 
 prt = get_printer(__name__)
@@ -169,7 +169,7 @@ class modifier(_Project_Registration_Decorator):
 
 
 
-class _AutofillMixin(_Registration_Decorator):
+class _AutofillMixin(_Registration_Decorator, AbstractCustomArtifact):
 	'''Mixin for decorators that autofill arguments from config'''
 
 	def __init__(self, name: Optional[str] = None,
@@ -185,6 +185,9 @@ class _AutofillMixin(_Registration_Decorator):
 			aliases = {}
 		super().__init__(name=name, **kwargs)
 		self.aliases = aliases
+
+	def get_wrapped(self) -> Union[Callable, Type]:
+		return self.item
 
 	def autofill(self, config: AbstractConfig, args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None) \
 			-> Tuple[List[Any], Dict[str, Any]]:
@@ -227,7 +230,7 @@ class _AutofillMixin(_Registration_Decorator):
 		return self.item(*fixed_args, **fixed_kwargs)
 
 	def register(self, name: str, item: Callable[[Any], Any], **kwargs):
-		super().register(name, self.top, **kwargs)
+		super().register(name, self, **kwargs)
 
 
 

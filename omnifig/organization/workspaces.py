@@ -1,8 +1,10 @@
 from typing import Optional, Union, Sequence, NamedTuple, Tuple, Any, Dict, List
 from pathlib import Path
-from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry
+import inspect
+from collections import OrderedDict
+from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry, colorize
 
-from ..abstract import AbstractConfig, AbstractProject, AbstractMetaRule
+from ..abstract import AbstractConfig, AbstractProject, AbstractMetaRule, AbstractCustomArtifact
 from .external import include_package, include_files
 from ..config import ConfigManager
 # from .profiles import Meta_Rule
@@ -64,6 +66,60 @@ class GeneralProject(ProjectBase, name='general'):
 					return p
 		# raise FileNotFoundError(f'path does not exist: {path}')
 		prt.warning(f'Could not infer project path from {path} (using blank project)')
+
+
+	@staticmethod
+	def _print_artifact_entry(entry):
+
+		desc = getattr(entry, 'description', None)
+
+		key_fmt = colorize('{key}', color='green')
+
+		item = getattr(entry, 'cls', None)
+		if item is None:
+			item = getattr(entry, 'fn', None)
+		suffix = ''
+		if isinstance(item, AbstractCustomArtifact):
+			item = item.get_wrapped()
+			suffix = ' (auto)'
+		bases = getattr(item, '__bases__', None)
+		if bases is not None:
+			bases = [f'{b.__module__}.{b.__name__}' for b in item.__bases__]
+			lines = [f'{key_fmt.format(key=entry.name)}: {item.__module__}.{colorize(item.__name__, color="blue")} '
+			         f'({", ".join(bases)}){suffix}']
+
+		elif item is not None:
+			lines = [f'{key_fmt.format(key=entry.name)}: {item.__module__}.{colorize(item.__name__, color="blue")}'
+			         f'{inspect.signature(item)}{suffix}']
+
+		else:
+			raise NotImplementedError(entry)
+
+		if desc is not None and len(desc):
+			lines.append(desc)
+
+		return '\n\t'.join(lines)
+
+
+	def xray(self, artifact, sort=False, reverse=False, as_dict=False):
+		self.activate()
+		registry = self._artifact_registries.get(artifact)
+		if registry is None:
+			raise self.UnknownArtifactTypeError(artifact)
+
+		keys = list(registry.keys())
+		if sort:
+			keys = sorted(keys, reverse=reverse)
+		elif reverse:
+			keys = reversed(keys)
+
+		table = OrderedDict([(k, registry[k]) for k in keys])
+
+		if as_dict:
+			return table
+
+		lines = [self._print_artifact_entry(entry) for entry in table.values()]
+		print('\n'.join(lines))
 
 
 	class Script_Registry(Function_Registry, components=['description', 'hidden', 'project']):
@@ -202,7 +258,11 @@ class GeneralProject(ProjectBase, name='general'):
 			args = []
 		if kwargs is None:
 			kwargs = {}
-		return script_entry.fn(config, *args, **kwargs)
+
+		fn = script_entry.fn
+		if isinstance(fn, AbstractCustomArtifact):
+			item = fn.top
+		return item(config, *args, **kwargs)
 
 	def run_local(self, config, *, script_name=None, args=None, kwargs=None, meta=None):
 		config.project = self
