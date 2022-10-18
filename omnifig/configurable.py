@@ -63,7 +63,10 @@ class Configurable(AbstractConfigurable, Modifiable):
 			if default is inspect.Parameter.empty:
 				default = self.config._empty_default
 			aliases = self.aliases.get(name, ())
-			return self.config.pulls(name, *aliases, default=default)
+			silent = None
+			if self.silences is not None and name in self.silences:
+				silent = True
+			return self.config.pulls(name, *aliases, default=default, silent=silent)
 
 		def fix_args(self, method: Callable, obj: Any, args: Tuple, kwargs: Dict[str, Any]) \
 				-> Tuple[Tuple, Dict[str, Any]]:
@@ -107,6 +110,7 @@ class Configurable(AbstractConfigurable, Modifiable):
 			'''
 			obj._my_config = self.config
 			self.aliases = getattr(method, '_my_config_aliases', {})
+			self.silences = getattr(method, '_my_silent_config', None)
 
 			fixed_args, fixed_kwargs = self.fix_args(method, obj, args, kwargs)
 			return method(*fixed_args, **fixed_kwargs)
@@ -149,6 +153,16 @@ class Configurable(AbstractConfigurable, Modifiable):
 			kwargs = {}
 		return cls._config_builder(config, silent=silent).build(*args, **kwargs)
 
+
+class silent_config_args:
+	def __init__(self, *args: str):
+		self.args = args
+
+	def __call__(self, fn: Callable) -> Callable:
+		if not hasattr(fn, '_my_silent_config'):
+			setattr(fn, '_my_silent_config', set())
+		fn._my_silent_config.update(self.args)
+		return fn
 
 
 class config_aliases:
