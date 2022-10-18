@@ -3,7 +3,7 @@ from .registration import meta_rule, Meta_Rule, script, component, modifier, cre
 from .top import get_current_project, get_project, switch_project, iterate_projects, \
 	entry, main, run, quick_run, initialize, cleanup, create_config
 
-from . import config as _config
+from .config import ConfigNode
 from . import rules as _rules
 
 from .configurable import Configurable, config_aliases
