@@ -6,7 +6,7 @@ from .top import get_current_project, get_project, switch_project, iterate_proje
 from .config import ConfigNode
 from . import rules as _rules
 
-from .configurable import Configurable, config_aliases
+from .configurable import Configurable, Certifiable, config_aliases
 
 import os
 __info__ = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py')}

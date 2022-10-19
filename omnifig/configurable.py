@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional, Tuple, Union, Type, Sequence, Callable
 import inspect
-from omnibelt import dynamic_capture, extract_function_signature, Modifiable
+from omnibelt import dynamic_capture, extract_function_signature, Modifiable, agnosticproperty
 
-from .abstract import AbstractConfig, AbstractConfigurable
+from .abstract import AbstractConfig, AbstractConfigurable, AbstractCertifiable
 
 
 class Configurable(AbstractConfigurable, Modifiable):
@@ -152,6 +152,11 @@ class Configurable(AbstractConfigurable, Modifiable):
 		if kwargs is None:
 			kwargs = {}
 		return cls._config_builder(config, silent=silent).build(*args, **kwargs)
+
+
+class Certifiable(Configurable, AbstractCertifiable):
+	def __certify__(self, config: AbstractConfig):
+		return self
 
 
 class silent_config_args:

@@ -84,7 +84,8 @@ class GeneralProject(ProjectBase, name='general'):
 			suffix = ' (auto)'
 		bases = getattr(item, '__bases__', None)
 		if bases is not None:
-			bases = [f'{b.__module__}.{b.__name__}' for b in item.__bases__]
+			# bases = [f'{b.__module__}.{b.__name__}' for b in item.__bases__]
+			bases = [b.__name__ for b in item.__bases__]
 			lines = [f'{key_fmt.format(key=entry.name)}: {item.__module__}.{colorize(item.__name__, color="blue")} '
 			         f'({", ".join(bases)}){suffix}']
 

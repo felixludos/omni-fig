@@ -9,7 +9,7 @@ from omnibelt import Exportable, get_printer, unspecified_argument, extract_func
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager, \
-	AbstractCustomArtifact
+	AbstractCustomArtifact, AbstractCertifiable
 from .abstract import AbstractSearch, AbstractReporter
 
 prt = get_printer(__name__)
@@ -420,6 +420,9 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 					settings['silent'] = old_silent
 				# fixed_args, fixed_kwargs = self._fix_args_and_kwargs(config, cls.__init__, args, kwargs, silent=silent)
 				# obj = cls(*fixed_args, **fixed_kwargs)
+
+			if isinstance(obj, AbstractCertifiable):
+				obj = obj.__certify__(config)
 
 			config._trace = None
 			return obj

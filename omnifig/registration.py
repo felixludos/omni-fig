@@ -100,9 +100,10 @@ class creator(_Project_Registration_Decorator):
 		super().__init__(name=name)
 
 	@staticmethod
-	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any], **kwargs) -> None:
+	def register_project(project: AbstractProject, name: str, item: Callable[[AbstractConfig], Any],
+	                     description: Optional[str] = None, **kwargs) -> None:
 		item._creator_name = name
-		project.register_artifact('creator', name, item, **kwargs)
+		project.register_artifact('creator', name, item, description=description, **kwargs)
 
 
 

@@ -325,6 +325,19 @@ class AbstractConfigurable:
 		'''
 		raise NotImplementedError
 
+class AbstractCertifiable(AbstractConfigurable):
+	'''Abstract mix-in for objects that can must be certified after intialization.'''
+
+	def __certify__(self, config: AbstractConfig) -> Optional[Any]:
+		'''
+		Certifies the object.
+
+		Args:
+			silent: If True, no messages are reported.
+
+		'''
+		return self
+
 
 class AbstractConfigManager:
 	'''Abstract class for config managers.'''
