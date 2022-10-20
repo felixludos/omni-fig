@@ -1,5 +1,5 @@
 
-parents: ['t/n1', 't/n2']
+_src: ['t/n1', 't/n2']
 
 me: n0
 

@@ -108,7 +108,7 @@ class Configurable(AbstractConfigurable, Modifiable):
 				The return value of the method
 
 			'''
-			obj._my_config = self.config
+			# obj._my_config = self.config
 			self.aliases = getattr(method, '_my_config_aliases', {})
 			self.silences = getattr(method, '_my_silent_config', None)
 
@@ -119,7 +119,12 @@ class Configurable(AbstractConfigurable, Modifiable):
 
 			init_capture = dynamic_capture(self.configurable_parents(self.product), self.fixer, '__init__').activate()
 
+			self.product._my_config = self.config
+
 			obj = self.product(*args, **kwargs)
+
+			del self.product._my_config
+			obj._my_config = self.config
 
 			init_capture.deactivate()
 			return obj

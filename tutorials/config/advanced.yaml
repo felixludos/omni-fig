@@ -1,5 +1,5 @@
 
-parents: [basic]
+_src: [basic]
 
 device: better-gpu
 

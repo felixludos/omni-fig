@@ -1,5 +1,5 @@
 
-parents: [config1] # all these registered configs will be loaded and merged with this one
+_src: [config1] # all these registered configs will be loaded and merged with this one
 
 path: 'backup-log.txt'
 

@@ -209,9 +209,15 @@ class ConfigManager(AbstractConfigManager):
 			pass
 		raise self.ConfigNotRegistered(name)
 
-	@staticmethod
-	def _find_config_parents(raw: Dict[str, Any]) -> List[str]:
-		return raw.get('parents', [])
+	_config_parents_key = '_src'
+
+	@classmethod
+	def _find_config_parents(cls, path: Optional[Path], raw: Dict[str, Any]) -> List[str]:
+		src = raw.get(cls._config_parents_key, [])
+		if isinstance(src, str):
+			src = [src]
+		assert isinstance(src, list), f'Invalid parents: {src}'
+		return src
 
 	def _merge_raw_configs(self, raws: List[JSONABLE]) -> AbstractConfig:
 		singles = [self.configurize(raw) for raw in raws]
@@ -236,10 +242,10 @@ class ConfigManager(AbstractConfigManager):
 		# self._unify_config_node(config)
 		pass
 
-	_config_parents_key = 'parents'
+	def _load_raw_config(self, path: Path) -> JSONABLE:
+		return load_yaml(path, ordered=True)
 
 	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None, *,
-	                  ancestry_key: Optional[str] = '_ancestry',
 	                  project: Optional[AbstractProject] = unspecified_argument) -> AbstractConfig:
 		if configs is None:
 			configs = []
@@ -247,38 +253,44 @@ class ConfigManager(AbstractConfigManager):
 			data = {}
 		if project is unspecified_argument:
 			project = self.project
-		assert len(self._find_config_parents(data)) == 0, 'Passed in args cannot have a parents key'
-		todo = list(configs)
-		data[self._config_parents_key] = list(configs)
+		assert len(self._find_config_parents(None, data)) == 0, 'Passed in args cannot have a parents key'
+
+		ancestry_names = {}
+		parent_table = {None: configs}
 		raws = {None: data}
 		used_paths = {}
+
+		todo = list(configs)
+		# data[self._config_parents_key] = list(configs)
 		while len(todo):
 			name = todo.pop()
 			path = self.find_config_path(name)
 			if path not in raws:
 				if not path.exists():
 					raise FileNotFoundError(path)
-				raws[path] = load_yaml(path, ordered=True)
-				todo.extend(self._find_config_parents(raws[path]))
 				used_paths[name] = path
-				if ancestry_key is not None:
-					raws[path][ancestry_key] = name
+				raws[path] = self._load_raw_config(path)
+				ancestry_names[path] = name
+				parent_table[path] = self._find_config_parents(path, raws[path])
+				todo.extend(parent_table[path])
+
 		if len(used_paths) != len(todo):
-			graph = {key: [used_paths[name] for name in self._find_config_parents(raw)] for key, raw in raws.items()}
-			graph[None] = [used_paths[name] for name in data[self._config_parents_key]]
+			graph = {key: [used_paths[name] for name in srcs] for key, srcs in parent_table.items()}
 			order = linearize(graph, heads=[None], order=True)[None]
+			ancestry = [ancestry_names[p] for p in order[1:]]
 			order = [data] + [raws[p] for p in order[1:]]
 			# order = list(reversed(order))
 		else:
 			order = [data]
+			ancestry = []
 
-		if ancestry_key is not None:
-			ancestors = [raw.get(ancestry_key, None) for raw in order[1:]]
+		# if ancestry_key is not None:
+		# 	ancestors = [raw.get(ancestry_key, None) for raw in order[1:]]
 
 		merged = self._merge_raw_configs(order)
 
-		if ancestry_key is not None:
-			merged.push(ancestry_key, ancestors, silent=True)
+		merged._composition = tuple(ancestry)
+		merged._sources = tuple(configs)
 
 		if project is not None:
 			merged.project = project

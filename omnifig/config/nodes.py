@@ -2,6 +2,7 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, 
 	Iterator, NamedTuple, ContextManager
 import abc
 import inspect
+from contextlib import nullcontext
 import yaml
 from collections import OrderedDict
 from omnibelt import Exportable, get_printer, unspecified_argument, extract_function_signature, \
@@ -15,7 +16,7 @@ from .abstract import AbstractSearch, AbstractReporter
 prt = get_printer(__name__)
 
 
-class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml', '.fig.yaml']):
+class ConfigNode(AutoTreeNode, Exportable, AbstractConfig, extensions=['.fig.yml', '.fig.yaml']):
 	# _DummyNode: 'ConfigNode' = None
 	Settings = OrderedDict
 
@@ -45,14 +46,34 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 	
 	
 	class Search(AbstractSearch):
-		def sub_search(self, origin, queries):
-			out = self.__class__(origin=origin, queries=queries, default=origin._empty_default,
-			                     parent_search=self)
-			out.query_chain = out.queries
-			return out
+
+		class _sub_search: # TODO: generalize to take in a config object (and then use its trace)
+			past = None
+
+			def __init__(self, current):
+				self._old = self.past
+				self.current = current
+				self.__class__.past = current
+
+			def __enter__(self):
+				pass
+
+			def __exit__(self, exc_type, exc_val, exc_tb):
+				self.__class__.past = self._old
+
+		def sub_search(self) -> 'AbstractSearch':
+			return self._sub_search(self)
+
+		# def sub_search(self, origin, queries):
+		# 	out = self.__class__(origin=origin, queries=queries, default=origin._empty_default,
+		# 	                     parent_search=self)
+		# 	out.query_chain = out.queries
+		# 	return out
 		
 		def __init__(self, origin: 'ConfigNode', queries: Optional[Sequence[str]], default: Any,
-		             parent_search: Optional['ConfigNode.Search'] = None, **kwargs):
+		             parent_search: Optional['ConfigNode.Search'] = unspecified_argument, **kwargs):
+			if parent_search is unspecified_argument:
+				parent_search = self._sub_search.past
 			super().__init__(origin=origin, queries=queries, default=default, **kwargs)
 			self.origin = origin
 			self.queries = queries
@@ -392,6 +413,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 				cls = cls.top
 				if len(modifiers) > 0:
 					raise ValueError(f'Cannot apply modifiers to custom artifacts: {component.name!r}')
+				return cls
 			mods = [mod.cls for mod in modifiers]
 			if issubclass(cls, Modifiable):
 				return cls.inject_mods(*mods)
@@ -431,25 +453,28 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 			config.reporter.create_container(config, silent=silent)
 			trace = config.trace
 
-			if isinstance(config, config.SparseNode):
-				product = {}
-				for key, child in config.children():
-					old = child._trace
-					child._trace = None if trace is None else trace.sub_search(config, [key])
-					product[key] = child.pull(silent=silent)
-					child._trace = old
-				# product = config.SparseNode._python_structure(product)
-			
-			elif isinstance(config, config.DenseNode):
-				product = []
-				for key, child in config.children():
-					old = child._trace
-					child._trace = None if trace is None else trace.sub_search(config, [key])
-					product.append(child.pull(silent=silent))
-					child._trace = old
-				# product = config.DenseNode._python_structure(product)
-			else:
-				raise NotImplementedError(f'Unknown container type: {type(config)}')
+			context = nullcontext() if trace is None else trace.sub_search()
+
+			with context:
+				if isinstance(config, config.SparseNode):
+					product = {}
+					for key, child in config.named_children():
+						# old = child._trace
+						# child._trace = None if trace is None else trace.sub_search(config, [key])
+						product[key] = config.pull(key, silent=silent)
+						# child._trace = old
+					# product = config.SparseNode._python_structure(product)
+
+				elif isinstance(config, config.DenseNode):
+					product = []
+					for key, child in config.named_children():
+						# old = child._trace
+						# child._trace = None if trace is None else trace.sub_search(config, [key])
+						product.append(config.pull(key, silent=silent))
+						# child._trace = old
+					# product = config.DenseNode._python_structure(product)
+				else:
+					raise NotImplementedError(f'Unknown container type: {type(config)}')
 
 			config._trace = None
 			return product
@@ -490,6 +515,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 				return transfer.create_product(config, args=args, kwargs=kwargs)
 
 			self._setup_context(config)
+
 			if self.component_type is None:
 				if config.has_payload:
 					value = self._create_primitive(config, silent=silent)
@@ -497,6 +523,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 					value = self._create_container(config, silent=silent)
 			else:
 				value = self._create_component(config, args=args, kwargs=kwargs, silent=silent)
+
 			self._end_context(config, value)
 			return value
 			
@@ -531,7 +558,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 		return len(list(self._child_keys()))
 	
 	def _child_keys(self) -> Iterator[str]:
-		for key, child in self.children(keys=True):
+		for key, child in self.named_children():
 			if child is not self.empty_value and not child.has_payload or child.payload not in {'__x__', '_x_'}:
 				yield key
 
@@ -587,6 +614,8 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 		self._project = project
 		self._trace = None
 		self._product = None
+		self._composition = None
+		self._sources = None
 		self._manager = manager
 		self._reporter = reporter
 		self._settings = settings
@@ -618,6 +647,21 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 		else:
 			parent.project = project
 
+	@property
+	def composition(self) -> Tuple[str]:
+		if self._composition is None:
+			if self.parent is None:
+				return ()
+			return self.parent.composition
+		return self._composition
+
+	@property
+	def sources(self) -> Tuple[str]:
+		if self._sources is None:
+			if self.parent is None:
+				return ()
+			return self.parent.sources
+		return self._sources
 
 	@property
 	def manager(self):
@@ -730,7 +774,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 	def clear_product(self, recursive: bool = True) -> None:
 		self._product = None
 		if recursive:
-			for _, child in self.children():
+			for _, child in self.named_children():
 				child.clear_product(recursive=recursive)
 
 	def to_yaml(self, stream=None, default_flow_style=None, sort_keys=True, **kwargs: Any) -> None:
@@ -751,8 +795,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 			self.payload = update.payload
 		elif self.has_payload:
 			self.payload = unspecified_argument
-		for key, child in update.children():
-			child.reporter = self.reporter
+		for key, child in update.named_children():
 			child.parent = self
 			if key in self:
 				self[key].update(child)
@@ -763,7 +806,7 @@ class ConfigNode(AbstractConfig, AutoTreeNode, Exportable, extensions=['.fig.yml
 
 	_delete_value = '_x_'
 	def validate(self):
-		for key, child in self.children():
+		for key, child in self.named_children():
 			if child.has_payload and child.payload == self._delete_value:
 				self.remove(key)
 			else:
@@ -799,7 +842,7 @@ class ConfigDenseNode(AutoTreeDenseNode, ConfigNode):
 
 
 # ConfigNode._DummyNode = ConfigDummyNode
-ConfigNode._DefaultNode = ConfigSparseNode
+ConfigNode.DefaultNode = ConfigSparseNode
 ConfigNode.SparseNode = ConfigSparseNode
 ConfigNode.DenseNode = ConfigDenseNode
 

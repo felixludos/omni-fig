@@ -1,5 +1,5 @@
 
-parents: [group1/special]
+_src: [group1/special]
 
 data: [3,4,5,6,7]
 

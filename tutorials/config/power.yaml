@@ -1,5 +1,5 @@
 
-parents: [advanced, data/large]
+_src: [advanced, data/large]
 
 epochs: 50
 
