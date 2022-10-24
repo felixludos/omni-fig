@@ -387,6 +387,16 @@ class AbstractConfigManager:
 		'''
 		raise NotImplementedError
 
+	def iterate_configs(self) -> Iterator[NamedTuple]:
+		'''
+		Iterates over all registered config files.
+
+		Returns:
+			An iterator over all registered config files.
+
+		'''
+		raise NotImplementedError
+
 	def find_config_path(self, name: str) -> Path:
 		'''
 		Finds the path to the config file with the given name in the registry.

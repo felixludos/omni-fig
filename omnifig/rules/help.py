@@ -14,40 +14,40 @@ prt = get_printer(__name__)
 # @meta_rule(name='help', code='h', priority=99, num_args=0, description='Display this help message')
 class Help_Rule(Meta_Rule, name='help', code='h', priority=99, num_args=0, description='Display this help message'):
 	_default_help_msg = '''
-	Usage: fig [-<meta>] {script} [<configs>...] [--<args>]
+Usage: fig [-<meta>] {script} [<configs>...] [--<args>]
 
-	{scripts}
+{scripts}
 
-	+------+
-	| meta |
-	+------+
-	Optional meta arguments (usually specified with a single letter)
-	{metas}
++------+
+| meta |
++------+
+Optional meta arguments (usually specified with a single letter)
+{metas}
 
-	+---------+
-	| configs |
-	+---------+
-	Specify any registered configs to merge
++---------+
+| configs |
++---------+
+Specify any registered configs to merge
 
-	{configs}
+{configs}
 
-	+------+
-	| args |
-	+------+
-	Any additional arguments specified manually
-	as key-value pairs (keys with "--")
++------+
+| args |
++------+
+Any additional arguments specified manually
+as key-value pairs (keys with "--")
 
-	Current project: {project}
-	'''
+Current project: {project}
+'''
 	
 	_default_script_info = '''+--------+
-	| script |
-	+--------+
-	Specify a registered script name to run
-	{available}'''
-	
+| script |
++--------+
+Specify a registered script name to run
+{available}'''
+
 	_script_sel = '''Script: {script}
-	{doc}'''
+{doc}'''
 
 	@classmethod
 	def run(cls, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
@@ -61,6 +61,7 @@ class Help_Rule(Meta_Rule, name='help', code='h', priority=99, num_args=0, descr
 		num = meta.pull('show_args', 4, silent=True)
 
 		project = get_current_project()
+		project.activate()
 
 		metas = [(f'-{r.code}', r.name, '-' if r.description is None else r.description)
 		         for r in project.iterate_meta_rules() if r.code is not None][:num]
@@ -98,8 +99,10 @@ class Help_Rule(Meta_Rule, name='help', code='h', priority=99, num_args=0, descr
 				doc = '[no docstring]\n'
 
 			sinfo = cls._script_sel.format(script=name, doc=doc)
-
-		print(cls._default_help_msg.format(script=name, scripts=sinfo, metas=minfo, configs=cinfo, project=project))
+		
+		project_name = project.name
+		print(cls._default_help_msg.format(script=name, scripts=sinfo, metas=minfo, configs=cinfo,
+		                                   project=project_name))
 
 		raise cls.TerminationFlag
 

@@ -28,6 +28,9 @@ class ConfigManager(AbstractConfigManager):
 		self.registry = Path_Registry()
 		self.project = project
 
+	def iterate_configs(self) -> Iterator[NamedTuple]:
+		return self.registry.values()
+
 	def register_config(self, name: str, path: Union[str, Path], **kwargs) -> NamedTuple:
 		return self.registry.new(name, path, **kwargs)
 

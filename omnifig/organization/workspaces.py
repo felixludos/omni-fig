@@ -137,7 +137,7 @@ class GeneralProject(ProjectBase, name='general'):
 			config_manager = self.Config_Manager(self)
 		path = self.infer_path(path)
 		super().__init__(path, **kwargs)
-		self._path = None if path is None else path.parent.absolute()
+		self._path = None if path is None else path.absolute()
 		self.config_manager = config_manager
 		self._artifact_registries = {
 			'script': script_registry,
@@ -150,21 +150,23 @@ class GeneralProject(ProjectBase, name='general'):
 		and source files (keys: ``packages``, ``package``, ``src``).
 		'''
 		super()._activate(*args, **kwargs)
-		self.load_configs(self.data.get('configs', []))
-		if self.data.get('auto_config', True):
-			for dname in ['config', 'configs']:
-				path = self._path / dname
-				if path.is_dir():
-					self.load_configs([path])
-					
-		pkgs = self.data.get('modules', [])
-		if 'module' in self.data:
-			pkgs = [self.data['module']] + pkgs
-		if 'package' in self.data:
-			pkgs = [self.data['package']] + pkgs
-		if 'packages' in self.data:
-			pkgs = self.data['packages'] + pkgs
-		self.load_src(self.data.get('src', []), pkgs)
+		print(f'Activating project {self.name} ({self.root})')
+		if self.root is not None:
+			self.load_configs(self.data.get('configs', []))
+			if self.data.get('auto_config', True):
+				for dname in ['config', 'configs']:
+					path = self.root / dname
+					if path.is_dir():
+						self.load_configs([path])
+						
+			pkgs = self.data.get('modules', [])
+			if 'module' in self.data:
+				pkgs = [self.data['module']] + pkgs
+			if 'package' in self.data:
+				pkgs = [self.data['package']] + pkgs
+			if 'packages' in self.data:
+				pkgs = self.data['packages'] + pkgs
+			self.load_src(self.data.get('src', []), pkgs)
 
 	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()) -> None:
 		'''Registers all specified config files and directories'''
@@ -180,7 +182,7 @@ class GeneralProject(ProjectBase, name='general'):
 		'''Imports all specified packages and runs the specified python files'''
 		src_files = []
 		for src in srcs:
-			path = self._path / src
+			path = Path(src) if self.root is None else self.root / src
 			if path.is_file():
 				src_files.append(str(path))
 		include_package(*packages)
@@ -206,10 +208,22 @@ class GeneralProject(ProjectBase, name='general'):
 			return proj
 		return self
 
+	def __str__(self):
+		return f'{self.__class__.__name__}[{self.name}]({self.root})'
+	
+	def __repr__(self):
+		return f'{self.__class__.__name__}[{self.name}]({self.root})'
+
+	@property
+	def name(self):
+		if self.root is not None:
+			return self.data.get('name', '')
+
 	@property
 	def root(self) -> Path:
 		'''The root directory of the project.'''
-		return self._path.parent
+		if self._path is not None:
+			return self._path.parent
 
 	@property
 	def info_path(self) -> Path:
@@ -312,6 +326,7 @@ class GeneralProject(ProjectBase, name='general'):
 	def iterate_artifacts(self, artifact_type):
 		if artifact_type == 'config':
 			yield from self.config_manager.iterate_configs()
+			return
 		if artifact_type not in self._artifact_registries:
 			raise self.UnknownArtifactTypeError(artifact_type)
 		yield from self._artifact_registries[artifact_type].values()
