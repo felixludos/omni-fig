@@ -96,7 +96,7 @@ For the example above, ``.fig.yml`` should contain something like:
 
 To specify that ``src/`` contains the code necessary load the project.
 
-Inside the python package ``src/`` you can register any ``component``s, ``modifier``s, ``script``s, or configs needed for the project. For example, ``src/__init__.py`` might look like:
+Inside the python package ``src/`` you can register any ``component``, ``modifier``, ``script``, or configs needed for the project. For example, ``src/__init__.py`` might look like:
 
 .. code-block:: python
 
@@ -165,7 +165,7 @@ Inside the python package ``src/`` you can register any ``component``s, ``modifi
         return msg # anything this script should return
 
 
-Any function or class that should be specified in the config should be registered as a ``component``. When "pulling" a component (a config node that contains the ``_type`` key), the config system will automatically get the corresponding class/function and call it (returning the created instance/output). You can also define and register ``modifier``s to dynamically specify mix-ins that you want to make to the components in the config (using the ``_mod`` key in the same node as ``_type``).
+Any function or class that should be specified in the config should be registered as a ``component``. When "pulling" a component (a config node that contains the ``_type`` key), the config system will automatically get the corresponding class/function and call it (returning the created instance/output). You can also define and register ``modifier`` to dynamically specify mix-ins that you want to make to the components in the config (using the ``_mod`` key in the same node as ``_type``).
 
 
 It is highly recommended that you create a profile info yaml file and set the environment variable ``FIG_PROFILE`` to the full path to that profile info file. For example, the profile might contain:
