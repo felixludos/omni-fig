@@ -1,3 +1,5 @@
+import os
+import sys
 from typing import Optional, Union, Sequence, NamedTuple, Tuple, Any, Dict, List
 from pathlib import Path
 import inspect
@@ -150,7 +152,7 @@ class GeneralProject(ProjectBase, name='general'):
 		and source files (keys: ``packages``, ``package``, ``src``).
 		'''
 		super()._activate(*args, **kwargs)
-		print(f'Activating project {self.name} ({self.root})')
+		# print(f'Activating project {self.name} ({self.root})')
 		if self.root is not None:
 			self.load_configs(self.data.get('configs', []))
 			if self.data.get('auto_config', True):
@@ -185,8 +187,10 @@ class GeneralProject(ProjectBase, name='general'):
 			path = Path(src) if self.root is None else self.root / src
 			if path.is_file():
 				src_files.append(str(path))
+		sys.path.append(os.getcwd())
 		include_package(*packages)
 		include_files(*src_files)
+		sys.path.pop()
 
 	# region Organization
 	def extract_info(self, other: 'GeneralProject') -> None:
@@ -276,8 +280,8 @@ class GeneralProject(ProjectBase, name='general'):
 
 		fn = script_entry.fn
 		if isinstance(fn, AbstractCustomArtifact):
-			item = fn.top
-		return item(config, *args, **kwargs)
+			fn = fn.top
+		return fn(config, *args, **kwargs)
 
 	def run_local(self, config, *, script_name=None, args=None, kwargs=None, meta=None):
 		config.project = self

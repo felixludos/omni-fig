@@ -4,29 +4,33 @@ import random
 
 import omnifig as fig
 
-class Toy_Dataset:
-	def __init__(self, A):
+class Toy_Dataset(fig.Configurable):
+	def __init__(self, dataroot, input_dim, output_dim, name='unknown dataset',
+	             labeled=True, num_categories=None, num_samples=1000, **kwargs):
 
-		self.dataroot = A.pull('dataroot')
-		
-		self.name = A.pull('name', 'unknown dataset')
-		
-		input_dim = A.pull('input_dim', '<>input_shape', silent=True)
+		# input_dim = A.pull('input_dim', '<>input_shape', silent=True)
 		if isinstance(input_dim, (list, tuple)):
 			input_dim = reduce((lambda x, y: x * y), input_dim)
-		
-		output_dim = A.pull('output_dim', '<>output_shape', silent=True)
+
+		# output_dim = A.pull('output_dim', '<>output_shape', silent=True)
 		if isinstance(output_dim, (list, tuple)):
 			output_dim = reduce((lambda x, y: x * y), output_dim)
-		
-		self.labeled = A.pull('labeled', True)
-		
-		self.num_categories = A.pull('num_categories', output_dim)
+
+		if num_categories is None:
+			num_categories = output_dim
+
+		super().__init__(**kwargs)
+
+		self.dataroot = dataroot
+		self.name = name
+
+		self.labeled = labeled
+		self.num_categories = num_categories
 		
 		self.input_dim = input_dim
 		self.output_dim = output_dim if output_dim is not None and self.labeled else input_dim
 		
-		self.samples = list(range(A.pull('num_samples', 1000)))
+		self.samples = list(range(num_samples))
 		self.idx = 0
 		
 	def get_io(self):
@@ -52,52 +56,42 @@ class Toy_Dataset:
 	def __iter__(self):
 		self.idx = 0
 		return self
-		
-@fig.Component('mnist')
-class MNIST(Toy_Dataset):
-	def __init__(self, A):
-		A.push('name', 'mnist')
-		A.push('input_shape', (28, 28, 1))
-		A.push('output_dim', 10)
-		super().__init__(A)
 
-@fig.Component('cifar')
+
+@fig.component('mnist')
+class MNIST(Toy_Dataset):
+	def __init__(self, name='mnist', input_dim=(28, 28, 1), output_dim=10, **kwargs):
+		super().__init__(name=name, input_dim=input_dim, output_dim=output_dim, **kwargs)
+
+
+@fig.component('cifar')
 class CIFAR(Toy_Dataset):
-	def __init__(self, A):
-		A.push('name', 'cifar')
-		
-		in_shape = 32, 32, 3
-		
-		in_color = A.pull('in_color', True)
-		if not in_color:
-			self._make_grayscale()
-			in_shape = 32, 32, 1
-		
-		num_categories = A.pull('num_categories', 10, silent=True)
+	def __init__(self, name='cifar', in_color=True, input_dim=None, output_dim=None, num_categories=10, **kwargs):
+		if input_dim is None:
+			input_dim = (32, 32, 3) if in_color else (32, 32, 1)
+		if output_dim is None:
+			output_dim = num_categories
 		assert num_categories in {10, 100}, f'CIFAR image dataset has either 10 or 100 categories, ' \
 		                                    f'not {num_categories}'
-		
-		A.push('input_shape', in_shape)
-		A.push('output_dim', num_categories)
-		super().__init__(A)
+		super().__init__(name=name, input_dim=input_dim, output_dim=output_dim, num_categories=num_categories, **kwargs)
 		
 		
 	def _make_grayscale(self):
 		pass # do something
 	
 	
-@fig.AutoModifier('even')
-class Even:
-	def __init__(self, A):
-		super().__init__()
+@fig.modifier('even')
+class Even(Toy_Dataset):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
 		self.samples = [x for x in self.samples if x % 2 == 0]
-		
-@fig.AutoModifier('noisy')
-class Noisy:
-	def __init__(self, A):
-		super().__init__(A)
-		
-		self.noise_weight = A.pull('noise_weight', None)
+
+
+@fig.modifier('noisy')
+class Noisy(Toy_Dataset):
+	def __init__(self, *args, noise_weight=None, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.noise_weight = noise_weight
 
 	def __next__(self):
 		x, y = super().__next__()
@@ -107,37 +101,38 @@ class Noisy:
 
 		return x, y
 
-@fig.AutoModifier('rotate')
-class Rotated:
-	def __init__(self, A):
-		super().__init__(A)
-		
-		self.rotation_prob = A.pull('rotation_prob', '<>prob', 0.5)
-	
+
+@fig.modifier('rotate')
+class Rotated(Toy_Dataset):
+	@fig.config_aliases(rotation_prob='prob')
+	def __init__(self, *args, rotation_prob=0.5, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.rotation_prob = rotation_prob
+
 	def __next__(self):
 		x, y = super().__next__()
 		if random.random() < self.rotation_prob:
 			x = x * 1j
 		return x, y
-	
-@fig.AutoModifier('shuffled')
-class Shuffled:
-	def __init__(self, A):
-		super().__init__(A)
-		
-		if A.pull('shuffle', True):
+
+
+@fig.modifier('shuffled')
+class Shuffled(Toy_Dataset):
+	def __init__(self, *args, shuffle=True, **kwargs):
+		super().__init__(*args, **kwargs)
+		if shuffle:
 			random.shuffle(self.samples)
 
 
+@fig.modifier('subset')
+class Subset(Toy_Dataset):
+	def __init__(self, *args, limit=None, **kwargs):
+		super().__init__(*args, **kwargs)
+		if limit < len(self):
+			self.samples = self.samples[:limit]
 
-@fig.Modification('subset')
-def get_subset(dataset, A):
-	
-	limit = A.pull('limit', len(dataset))
-	
-	if limit < len(dataset):
-		dataset.samples = dataset.samples[:limit]
-	
-	return dataset
+
+
+
 
 

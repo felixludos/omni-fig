@@ -1,5 +1,9 @@
 
+_src: [data/rotate, common, models/basic, data/mnist]
+
 _meta.script_name: train # name of the script you want to run
+
+#_meta.script_name: train # name of the script you want to run
 # other meta arguments should be inside the "_meta" node (see documentation for details)
 
 
