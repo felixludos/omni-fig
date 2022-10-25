@@ -23,6 +23,12 @@ def build_model(config, input_dim=None, output_dim=None): # un registered helper
 	return model, optim
 
 
+@fig.script('view-config', description='Just prints out the config')
+def view_config(config):
+	print(config)
+
+
+
 @fig.script('test', description='Creates and tests a model') # registers a new script called "train"
 def run_train_model(config): # config object containing all necessary config info
 	print('Running test!')

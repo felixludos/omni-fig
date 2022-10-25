@@ -1,4 +1,5 @@
 
+_src: [common]
 
 model:
   _type: net

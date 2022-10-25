@@ -599,7 +599,7 @@ class AbstractCreator:
 class AbstractRunMode(Activatable):
 	'''Abstract class for run modes. Run modes include Projects and Profiles'''
 
-	def main(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
+	def main(self, argv: Sequence[str], *, script_name: Optional[str] = unspecified_argument) -> Any:
 		'''
 		Runs the script with the given arguments. First the arguments are parsed into a config object, and then
 		the specified script is run with the config object using :func:`run()`.
@@ -617,16 +617,17 @@ class AbstractRunMode(Activatable):
 			The output of the script.
 
 		'''
+		self.activate() # TODO: move to after validate main
 		config = self.parse_argv(argv, script_name=script_name)
 		transfer = self.validate_main(config) # can update/modify the project based on the config
 		if transfer is not None:
 			return transfer.main(argv, script_name=script_name)
-		self.activate() # load the project
+		# self.activate() # load the project
 		out = self.run(config, script_name=script_name) # run based on the config
 		self.cleanup() # (optional) cleanup
 		return out # return output
 
-	def run(self, config: AbstractConfig, *, script_name: Optional[str] = None,
+	def run(self, config: AbstractConfig, *, script_name: Optional[str] = unspecified_argument,
 	        args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, **meta: Any) -> Any:
 		'''
 		Runs a script with the given config object and other arguments.

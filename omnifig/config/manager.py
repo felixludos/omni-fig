@@ -104,6 +104,8 @@ class ConfigManager(AbstractConfigManager):
 
 		remaining = list(reversed(argv))
 		
+		# print(argv, script_name)
+		
 		meta = {}
 		while len(remaining):
 			term = remaining.pop()
@@ -195,6 +197,8 @@ class ConfigManager(AbstractConfigManager):
 			data['_meta'].update(meta)
 		else:
 			data['_meta'] = meta
+
+		# print(configs, data)
 
 		return self.create_config(configs, data)
 

@@ -1,3 +1,5 @@
 
+_src: [common]
+
 dataset._type: mnist
 

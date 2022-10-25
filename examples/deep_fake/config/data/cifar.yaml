@@ -1,4 +1,6 @@
 
+_src: [common]
+
 dataset:
   _type: cifar
   _mod:
