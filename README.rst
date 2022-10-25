@@ -14,7 +14,7 @@ omni-fig
 Configuration and project organization without compromises
 
 .. image:: https://readthedocs.org/projects/omnifig/badge/?version=latest
-    :target: https://omnifig.readthedocs.io/en/latest/?badge=latest
+    :target: https://omnifig.readthedocs.io/en/latest/?badge=v0.6
     :alt: Documentation Status
 
 
@@ -221,7 +221,7 @@ You might also load and run scripts in this project from a jupyter notebook (or 
 
 While this example should give you a basic idea for what a project might look like, this only touches on the basics of what you can do with ``omni-fig``. I strongly recommend you check out the documentation_. for more information, additionally there are some examples of real projects that use ``omni-fig`` such as omnilearn_ and No-Nonsense-News_ .
 
-.. _documentation: https://omnifig.readthedocs.io/
+.. _documentation: https://omnifig.readthedocs.io/en/v0.6/
 
 .. _omnilearn: https://github.com/felixludos/omni-learn/
 
