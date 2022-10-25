@@ -36,7 +36,7 @@ This package contains a powerful config system for you to provide arguments/info
 
 The primary way to use this package is to create *projects* containing python source files and yaml (info and config) files (an example of which is discussed below). Each project uses ``component``, ``modifier``, and ``script`` to register artifacts which can then be referenced in the config.
 
-For lots of detailed examples in how the config system works, see the unit tests in ``tests/test_config.py`` and the documentation_, which also includes some examples.
+For lots of detailed examples in how the config system works, see the unit tests in ``tests/test_config.py`` and the documentation_, which also includes some examples. (documentation is currently a work in progress)
 
 Install
 =======
