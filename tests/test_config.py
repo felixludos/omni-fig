@@ -1,23 +1,27 @@
-import sys, os
+import sys, os, shutil
+from omnibelt import load_export
+
+import _test_util as tu
+
 import omnifig as fig
 # from omnifig.config import EmptyElement, ConfigType
 
-import _test_util as tu
 import _test_objs
 
 def test_create_obj():
 	A = fig.create_config()
-	A.set('a.b.c', 10)
-	
-	assert 'a' in A
-	assert 'b' in A.get('a')
-	assert 'c' in A.get('a.b')
-	assert type(A) == type(A.get('a'))
+	A.push('a.b.c', 10)
+	# A.set('a.b.c', 10)
+	#
+	# assert 'a' in A
+	# assert 'b' in A.get('a')
+	# assert 'c' in A.get('a.b')
+	# assert type(A) == type(A.get('a'))
 	assert A.pull('a.b.c') == 10
+	assert str(A) == 'a:\n  b: {c: 10}\n'
 
 def test_register_load_config():
-	
-	fig.get_current_project().register_config_dir(os.path.join(tu.TEST_PATH, 'example', 'config'), recursive=True)
+	fig.get_current_project().register_config_dir(tu.CONFIG_PATH, recursive=True)
 
 	C = fig.create_config('test1')
 	assert C.pull('arg1') == 'test'
@@ -27,7 +31,7 @@ def test_register_load_config():
 	
 def test_raw_param():
 	
-	C = fig.get_current_project().parse_argv(['--b', 'baba', '--a', '''{"r":10, "b":100}''',
+	C = fig.parse_argv(['--b', 'baba', '--a', '''{"r":10, "b":100}''',
 	                                          '--c', '''["asdf", 10, 4.e-4]'''], script_name='some-script')
 	
 	assert id(C['a'].parent) == id(C)
@@ -61,7 +65,7 @@ def test_hierarchy():
 	assert B.pull('arg1') == 'test'
 	
 	
-	C = fig.get_current_project().parse_argv(['test1', 'test2', '--x', '''{"r":10, "z":100}''',
+	C = fig.parse_argv(['test1', 'test2', '--x', '''{"r":10, "z":100}''',
 	                   '--arg1', 'xx',
 	                   '--a.b', '11'], script_name=None)
 	
@@ -379,28 +383,43 @@ def test_update_dict():
 	assert D.pull('unknown') == 'bad'
 
 
-# def test_export():
-#
-# 	# load/change/export
-# 	A = fig.create_config('test2', **{'a.d': 50})
-#
-# 	A.push('count', [40,40])
-#
-# 	path = os.path.join(tu.TEST_PATH, 'save.yaml')
-# 	A.export(path)
-#
-# 	# reload from path (rel and abs) check for change
-#
-# 	B = fig.create_config(path)
-#
-# 	assert B.pull('a.b') == 'inside'
-# 	assert B.pull('unseen') == 45
-# 	assert B.pull('count.0') == 40
-# 	assert B.pull('a.d') == 50
-# 	assert B.pull('others.2.not.mickey') == 'mouse'
-#
-# 	if 'save.yaml' in os.listdir(tu.TEST_PATH):
-# 		os.remove(os.path.join(tu.TEST_PATH, 'save.yaml'))
+def test_export():
+
+	# load/change/export
+	A = fig.create_config('test2', **{'a.d': 50})
+
+	A.push('count', [40,40])
+
+	# path = os.path.join(tu.TEST_PATH, 'save.yaml')
+	root = tu.TEST_PATH / 'temp-exports'
+	root.mkdir(exist_ok=True)
+	path = root / 'save.yaml'
+	A.export(path)
+
+	# reload from path (rel and abs) check for change
+
+	B = fig.create_config(path)
+
+	assert B.pull('a.b') == 'inside'
+	assert B.pull('unseen') == 45
+	assert B.pull('count.0') == 40
+	assert B.pull('a.d') == 50
+	assert B.pull('others.2.not.mickey') == 'mouse'
+
+	B.push('a.d', 100)
+
+	path = B.export('save2', root=root)
+
+	C = load_export(path)
+
+	assert C.pull('a.b') == 'inside'
+	assert C.pull('unseen') == 45
+	assert C.pull('count.0') == 40
+	assert C.pull('a.d') == 100
+	assert C.pull('others.2.not.mickey') == 'mouse'
+
+	if root.exists():
+		shutil.rmtree(root)
 	
 
 def test_components():

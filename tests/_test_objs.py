@@ -1,5 +1,3 @@
-
-
 import omnifig as fig
 
 
@@ -60,8 +58,3 @@ class M2:
 	def g(self, y):
 		return self.a * y
 
-
-# @fig.Modification('m3')
-# def m3(obj, A):
-# 	obj.a = 'still ' + A.pull('a2')
-# 	return obj

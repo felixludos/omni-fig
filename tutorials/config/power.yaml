@@ -1,5 +1,5 @@
 
-_src: [advanced, data/large]
+_base: [advanced, data/large]
 
 epochs: 50
 

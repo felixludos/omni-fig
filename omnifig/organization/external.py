@@ -44,7 +44,7 @@ def include_files(*paths: str):
 
 
 
-def include_package(*packages: str):
+def include_package(*packages: str, path=None):
 	'''
 	Imports packages based on their names
 
@@ -55,9 +55,16 @@ def include_package(*packages: str):
 		:code:`None`
 
 	'''
+	old = None
+	if path is not None:
+		sys.path.insert(0, str(path))
+		old = os.getcwd()
+		os.chdir(str(path))
 	for pkg in packages:
 		importlib.import_module(pkg)
-
+	if path is not None:
+		del sys.path[0]
+		os.chdir(old)
 
 # endregion
 

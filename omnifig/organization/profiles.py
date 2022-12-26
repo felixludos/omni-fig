@@ -1,4 +1,5 @@
 from typing import Dict, Tuple, Optional, Any, Sequence, Callable, Iterator, NamedTuple
+from pathlib import Path
 import sys
 from collections import OrderedDict
 from omnibelt import get_printer, Function_Registry
@@ -148,7 +149,13 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		super().__init__(data)
 		self._loaded_projects = OrderedDict()
 		self._current_project_key = None
-	
+
+	@property
+	def path(self):
+		path = self.data.get('info_path', None)
+		if path is not None:
+			return Path(path)
+
 	# region Top Level Methods
 	def entry(self, script_name: Optional[str] = None) -> None:
 		'''

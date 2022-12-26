@@ -1,6 +1,6 @@
 
 
-_src: [config2, config3]
+_base: [config2, config3]
 
 remove_names: [Fourier]
 

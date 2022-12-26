@@ -1,6 +1,7 @@
 
-from typing import Dict, Optional, Union, Any
+from typing import Dict, Optional, Union, Any, Iterator
 import os
+from collections import deque
 from pathlib import Path
 from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry, JSONABLE
 
@@ -33,6 +34,10 @@ class Profile(ProfileBase, default_profile=True):
 				'component': component_registry,
 				'modifier': modifier_registry,
 			})
+
+		def related(self):
+			for ident in self.data.get('related', []):
+				yield self._profile.get_project(ident)
 
 
 		def validate_main(self, config: AbstractConfig) -> 'ProjectBase':
@@ -94,16 +99,44 @@ class Profile(ProfileBase, default_profile=True):
 			return self.iterate_artifacts('modifier')
 		# endregion
 
+		def find_local_artifact(self, artifact_type, ident):
+			return super().find_artifact(artifact_type, ident)
+
+		def _find_nonlocal_artifact(self, artifact_type, ident):
+			past = {self}
+			new = deque(self.related())
+			while len(new):
+				proj = new.popleft()
+				past.add(proj)
+				try:
+					if isinstance(proj, Profile.Project):
+						new.extend(p for p in proj.related() if p not in past)
+						return proj.find_local_artifact(artifact_type, ident)
+					return proj.find_artifact(artifact_type, ident)
+				except self.UnknownArtifactError:
+					pass
+
+			for proj in self._profile.iterate_base_projects():
+				if proj not in past:
+					try:
+						if isinstance(proj, Profile.Project):
+							new.extend(p for p in proj.related() if p not in past)
+							return proj.find_local_artifact(artifact_type, ident)
+						return proj.find_artifact(artifact_type, ident)
+					except self.UnknownArtifactError:
+						pass
+
+			raise self.UnknownArtifactError(artifact_type, ident)
+
+
 		def find_artifact(self, artifact_type, ident, default=unspecified_argument):
 			try:
-				return super().find_artifact(artifact_type, ident)
+				return self.find_local_artifact(artifact_type, ident)
 			except self.UnknownArtifactError:
-				for proj in self._profile.iterate_projects():
-					if proj != self:
-						try:
-							return proj.find_artifact(artifact_type, ident)
-						except proj.UnknownArtifactError:
-							pass
+				try:
+					return self._find_nonlocal_artifact(artifact_type, ident)
+				except self.UnknownArtifactError:
+					pass
 				if default is unspecified_argument:
 					raise
 				return default
@@ -114,15 +147,39 @@ class Profile(ProfileBase, default_profile=True):
 		if data is None:
 			data = os.environ.get(self._profile_env_variable, None)
 		super().__init__(data)
+		self._base_projects = []
 
+	@property
+	def projects(self):
+		return self._loaded_projects
 
 	def _activate(self) -> None:
-		active_projects = self.data.get('active_projects', [])
+		active_projects = self.data.get('active-projects', [])
 		for project in active_projects:
-			self.get_project(project, is_current=False)
+			proj = self.get_project(project)
+			proj.activate()
+			self._base_projects.append(proj)
+		self._current_project_key = None
 
 
-	def get_project(self, ident: Union[str, Path] = None, is_current: bool = True) -> Project:
+	def iterate_base_projects(self) -> Iterator[Project]:
+		return iter(self._base_projects)
+
+	def iterate_projects(self) -> Iterator[Project]:
+		past = set()
+		for project in self._loaded_projects.values():
+			if project not in past:
+				yield project
+			past.add(project)
+
+	class UnknownProjectError(KeyError):
+		'''Raised when trying to get a project with an invalid path.'''
+
+	_default_project_name = 'default'
+
+	def get_project(self, ident: Union[str, Path] = None, is_current: bool = None) -> Project:
+		if is_current is None:
+			is_current = self._current_project_key is None
 		if ident is None:
 			if self._current_project_key is not None:
 				return self._loaded_projects[self._current_project_key]
@@ -139,14 +196,21 @@ class Profile(ProfileBase, default_profile=True):
 			if ident in self.data.get('projects', {}):
 				path = self.data['projects'][ident]
 
+			if path is not None and not os.path.exists(path):
+				raise self.UnknownProjectError(path)
+
 			proj = self.Project(path, profile=self)
 			proj = proj.validate()
+			if ident is None:
+				ident = self._default_project_name
+			if 'name' not in proj.data:
+				proj.data['name'] = ident
 			if proj.name in self._loaded_projects:
 				prt.warning('project name already loaded: %s (will now overwrite)', proj.name)
 
-		if ident is not None: # TODO: fix error handling
-			assert proj.name == ident, 'project name does not match profiles name for it: ' \
-			                           '%s != %s' % (proj.name, ident)
+		if ident is not None and ident != proj.name:
+			prt.warning('project name does not match profiles name for it: %s != %s', ident, proj.name)
+			self._loaded_projects[ident] = proj
 		# self._loaded_projects[ident] = proj.name
 		self._loaded_projects[proj.name] = proj
 		if is_current:

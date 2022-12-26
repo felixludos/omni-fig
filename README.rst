@@ -65,7 +65,7 @@ Quickstart
 
 .. quickstart-marker-do-not-remove
 
-A project only requires a yaml file called ``.fig.yml`` (see documentation_), however, it is also suggested to create a directory called ``config/`` to contain any config yaml files that should automatically be registered when the project is loaded. Usually, when loading a project, that requires running/importing some python files, relative path to the top level source file to run should be specified in the project info file (``.fig.yml``) under the key ``src`` and any modules should be specified with ``module``. Below is an example of a simple ``omni-fig`` project with all the suggested bells and whistles:
+A project only requires a yaml file called ``.fig.project.yml`` (see documentation_), however, it is also suggested to create a directory called ``config/`` to contain any config yaml files that should automatically be registered when the project is loaded. Usually, when loading a project, that requires running/importing some python files, relative path to the top level source file to run should be specified in the project info file (``.fig.project.yml``) under the key ``src`` and any modules should be specified with ``module``. Below is an example of a simple ``omni-fig`` project with all the suggested bells and whistles:
 
 .. code-block::
 
@@ -84,10 +84,10 @@ A project only requires a yaml file called ``.fig.yml`` (see documentation_), ho
     │   ├── script1.py - any additional source files part of the module
     │   └── ...
     │
-    ├── .fig.yml - project info file
+    ├── .fig.project.yml - project info file
     └── ...
 
-For the example above, ``.fig.yml`` should contain something like:
+For the example above, ``.fig.project.yml`` should contain something like:
 
 .. code-block:: yaml
 

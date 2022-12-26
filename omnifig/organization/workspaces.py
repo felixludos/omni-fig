@@ -43,13 +43,7 @@ class ProjectBase(AbstractProject):
 class GeneralProject(ProjectBase, name='general'):
 	'''Project class that includes basic functionality such as a script registry and config manager.'''
 
-	_info_file_names = {
-		'omni.fig', 'info.fig', '.omni.fig', '.info.fig',
-		'fig.yaml', 'fig.yml', '.fig.yaml', '.fig.yml',
-		'fig.info.yaml', 'fig.info.yml', '.fig.info.yaml', '.fig.info.yml',
-		'fig_info.yaml', 'fig_info.yml', '.fig_info.yaml', '.fig_info.yml',
-		'project.yaml', 'project.yml', '.project.yaml', '.project.yml',
-	}
+	_info_file_names = {'.fig.project.yml', '.fig.project.yaml', 'fig.project.yml', 'fig.project.yaml'}
 
 	def infer_path(self, path: Optional[Union[str, Path]] = None) -> Path:
 		'''Infers the path of the project from the given path or the current working directory.'''
@@ -166,7 +160,10 @@ class GeneralProject(ProjectBase, name='general'):
 				pkgs = [self.data['package']] + pkgs
 			if 'packages' in self.data:
 				pkgs = self.data['packages'] + pkgs
-			self.load_src(self.data.get('src', []), pkgs)
+			src = self.data.get('src', [])
+			if isinstance(src, str):
+				src = [src]
+			self.load_base(src, pkgs)
 
 	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()) -> None:
 		'''Registers all specified config files and directories'''
@@ -177,7 +174,7 @@ class GeneralProject(ProjectBase, name='general'):
 			elif path.is_dir():
 				self.register_config_dir(path, recursive=True)
 
-	def load_src(self, srcs: Optional[Sequence[Union[str ,Path]]] = (),
+	def load_base(self, srcs: Optional[Sequence[Union[str ,Path]]] = (),
 	             packages: Optional[Sequence[str]] = ()) -> None:
 		'''Imports all specified packages and runs the specified python files'''
 		src_files = []
@@ -185,7 +182,7 @@ class GeneralProject(ProjectBase, name='general'):
 			path = Path(src) if self.root is None else self.root / src
 			if path.is_file():
 				src_files.append(str(path))
-		include_package(*packages)
+		include_package(*packages, path=self.root)
 		include_files(*src_files)
 
 	# region Organization
@@ -214,10 +211,18 @@ class GeneralProject(ProjectBase, name='general'):
 	def __repr__(self):
 		return f'{self.__class__.__name__}[{self.name}]({self.root})'
 
+	def __eq__(self, other):
+		if not isinstance(other, GeneralProject):
+			return False
+		return self.info_path == other.info_path
+
+	def __hash__(self):
+		return hash(self.info_path)
+
 	@property
 	def name(self):
-		if self.root is not None:
-			return self.data.get('name', '')
+		# if self.root is not None:
+		return self.data.get('name', '')
 
 	@property
 	def root(self) -> Path:

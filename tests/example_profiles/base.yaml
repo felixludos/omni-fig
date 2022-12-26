@@ -1,0 +1,8 @@
+
+name: base-profile
+
+# empty
+
+projects:
+  example1: tests/example_projects/p1
+

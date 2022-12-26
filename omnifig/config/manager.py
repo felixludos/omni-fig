@@ -1,3 +1,4 @@
+import os.path
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
 	Iterator, NamedTuple
 from pathlib import Path
@@ -6,8 +7,9 @@ import yaml
 import toml
 from collections import OrderedDict
 from c3linearize import linearize
-from omnibelt import Path_Registry, load_yaml, JSONABLE, unspecified_argument, load_json
-from omnibelt.nodes import LocalNode
+from omnibelt import Path_Registry, load_yaml, JSONABLE, unspecified_argument, load_json, export, load_export
+from omnibelt import exporting_common as _
+# from omnibelt.nodes import LocalNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractConfigManager
 from .nodes import ConfigNode
@@ -23,6 +25,9 @@ class ConfigManager(AbstractConfigManager):
 	ConfigNode = ConfigNode
 
 	Config_Registry = Path_Registry
+
+	def export(self, config, name, root: Path = None):
+		return export(config, name=name, root=root)
 
 	def __init__(self, project: AbstractProject):
 		self.registry = Path_Registry()
@@ -201,7 +206,14 @@ class ConfigManager(AbstractConfigManager):
 	def find_config_path(self, name: str) -> Path:
 		# if name not in self.registry:
 		# 	raise ValueError(f'Unknown config: {name}')
-		return self.find_config_entry(name).path
+		try:
+			return self.find_config_entry(name).path
+		except self.ConfigNotRegistered:
+			if isinstance(name, Path) and name.is_file():
+				return name
+			elif os.path.isfile(name):
+				return Path(name)
+			raise
 
 	class ConfigNotRegistered(KeyError): pass
 
@@ -212,7 +224,7 @@ class ConfigManager(AbstractConfigManager):
 			pass
 		raise self.ConfigNotRegistered(name)
 
-	_config_parents_key = '_src'
+	_config_parents_key = '_base'
 
 	@classmethod
 	def _find_config_parents(cls, path: Optional[Path], raw: Dict[str, Any]) -> List[str]:
@@ -245,8 +257,21 @@ class ConfigManager(AbstractConfigManager):
 		# self._unify_config_node(config)
 		pass
 
-	def _load_raw_config(self, path: Path) -> JSONABLE:
-		return load_yaml(path, ordered=True)
+	def load_raw_config(self, path: Union[str, Path]) -> JSONABLE:
+		# kwargs = {}
+		# if path.suffix.endswith('.yml') or path.suffix.endswith('.yaml'):
+		# 	kwargs = {'Loader': yaml.SafeLoader}
+		# return load_export(path, **kwargs)
+		if path.suffix.endswith('.yml') or path.suffix.endswith('.yaml'):
+			# return load_yaml(path, ordered=True)
+			return load_export(path=path, fmt='yaml', ordered=True)
+		elif path.suffix == '.json':
+			# return load_json(path)
+			return load_export(path=path, fmt='json')
+		elif path.suffix in ('.toml', '.tml'):
+			# return toml.load(path, _dict=OrderedDict)
+			return load_export(path=path, fmt='toml', _dict=OrderedDict)
+		raise ValueError(f'Unknown config file type: {path}')
 
 	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None, *,
 	                  project: Optional[AbstractProject] = unspecified_argument) -> AbstractConfig:
@@ -272,7 +297,7 @@ class ConfigManager(AbstractConfigManager):
 				if not path.exists():
 					raise FileNotFoundError(path)
 				used_paths[name] = path
-				raws[path] = self._load_raw_config(path)
+				raws[path] = self.load_raw_config(path)
 				ancestry_names[path] = name
 				parent_table[path] = self._find_config_parents(path, raws[path])
 				todo.extend(parent_table[path])
@@ -300,16 +325,8 @@ class ConfigManager(AbstractConfigManager):
 		merged.settings = merged.pull('_meta.settings', {}, silent=True)
 
 		merged.validate()
+		merged.manager = self
 		return merged
-	
-	def load_raw_config(self, path: Union[str, Path]) -> JSONABLE:
-		if path.suffix in ('.yaml', '.yml'):
-			return load_yaml(path, ordered=True)
-		elif path.suffix == '.json':
-			return load_json(path)
-		elif path.suffix in ('.toml', '.tml'):
-			return toml.load(path, _dict=OrderedDict)
-		raise ValueError(f'Unknown config file type: {path}')
 
 	def _configurize(self, raw: JSONABLE, parent: Optional[ConfigNode] = None, **kwargs) -> AbstractConfig:
 		return self.ConfigNode.from_raw(raw, parent=parent, **kwargs)

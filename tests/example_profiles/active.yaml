@@ -1,0 +1,12 @@
+
+
+name: active-profile
+
+active-projects: [example2]
+
+projects:
+  example2: tests/example_projects/p2
+
+
+
+

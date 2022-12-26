@@ -156,4 +156,25 @@ def create_config(*configs: str, **parameters: JSONABLE) -> AbstractConfig:
 	'''
 	return get_current_project().create_config(*configs, **parameters)
 
+
+def parse_argv(argv: Sequence[str], script_name=None) -> AbstractConfig:
+	'''
+	Parses the given arguments and returns a config object.
+
+	Arguments are expected in the following order (all of which are optional):
+		1. Meta rules to modify the config loading process and run mode.
+		2. Name of the script to run.
+		3. Names of registered config files that should be loaded and merged (in order of precedence).
+		4. Manual config parameters (usually keys, prefixed by :code:`--` and corresponding values)
+
+	Args:
+		argv: List of arguments to parse (expected to be :code:`sys.argv[1:]`).
+		script_name: Manually specified name of the script (defaults to what is specified in the resulting config).
+
+	Returns:
+		Config object containing the parsed arguments.
+
+	'''
+	return get_current_project().parse_argv(argv, script_name=script_name)
+
 # endregion

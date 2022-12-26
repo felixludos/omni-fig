@@ -1,11 +1,11 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
 	Iterator, NamedTuple, ContextManager
-import abc
+from pathlib import Path
 import inspect
 from contextlib import nullcontext
 import yaml
 from collections import OrderedDict
-from omnibelt import Exportable, get_printer, unspecified_argument, extract_function_signature, \
+from omnibelt import get_printer, unspecified_argument, extract_function_signature, \
 	JSONABLE, Primitive, primitive, Modifiable
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
 
@@ -16,9 +16,12 @@ from .abstract import AbstractSearch, AbstractReporter
 prt = get_printer(__name__)
 
 
-class ConfigNode(AutoTreeNode, Exportable, AbstractConfig, extensions=['.fig.yml', '.fig.yaml']):
+class ConfigNode(AutoTreeNode, AbstractConfig):
 	# _DummyNode: 'ConfigNode' = None
 	Settings = OrderedDict
+
+	def export(self, name: Optional[str], root: Optional[Union[str, Path]] = None) -> Optional[Path]:
+		return self.manager.export(self, name, root=root)
 
 	@classmethod
 	def from_raw(cls, raw: Any, *, parent: Optional['ConfigNode'] = unspecified_argument,
@@ -670,6 +673,13 @@ class ConfigNode(AutoTreeNode, Exportable, AbstractConfig, extensions=['.fig.yml
 			if parent is not None:
 				return parent.manager
 		return self._manager
+	@manager.setter
+	def manager(self, manager: AbstractConfigManager):
+		parent = self.parent
+		if parent is None:
+			self._manager = manager
+		else:
+			parent.manager = manager
 	
 	@property
 	def trace(self) -> Optional[Search]:

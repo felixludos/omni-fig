@@ -1,5 +1,5 @@
 
-_src: ['t/n0']
+_base: ['t/n0']
 
 tree: nodes
 

@@ -81,16 +81,16 @@ The most important contents of the profile file (all of which are optional):
 Projects
 --------
 
-For ``omni-fig`` to recognize a directory as a project, it must contain a yaml file named ``.fig.yml`` (or similarly, see code for all options). This yaml file should contain all project specific information (similar to profiles) that may be useful for running code or interacting with other projects. The most important information contained in the project yaml file:
+For ``omni-fig`` to recognize a directory as a project, it must contain a yaml file named ``.fig.project.yml`` (or similarly, see code for all options). This yaml file should contain all project specific information (similar to profiles) that may be useful for running code or interacting with other projects. The most important information contained in the project yaml file:
 
 - ``related`` - a list of project names that should be loaded before loading this one (all the paths to all related projects must be found in the profile's ``projects`` table)
 - ``src`` - the relative path to the python file that should be run in order to fully load all components of this project
 - ``name`` - while not enforced, it is strongly encouraged that project info files contain their own name (ideally the same as is used in the profile's ``projects`` table)
 - ``project_type`` - the registered name of the project type to use when instantiating this project
 - ``ptype_src_file`` - a python file to run before trying to load this project (for example, as it might define and register the desired project type)
-- ``py_info`` - relative path to a python file that defines project meta data (this is particularly useful for projects that are packages, as the meta data is potentially already specified in various places, like ``requirements.txt``) (``omni-fig`` itself is a good example, see this project's ``.fig.yml`` file and the associated ``omnifig/_info.py`` file)
+- ``py_info`` - relative path to a python file that defines project meta data (this is particularly useful for projects that are packages, as the meta data is potentially already specified in various places, like ``requirements.txt``) (``omni-fig`` itself is a good example, see this project's ``.fig.project.yml`` file and the associated ``omnifig/_info.py`` file)
 
-The directory that contains the project info file (``.fig.yml``) is defined as the "project directory". All paths in the info file should be relative to the project directory. By default, if there is a directory called ``config`` or ``configs`` in the project directory, then that directory will automatically be registered as a config directory (ie. all yaml files inside will be registered while preserving the folder hierarchy) - see the unit tests (in ``test/`` for an example).
+The directory that contains the project info file (``.fig.project.yml``) is defined as the "project directory". All paths in the info file should be relative to the project directory. By default, if there is a directory called ``config`` or ``configs`` in the project directory, then that directory will automatically be registered as a config directory (ie. all yaml files inside will be registered while preserving the folder hierarchy) - see the unit tests (in ``test/`` for an example).
 
 When a project is loaded, first the desired type is identified. As a result, you can subclass the :class:`Project` class and override the behavior of project objects. Note that this is a fairly advanced featured and should be used only when absolutely necessary (atm I'm not sure why I added this feature in the first place).
 
