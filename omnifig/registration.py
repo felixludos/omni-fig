@@ -5,7 +5,8 @@ from omnibelt import extract_function_signature, get_printer
 from .abstract import AbstractCreator, AbstractConfig, AbstractProject, AbstractMetaRule, AbstractCustomArtifact
 from .top import get_current_project, get_profile
 
-prt = get_printer(__name__)
+from . import __info__
+prt = get_printer(__info__.get('logger_name'))
 
 
 class _Registration_Decorator:

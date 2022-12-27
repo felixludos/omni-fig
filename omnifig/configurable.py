@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Tuple, Union, Type, Sequence, Callable
 import inspect
-from omnibelt import dynamic_capture, extract_function_signature, Modifiable, agnosticproperty
+from omnibelt import dynamic_capture, extract_function_signature, Modifiable
 
 from .abstract import AbstractConfig, AbstractConfigurable, AbstractCertifiable
 

@@ -13,14 +13,14 @@ from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, Abstrac
 	AbstractCustomArtifact, AbstractCertifiable
 from .abstract import AbstractSearch, AbstractReporter
 
-prt = get_printer(__name__)
+from .. import __info__
+prt = get_printer(__info__.get('logger_name'))
 
 
 class ConfigNode(AutoTreeNode, AbstractConfig):
-	# _DummyNode: 'ConfigNode' = None
 	Settings = OrderedDict
 
-	def export(self, name: Optional[str], root: Optional[Union[str, Path]] = None) -> Optional[Path]:
+	def export(self, name: Union[str, Path], root: Optional[Union[str, Path]] = None) -> Optional[Path]:
 		return self.manager.export(self, name, root=root)
 
 	@classmethod

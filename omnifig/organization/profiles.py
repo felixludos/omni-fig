@@ -7,7 +7,8 @@ from omnibelt import get_printer, Function_Registry
 from ..abstract import AbstractConfig, AbstractProfile, AbstractProject
 from .workspaces import ProjectBase
 
-prt = get_printer(__name__)
+from .. import __info__
+prt = get_printer(__info__.get('logger_name'))
 
 
 
@@ -205,7 +206,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		'''
 		return self.get_current_project().main(argv, script_name=script_name)
 	
-	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
+	def run(self, config: AbstractConfig, *, script_name: Optional[str] = None, args: Optional[Tuple] = None,
 	        kwargs: Optional[Dict[str, Any]] = None, **meta: Any):
 		'''
 		Runs the script with the given arguments using :func:`run()` of the current project.
@@ -223,7 +224,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		'''
 		return self.get_current_project().run(config, script_name=script_name, args=args, kwargs=kwargs)
 	
-	def quick_run(self, script_name, *configs, **parameters):
+	def quick_run(self, script_name: str, *configs: str, **parameters: Any):
 		'''
 		Creates a config object and runs the script using :func:`quick_run()` of the current project.
 
@@ -284,7 +285,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		'''
 		return self.get_project(self._current_project_key)
 	
-	def switch_project(self, ident=None) -> AbstractProject:
+	def switch_project(self, ident: Union[str, AbstractProject] = None) -> AbstractProject:
 		'''
 		Switches the current project to the one with the given identifier.
 
@@ -310,7 +311,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		yield from self._loaded_projects.values()
 
 
-	def project_context(self, ident: Optional[str] = None) -> ContextManager[AbstractProject]:
+	def project_context(self, ident: Union[str, AbstractProject] = None) -> ContextManager[AbstractProject]:
 		'''
 		Context manager to temporarily switch to a different current project.
 
@@ -343,6 +344,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		def __exit__(self, exc_type, exc_val, exc_tb):
 			self.profile.switch_project(self.old_project)
+
 
 
 def get_profile() -> ProfileBase:

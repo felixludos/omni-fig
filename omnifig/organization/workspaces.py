@@ -1,16 +1,16 @@
-from typing import Optional, Union, Sequence, NamedTuple, Tuple, Any, Dict, List
+from typing import Optional, Union, Sequence, NamedTuple, Tuple, Any, Dict, List, Type, Iterator, Callable
 from pathlib import Path
 import inspect
 from collections import OrderedDict
 from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry, colorize, include_modules
 
-from ..abstract import AbstractConfig, AbstractProject, AbstractMetaRule, AbstractCustomArtifact
-# from .external import include_package, include_files, include_module
-from ..config import ConfigManager
-# from .profiles import Meta_Rule
 
-# prt = get_printer(__name__)
-prt = get_printer('omnifig')
+from ..abstract import AbstractConfig, AbstractProject, AbstractMetaRule, AbstractCustomArtifact
+from ..config import ConfigManager
+
+
+from .. import __info__
+prt = get_printer(__info__.get('logger_name'))
 
 
 class ProjectBase(AbstractProject):
@@ -65,6 +65,7 @@ class GeneralProject(ProjectBase, name='general'):
 
 	@staticmethod
 	def _print_artifact_entry(entry):
+		'''Prints a single artifact entry (e.g. script) with pretty formatting (including color)'''
 
 		desc = getattr(entry, 'description', None)
 
@@ -97,7 +98,24 @@ class GeneralProject(ProjectBase, name='general'):
 		return '\n\t'.join(lines)
 
 
-	def xray(self, artifact, sort=False, reverse=False, as_dict=False):
+	def xray(self, artifact: str, *, sort: Optional[bool] = False, reverse: Optional[bool] = False,
+	         as_dict: Optional[bool] = False) -> Optional[Dict[str, NamedTuple]]:
+		'''
+		Prints a list of all artifacts registered to the project of the given type.
+
+		Args:
+			artifact: artifact type (e.g. 'script', 'config')
+			sort: sort the list of artifacts by name
+			reverse: reverse the order of the list of artifacts
+			as_dict: instead of printing, return the list of artifacts as a dictionary[artifact_name] = artifact_entry
+
+		Returns:
+			dict: if as_dict is True, returns a dictionary of the artifact entries
+
+		Raises:
+			UnknownArtifactTypeError: if the given artifact type does not exist
+
+		'''
 		self.activate()
 		registry = self._artifact_registries.get(artifact)
 		if registry is None:
@@ -121,6 +139,7 @@ class GeneralProject(ProjectBase, name='general'):
 	class Script_Registry(Function_Registry, components=['description', 'hidden', 'project']):
 		'''Registry for scripts (functions) that can be run from the command line.'''
 		pass
+
 	Config_Manager = ConfigManager
 	'''Default Config Manager'''
 
@@ -137,36 +156,40 @@ class GeneralProject(ProjectBase, name='general'):
 		self._artifact_registries = {
 			'script': script_registry,
 		}
-		self._initialized = False
 
-	@property
-	def initialized(self):
-		return self._initialized
 
-	def initialize(self):
-		if not self._initialized:
-			self._initialized = True
-			prt.info(f'Activating project {self.name} ({self.root})')
-			if self.root is not None:
-				self.load_configs(self.data.get('configs', []))
-				if self.data.get('auto_config', True):
-					for dname in ['config', 'configs']:
-						path = self.root / dname
-						if path.is_dir():
-							self.load_configs([path])
+	def load_dependencies(self):
+		'''
+		Loads all dependencies for the project including config files/directories, packages, and source files
+		based on the contents of the project's info file.
 
-				# pkgs = self.data.get('modules', [])
-				# if 'module' in self.data:
-				# 	pkgs = [self.data['module']] + pkgs
-				pkgs = []
-				if 'package' in self.data:
-					pkgs = [self.data['package']] + pkgs
-				if 'packages' in self.data:
-					pkgs = self.data['packages'] + pkgs
-				src = self.data.get('src', [])
-				if isinstance(src, str):
-					src = [src]
-				self.load_base(src, pkgs)
+		Packages are imported (or reloaded) and source files are executed locally.
+
+		Returns:
+			Project: self
+
+		'''
+		if self.root is not None:
+			# config files/directories
+			self.load_configs(self.data.get('configs', []))
+			if self.data.get('auto_config', True):
+				for dname in ['config', 'configs']:
+					path = self.root / dname
+					if path.is_dir():
+						self.load_configs([path])
+
+			# packages
+			pkgs = []
+			if 'package' in self.data:
+				pkgs = [self.data['package']] + pkgs
+			if 'packages' in self.data:
+				pkgs = self.data['packages'] + pkgs
+
+			# source files
+			src = self.data.get('src', [])
+			if isinstance(src, str):
+				src = [src]
+			self._run_dependencies(src, pkgs)
 
 	def _activate(self, *args, **kwargs):
 		'''
@@ -175,8 +198,9 @@ class GeneralProject(ProjectBase, name='general'):
 		and source files (keys: ``packages``, ``package``, ``src``).
 		'''
 		super()._activate(*args, **kwargs)
+		prt.info(f'Activating project {self.name} ({self.root})')
 		with self._profile.project_context(self):
-			self.initialize()
+			self.load_dependencies()
 
 	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()) -> None:
 		'''Registers all specified config files and directories'''
@@ -187,22 +211,13 @@ class GeneralProject(ProjectBase, name='general'):
 			elif path.is_dir():
 				self.register_config_dir(path, recursive=True)
 
-	def load_base(self, srcs: Optional[Sequence[Union[str ,Path]]] = (),
-	             packages: Optional[Sequence[str]] = ()) -> None:
+	def _run_dependencies(self, srcs: Optional[Sequence[Union[str , Path]]] = (),
+	                      packages: Optional[Sequence[str]] = ()) -> None:
 		'''Imports all specified packages and runs the specified python files'''
 
 		modules = [*map(Path,srcs), *packages]
 		if len(modules):
 			include_modules(*modules, root=self.root)
-		return
-
-		# src_files = []
-		# for src in srcs:
-		# 	path = Path(src) if self.root is None else self.root / src
-		# 	if path.is_file():
-		# 		src_files.append(str(path))
-		# include_package(*packages, path=self.root)
-		# include_files(*src_files)
 
 	# region Organization
 	def extract_info(self, other: 'GeneralProject') -> None:
@@ -240,7 +255,7 @@ class GeneralProject(ProjectBase, name='general'):
 
 	@property
 	def name(self):
-		# if self.root is not None:
+		'''The name of the project'''
 		return self.data.get('name', '')
 
 	@property
@@ -264,6 +279,10 @@ class GeneralProject(ProjectBase, name='general'):
 		'''Parses the given command line arguments into a config object.'''
 		return self.config_manager.parse_argv(argv, script_name=script_name)
 
+	def iterate_meta_rules(self) -> Iterator[NamedTuple]:
+		'''Iterates over all meta rules in the associated profile.'''
+		return self._profile.iterate_meta_rules()
+
 	TerminationFlag = AbstractMetaRule.TerminationFlag
 	def _check_meta_rules(self, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
 		'''
@@ -276,8 +295,11 @@ class GeneralProject(ProjectBase, name='general'):
 		Returns:
 			The potentially modified config object to use for running the script.
 
+		Raises:
+			:code:`TerminationFlag` if a meta rule requests termination.
+
 		'''
-		for rule in self._profile.iterate_meta_rules():
+		for rule in self.iterate_meta_rules():
 			try:
 				out = rule.fn(config, meta)
 			except self.TerminationFlag:
@@ -292,7 +314,19 @@ class GeneralProject(ProjectBase, name='general'):
 
 	def _run(self, script_entry: Script_Registry.entry_cls, config: AbstractConfig,
 	         args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None) -> Any:
-		'''Runs the given script with the given config.'''
+		'''
+		Runs the given script with the given config.
+
+		Args:
+			script_entry: The script entry to run.
+			config: The config to use for running the script.
+			args: Additional positional arguments to pass to the script.
+			kwargs: Additional keyword arguments to pass to the script.
+
+		Returns:
+			The return value of the script.
+
+		'''
 		if args is None:
 			args = []
 		if kwargs is None:
@@ -303,7 +337,23 @@ class GeneralProject(ProjectBase, name='general'):
 			item = fn.top
 		return item(config, *args, **kwargs)
 
-	def run_local(self, config, *, script_name=None, args=None, kwargs=None, meta=None):
+	def run_local(self, config: AbstractConfig, *, script_name: Optional[str] = None,
+	              args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None,
+	              meta: Optional[AbstractConfig] = None) -> Any:
+		'''
+		Runs the given script with the given config using this project.
+
+		Args:
+			config: The config to use for running the script.
+			script_name: The script name to run (infer from config if None).
+			args: Additional positional arguments to pass to the script.
+			kwargs: Additional keyword arguments to pass to the script.
+			meta: Meta config object for meta rules.
+
+		Returns:
+			The return value of the script.
+
+		'''
 		config.project = self
 		if meta is not None:
 			config.push('_meta', meta, silent=True)
@@ -324,8 +374,27 @@ class GeneralProject(ProjectBase, name='general'):
 	# endregion
 
 	# region Registration
-	class UnknownArtifactTypeError(KeyError): pass
-	def find_artifact(self, artifact_type, ident, default=unspecified_argument):
+	class UnknownArtifactTypeError(KeyError):
+		'''Raised when an unknown artifact type is encountered.'''
+		pass
+	def find_artifact(self, artifact_type: str, ident: str,
+	                  default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the artifact of the given type and registered with the given identifier.
+
+		Args:
+			artifact_type: The type of artifact to find.
+			ident: The identifier of the artifact to find.
+			default: The default value to return if the artifact is not found.
+
+		Returns:
+			The artifact entry from the registry corresponding to the given type.
+
+		Raises:
+			UnknownArtifactTypeError: If the artifact type is not registered.
+			UnknownArtifactError: If the artifact is not found and no default is given.
+
+		'''
 		self.activate()
 		if artifact_type == 'config':
 			return self.config_manager.find_config_entry(ident)
@@ -338,8 +407,26 @@ class GeneralProject(ProjectBase, name='general'):
 			pass
 		raise self.UnknownArtifactError(artifact_type, ident)
 
-	def register_artifact(self, artifact_type, ident, artifact, project=None, **kwargs):
-		if project is None:
+	def register_artifact(self, artifact_type, ident: str, artifact: Union[str, Type, Callable], *,
+	                      project: Optional[AbstractProject] = unspecified_argument, **kwargs) -> NamedTuple:
+		'''
+		Registers the given artifact with the given type and identifier and any additional info.
+
+		Args:
+			artifact_type: The type of artifact to register.
+			ident: The identifier of the artifact to register.
+			artifact: The artifact to register (usually a type or config file path).
+			project: The project to register the artifact for (defaults to this project).
+			kwargs: Additional keyword arguments to pass to the registry.
+
+		Returns:
+			The artifact entry from the registry corresponding to the given type.
+
+		Raises:
+			UnknownArtifactTypeError: If the artifact type does not exist.
+
+		'''
+		if project is unspecified_argument:
 			project = self
 		if artifact_type == 'config':
 			return self.config_manager.register_config(ident, artifact, project=project)
@@ -348,36 +435,149 @@ class GeneralProject(ProjectBase, name='general'):
 			raise self.UnknownArtifactTypeError(artifact_type)
 		return registry.new(ident, artifact, project=project, **kwargs)
 
-	def iterate_artifacts(self, artifact_type):
+	def iterate_artifacts(self, artifact_type: str) -> Iterator[NamedTuple]:
+		'''
+		Iterates over all artifacts of the given type.
+
+		Args:
+			artifact_type: The type of artifact to iterate over (e.g. 'script', 'config').
+
+		Returns:
+			An iterator over all artifacts of the given type.
+
+		Raises:
+			UnknownArtifactTypeError: If the artifact type does not exist.
+
+		'''
 		self.activate()
 		if artifact_type == 'config':
 			yield from self.config_manager.iterate_configs()
-			return
-		if artifact_type not in self._artifact_registries:
+		elif artifact_type not in self._artifact_registries:
 			raise self.UnknownArtifactTypeError(artifact_type)
-		yield from self._artifact_registries[artifact_type].values()
+		else:
+			yield from self._artifact_registries[artifact_type].values()
 
 
-	def find_config(self, name, default=unspecified_argument):
+	def find_config(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the config with the given name.
+
+		Args:
+			name: name the config was registered with.
+			default: default value to return if the config is not found.
+
+		Returns:
+			The config entry corresponding to the given name.
+
+		Raises:
+			UnknownArtifactError: If the config is not found and no default is given.
+
+		'''
 		return self.find_artifact('config', name, default=default)
 
-	def register_config(self, name, path):
-		return self.register_artifact('config', name, path)
+	def register_config(self, name: Union[str, Path], path: Union[str, Path] = None, **kwargs) -> NamedTuple:
+		'''
+		Registers a config file with the given name.
 
-	def iterate_configs(self):
+		Note:
+			It is generally not recommended to register configs manually, but rather to use the ``register_config_dir``
+			method to register all configs in a directory at once.
+
+		Args:
+			name: to register the config under
+			path: of the config file (if not provided, the provided name is assumed to be a path)
+			**kwargs: Other arguments to pass to the ``Path_Registry.register`` method
+
+		Returns:
+			The entry of the config file that was registered
+
+		'''
+		return self.register_artifact('config', name, path, **kwargs)
+
+	def iterate_configs(self) -> Iterator[NamedTuple]:
+		'''
+		Iterates over all registered config file entries.
+
+		Returns:
+			An iterator over all registered config file entries.
+
+		'''
 		return self.iterate_artifacts('config')
 
-	def register_config_dir(self, path, *, recursive=True, prefix=None, delimiter=None):
+	def register_config_dir(self, path: Union[str, Path], *, recursive: Optional[bool] = True,
+	                        prefix: Optional[str] = None, delimiter: Optional[str] = None) -> List[NamedTuple]:
+		'''
+		Registers all yaml files found in the given directory (possibly recursively)
+
+		When recusively checking all directories inside, the internal folder hierarchy is preserved
+		in the name of the config registered, so for example if the given ``path`` points to a
+		directory that contains a directory ``a`` and two files ``f1.yaml`` and ``f2.yaml``:
+
+		Contents of ``path`` and corresponding registered names:
+
+			- ``f1.yaml`` => ``f1``
+			- ``f2.yaml`` => ``f2``
+			- ``a/f3.yaml`` => ``a/f3``
+			- ``a/b/f4.yaml`` => ``a/b/f3``
+
+		If a ``prefix`` is provided, it is appended to the beginning of the registered names
+
+		Args:
+			path: path to root directory to search through
+			recursive: search recursively through subdirectories for more config yaml files
+			prefix: prefix for names of configs found herein
+			delimiter: string to merge directories when recursively searching (default ``/``)
+
+		Returns:
+			A list of all config entries that were registered.
+
+		'''
 		return self.config_manager.register_config_dir(path, recursive=recursive, prefix=prefix, delimiter=delimiter)
 
 
-	def find_script(self, name, default=unspecified_argument):
+	def find_script(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the script with the given name.
+
+		Args:
+			name: the script was registered with.
+			default: default value to return if the script is not found.
+
+		Returns:
+			The script entry corresponding to the given name.
+
+		Raises:
+			UnknownArtifactError: If the script is not found and no default is given.
+
+		'''
 		return self.find_artifact('script', name, default=default)
 
-	def register_script(self, name, fn, *, description=None, hidden=None):
+	def register_script(self, name: str, fn: Callable[[AbstractConfig], Any], *, description: Optional[str] = None,
+	                    hidden: Optional[bool] = None) -> NamedTuple:
+		'''
+		Register a script with the given name.
+
+		Args:
+			name: to register the script under
+			fn: the script function (should expect the first positional argument to be the config object)
+			description: description of the script
+			hidden: whether to hide the script from the list of available scripts
+			(defaults to whether the name starts with an underscore)
+
+		Returns:
+			The entry of the script that was registered
+
+		'''
 		return self.register_artifact('script', name, fn, description=description, hidden=hidden)
 
-	def iterate_scripts(self):
+	def iterate_scripts(self) -> Iterator[NamedTuple]:
+		'''
+		Iterates over all registered script entries.
+
+		Returns:
+			An iterator over all registered script entries.
+
+		'''
 		return self.iterate_artifacts('script')
 	# endregion
 	pass

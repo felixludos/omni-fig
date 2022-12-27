@@ -6,7 +6,8 @@ from omnibelt import get_printer, JSONABLE
 from .abstract import AbstractProject, AbstractConfig
 from .organization import get_profile
 
-prt = get_printer(__name__)
+from . import __info__
+prt = get_printer(__info__.get('logger_name'))
 
 # region Projects
 
@@ -145,7 +146,7 @@ def cleanup() -> None:
 
 # endregion
 
-# region Create
+# region Create Config
 
 def create_config(*configs: str, **parameters: JSONABLE) -> AbstractConfig:
 	'''

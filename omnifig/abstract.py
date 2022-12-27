@@ -1090,7 +1090,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
-	def project_context(self, ident: Optional[str] = None) -> ContextManager[AbstractProject]:
+	def project_context(self, ident: Optional[Union[str, AbstractProject]] = None) -> ContextManager[AbstractProject]:
 		'''
 		Context manager to temporarily switch to a different current project.
 

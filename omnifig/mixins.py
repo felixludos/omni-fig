@@ -4,7 +4,8 @@ from pathlib import Path
 from collections import OrderedDict
 from omnibelt import load_yaml, get_printer
 
-prt = get_printer('omnifig')
+from . import __info__
+prt = get_printer(__info__.get('logger_name'))
 
 
 class Activatable:
