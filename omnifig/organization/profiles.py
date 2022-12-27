@@ -1,10 +1,10 @@
-from typing import Dict, Tuple, Optional, Any, Sequence, Callable, Iterator, NamedTuple
+from typing import Dict, Tuple, Optional, Any, Sequence, Callable, Iterator, NamedTuple, Union, ContextManager
 from pathlib import Path
 import sys
 from collections import OrderedDict
 from omnibelt import get_printer, Function_Registry
 
-from ..abstract import AbstractConfig, AbstractProfile
+from ..abstract import AbstractConfig, AbstractProfile, AbstractProject
 from .workspaces import ProjectBase
 
 prt = get_printer(__name__)
@@ -284,7 +284,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		'''
 		return self.get_project(self._current_project_key)
 	
-	def switch_project(self, ident=None) -> Project:
+	def switch_project(self, ident=None) -> AbstractProject:
 		'''
 		Switches the current project to the one with the given identifier.
 
@@ -299,7 +299,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		self._current_project_key = proj.name
 		return proj
 	
-	def iterate_projects(self) -> Iterator[Project]:
+	def iterate_projects(self) -> Iterator[AbstractProject]:
 		'''
 		Iterates over all loaded projects.
 
@@ -309,6 +309,40 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		'''
 		yield from self._loaded_projects.values()
 
+
+	def project_context(self, ident: Optional[str] = None) -> ContextManager[AbstractProject]:
+		'''
+		Context manager to temporarily switch to a different current project.
+
+		Args:
+			ident: Name of the project to switch to, defaults to the default project (with name: None).
+
+		Returns:
+			Context manager to switch to the specified project.
+
+		'''
+		return self._project_context(self, ident)
+
+	class _project_context:
+		'''
+		Context manager for temporarily switching the current project.
+
+		Args:
+			ident: name or path of project to switch to
+
+		'''
+
+		def __init__(self, profile: AbstractProfile, ident: Union[str, Path] = None):
+			self.profile = profile
+			self.ident = ident
+			self.old_project = None
+
+		def __enter__(self):
+			self.old_project = self.profile.get_current_project()
+			self.profile.switch_project(self.ident)
+
+		def __exit__(self, exc_type, exc_val, exc_tb):
+			self.profile.switch_project(self.old_project)
 
 
 def get_profile() -> ProfileBase:

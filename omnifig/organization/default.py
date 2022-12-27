@@ -10,7 +10,7 @@ from ..abstract import AbstractConfig
 from .profiles import ProfileBase
 from .workspaces import ProjectBase, GeneralProject
 
-prt = get_printer(__name__)
+prt = get_printer('omnifig')
 
 
 
@@ -37,8 +37,17 @@ class Profile(ProfileBase, default_profile=True):
 
 		def related(self):
 			for ident in self.data.get('related', []):
-				yield self._profile.get_project(ident)
+				try:
+					yield self._profile.get_project(ident)
+				except self._profile.UnknownProjectError:
+					pass
 
+		def missing_related(self):
+			for ident in self.data.get('related', []):
+				try:
+					self._profile.get_project(ident)
+				except self._profile.UnknownProjectError:
+					yield ident
 
 		def validate_main(self, config: AbstractConfig) -> 'ProjectBase':
 			runner = config.pull('_meta.main_runner', None, silent=True)
@@ -130,6 +139,9 @@ class Profile(ProfileBase, default_profile=True):
 
 
 		def find_artifact(self, artifact_type, ident, default=unspecified_argument):
+			if ':' in ident:
+				proj, ident = ident.split(':', 1)
+				return self._profile.get_project(proj).find_artifact(artifact_type, ident)
 			try:
 				return self.find_local_artifact(artifact_type, ident)
 			except self.UnknownArtifactError:
@@ -209,6 +221,8 @@ class Profile(ProfileBase, default_profile=True):
 				prt.warning('project name already loaded: %s (will now overwrite)', proj.name)
 
 		if ident is not None and ident != proj.name:
+			if self.data.get('projects', {}).get(proj.name) is not None:
+				raise ValueError('project name already exists: %s', ident)
 			prt.warning('project name does not match profiles name for it: %s != %s', ident, proj.name)
 			self._loaded_projects[ident] = proj
 		# self._loaded_projects[ident] = proj.name

@@ -19,12 +19,20 @@ def test_base_profile():
 	assert profile is fig.ProfileBase._profile
 
 
+def test_missing_profile():
+	profile = _reset_profile('does-not-exist')
+	assert profile.name == ''
+
+
+def test_bad_profile():
+	profile = _reset_profile('bad')
+	assert profile.name == ''
+
+
 def test_current_project():
 	profile = _reset_profile()
 	proj = fig.get_current_project()
 	assert proj.name == profile._default_project_name # 'default'
-
-	_reset_profile()
 
 
 def test_load_project():
@@ -40,18 +48,16 @@ def test_load_project():
 	assert old is not new
 	assert proj is new
 
-	assert proj.name == 'example1'
+	assert proj.name == 'project1' # name is specified in project info file
 
-	assert len(list(proj.iterate_configs())) == 0
-
+	assert not proj.is_activated
 	proj.activate()
+	assert proj.is_activated
 
 	assert len(list(proj.iterate_configs())) == 1
 
 	assert proj.create_config('just-one').pull('hello') == 'world'
 	assert fig.create_config('just-one').pull('hello') == 'world'
-
-	_reset_profile()
 
 
 def test_load_missing_project():
@@ -62,9 +68,7 @@ def test_load_missing_project():
 	except profile.UnknownProjectError:
 		pass
 	else:
-		assert False, 'should have raised an error'
-
-	_reset_profile()
+		assert False, 'should have raised an UnknownProjectError'
 
 
 def test_new_profile():
@@ -77,7 +81,23 @@ def test_new_profile():
 	profile = fig.get_profile()
 	assert len(list(profile.iterate_projects())) == 0
 
-	_reset_profile()
+
+def test_ambiguous_project_name():
+	profile = _reset_profile()
+
+	proj = profile.get_project('example1')
+	assert not proj.is_activated
+
+	assert proj.name == 'project1' # name is specified in project info file
+	assert proj is profile.get_project('project1')
+	assert proj is profile.get_project('example1')
+
+	proj = profile.get_project('example2')
+	assert not proj.is_activated
+
+	assert proj.name == 'example2' # no name is specified in project info file
+	assert proj is profile.get_project('example2')
+
 
 
 def test_active_project():
@@ -95,13 +115,87 @@ def test_active_project():
 	cmp = proj.find_component('cmp1', None)
 
 	assert cmp is not None
+	assert cmp.cls.__name__ == 'Cmpn1'
+	assert cmp.cls.__module__ == 'my_code'
 	assert cmp.project is not proj
 	assert cmp.project is profile.get_project('example2')
 
 
+def test_explicit_project_file():
+
+	profile = _reset_profile('multi')
+
+	proj = profile.get_current_project()
+	assert proj.name == 'default'
+
+	proj3 = profile.get_project('example3')
+	assert proj3.name == 'example3'
+
+	assert len(list(profile.iterate_projects())) == 2
+
+	proj3a = profile.get_project('example3-alt')
+	assert proj3a.name == 'other-p3'
+
+	assert len(list(profile.iterate_projects())) == 3
+
+	assert not proj3.is_activated
+	assert not getattr(fig, '_loaded_p3', False)
+
+	proj3.activate()
+	assert proj3.is_activated
+
+	assert getattr(fig, '_loaded_p3_util', 0) == 1
+	assert getattr(fig, '_loaded_p3_script', 0) == 1
+	assert getattr(fig, '_loaded_p3_script2', 0) == 0
+
+	assert len(list(proj3.iterate_components())) == 2
+
+	assert sorted(entry.cls.__name__ for entry in proj3.iterate_components()) == ['P3C1', 'UtilComponent']
+
+	proj3a.activate()
+
+	assert getattr(fig, '_loaded_p3_util', 0) == 2
+	assert getattr(fig, '_loaded_p3_script', 0) == 2
+	assert getattr(fig, '_loaded_p3_script2', 0) == 1
+
+	assert len(list(proj3a.iterate_components())) == 3
+
+	assert sorted(entry.cls.__name__ for entry in proj3a.iterate_components()) == ['P3C1', 'P3aC1', 'UtilComponent']
 
 
 
+# def test_hijack_project(): # "hijack" project contents
+# 	pass
+
+
+
+def test_xray():
+	profile = _reset_profile()
+
+	proj = profile.get_project('example2')
+
+	print('\n')
+
+	proj.xray('component')
+	assert len(list(proj.iterate_components())) == 4
+
+	proj.xray('modifier')
+	assert len(list(proj.iterate_modifiers())) == 3
+
+
+#
+# def test_related():
+# 	pass
+#
+#
+# def test_profile_initialize():
+# 	pass
+
+
+
+# TEST: explicit project artifact ":" syntax - not related or base
+
+# TEST: artifact descriptions/xraying
 
 
 

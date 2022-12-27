@@ -1090,6 +1090,19 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+	def project_context(self, ident: Optional[str] = None) -> ContextManager[AbstractProject]:
+		'''
+		Context manager to temporarily switch to a different current project.
+
+		Args:
+			ident: Name of the project to switch to, defaults to the default project (with name: None).
+
+		Returns:
+			Context manager to switch to the specified project.
+
+		'''
+		raise NotImplementedError
+
 	def iterate_projects(self) -> Iterator[AbstractProject]:
 		'''
 		Iterates over all loaded projects.

@@ -1,8 +1,10 @@
 from typing import Dict, Union, Any
+import yaml
 from pathlib import Path
 from collections import OrderedDict
-from omnibelt import load_yaml
+from omnibelt import load_yaml, get_printer
 
+prt = get_printer('omnifig')
 
 
 class Activatable:
@@ -107,7 +109,12 @@ class FileInfo:
 			:code:`dict` containing the loaded info
 
 		'''
-		raw = load_yaml(path, ordered=True) if path.exists() else None
+		raw = None
+		try:
+			if path.exists():
+				raw = load_yaml(path, ordered=True)
+		except yaml.YAMLError:
+			prt.error(f'Error loading yaml file: {path}')
 		if raw is None:
 			raw = {}
 		raw['info_path'] = str(path) # automatically set info_path to the path

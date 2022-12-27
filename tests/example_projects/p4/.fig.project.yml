@@ -1,0 +1,7 @@
+
+name: example4
+
+related: [example5]
+
+package: [src1, src2]
+

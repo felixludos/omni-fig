@@ -2,14 +2,15 @@ from typing import Optional, Union, Sequence, NamedTuple, Tuple, Any, Dict, List
 from pathlib import Path
 import inspect
 from collections import OrderedDict
-from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry, colorize
+from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry, colorize, include_modules
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractMetaRule, AbstractCustomArtifact
-from .external import include_package, include_files
+# from .external import include_package, include_files, include_module
 from ..config import ConfigManager
 # from .profiles import Meta_Rule
 
-prt = get_printer(__name__)
+# prt = get_printer(__name__)
+prt = get_printer('omnifig')
 
 
 class ProjectBase(AbstractProject):
@@ -136,6 +137,36 @@ class GeneralProject(ProjectBase, name='general'):
 		self._artifact_registries = {
 			'script': script_registry,
 		}
+		self._initialized = False
+
+	@property
+	def initialized(self):
+		return self._initialized
+
+	def initialize(self):
+		if not self._initialized:
+			self._initialized = True
+			prt.info(f'Activating project {self.name} ({self.root})')
+			if self.root is not None:
+				self.load_configs(self.data.get('configs', []))
+				if self.data.get('auto_config', True):
+					for dname in ['config', 'configs']:
+						path = self.root / dname
+						if path.is_dir():
+							self.load_configs([path])
+
+				# pkgs = self.data.get('modules', [])
+				# if 'module' in self.data:
+				# 	pkgs = [self.data['module']] + pkgs
+				pkgs = []
+				if 'package' in self.data:
+					pkgs = [self.data['package']] + pkgs
+				if 'packages' in self.data:
+					pkgs = self.data['packages'] + pkgs
+				src = self.data.get('src', [])
+				if isinstance(src, str):
+					src = [src]
+				self.load_base(src, pkgs)
 
 	def _activate(self, *args, **kwargs):
 		'''
@@ -144,26 +175,8 @@ class GeneralProject(ProjectBase, name='general'):
 		and source files (keys: ``packages``, ``package``, ``src``).
 		'''
 		super()._activate(*args, **kwargs)
-		print(f'Activating project {self.name} ({self.root})')
-		if self.root is not None:
-			self.load_configs(self.data.get('configs', []))
-			if self.data.get('auto_config', True):
-				for dname in ['config', 'configs']:
-					path = self.root / dname
-					if path.is_dir():
-						self.load_configs([path])
-						
-			pkgs = self.data.get('modules', [])
-			if 'module' in self.data:
-				pkgs = [self.data['module']] + pkgs
-			if 'package' in self.data:
-				pkgs = [self.data['package']] + pkgs
-			if 'packages' in self.data:
-				pkgs = self.data['packages'] + pkgs
-			src = self.data.get('src', [])
-			if isinstance(src, str):
-				src = [src]
-			self.load_base(src, pkgs)
+		with self._profile.project_context(self):
+			self.initialize()
 
 	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()) -> None:
 		'''Registers all specified config files and directories'''
@@ -177,13 +190,19 @@ class GeneralProject(ProjectBase, name='general'):
 	def load_base(self, srcs: Optional[Sequence[Union[str ,Path]]] = (),
 	             packages: Optional[Sequence[str]] = ()) -> None:
 		'''Imports all specified packages and runs the specified python files'''
-		src_files = []
-		for src in srcs:
-			path = Path(src) if self.root is None else self.root / src
-			if path.is_file():
-				src_files.append(str(path))
-		include_package(*packages, path=self.root)
-		include_files(*src_files)
+
+		modules = [*map(Path,srcs), *packages]
+		if len(modules):
+			include_modules(*modules, root=self.root)
+		return
+
+		# src_files = []
+		# for src in srcs:
+		# 	path = Path(src) if self.root is None else self.root / src
+		# 	if path.is_file():
+		# 		src_files.append(str(path))
+		# include_package(*packages, path=self.root)
+		# include_files(*src_files)
 
 	# region Organization
 	def extract_info(self, other: 'GeneralProject') -> None:
@@ -307,6 +326,7 @@ class GeneralProject(ProjectBase, name='general'):
 	# region Registration
 	class UnknownArtifactTypeError(KeyError): pass
 	def find_artifact(self, artifact_type, ident, default=unspecified_argument):
+		self.activate()
 		if artifact_type == 'config':
 			return self.config_manager.find_config_entry(ident)
 		registry = self._artifact_registries.get(artifact_type)
@@ -329,6 +349,7 @@ class GeneralProject(ProjectBase, name='general'):
 		return registry.new(ident, artifact, project=project, **kwargs)
 
 	def iterate_artifacts(self, artifact_type):
+		self.activate()
 		if artifact_type == 'config':
 			yield from self.config_manager.iterate_configs()
 			return

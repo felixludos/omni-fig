@@ -5,4 +5,7 @@ name: base-profile
 
 projects:
   example1: tests/example_projects/p1
+  example2: tests/example_projects/p2
+
+  example4: tests/example_projects/p4
 

@@ -1,4 +1,4 @@
-from typing import Union, Iterator, Sequence, Any, Optional
+from typing import Union, Iterator, Sequence, Any, Optional, ContextManager
 from pathlib import Path
 
 from omnibelt import get_printer, JSONABLE
@@ -28,6 +28,10 @@ def switch_project(ident: Union[str, Path] = None) -> AbstractProject:
 def iterate_projects() -> Iterator[AbstractProject]:
 	'''Iterate over all loaded projects'''
 	return get_profile().iterate_projects()
+
+def project_context(ident: Union[str, Path] = None) -> ContextManager:
+	return get_profile().project_context(ident)
+
 
 # endregion
 
