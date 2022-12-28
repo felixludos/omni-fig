@@ -9,11 +9,13 @@ from .organization import get_profile
 from . import __info__
 prt = get_printer(__info__.get('logger_name'))
 
-# region Projects
 
+
+# region Projects
 def get_current_project() -> AbstractProject:
 	'''Get the current project, assuming a profile is loaded, otherwise returns None'''
 	return get_profile().get_current_project()
+
 
 
 def get_project(ident: Union[str, Path]  = None) -> AbstractProject:
@@ -21,23 +23,27 @@ def get_project(ident: Union[str, Path]  = None) -> AbstractProject:
 	return get_profile().get_project(ident)
 
 
+
 def switch_project(ident: Union[str, Path] = None) -> AbstractProject:
 	'''Switches the current project to the one of thegiven the project name or path ``ident``'''
 	return get_profile().switch_project(ident)
+
 
 
 def iterate_projects() -> Iterator[AbstractProject]:
 	'''Iterate over all loaded projects'''
 	return get_profile().iterate_projects()
 
+
+
 def project_context(ident: Union[str, Path] = None) -> ContextManager:
+	'''Context manager for switching to a project and then switching back'''
 	return get_profile().project_context(ident)
-
-
 # endregion
 
-# region Running
 
+
+# region Running
 def entry(script_name: str = None) -> None:
 	'''
 	Recommended entry point when running a script from the terminal.
@@ -54,6 +60,7 @@ def entry(script_name: str = None) -> None:
 
 	'''
 	get_profile().entry(script_name=script_name)
+
 
 
 def main(argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
@@ -74,6 +81,7 @@ def main(argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
 	return get_profile().main(argv, script_name=script_name)
 
 
+
 def run(script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 	'''
 	Runs the specified script registered with ``script_name`` using the current project.
@@ -91,6 +99,7 @@ def run(script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> 
 	return get_profile().run(config, script_name=script_name, args=args, kwargs=kwargs)
 
 
+
 def quick_run(script_name: str, *parents: str, **parameters: JSONABLE) -> Any:
 	'''
 	Convenience function to run a simple script without a given config object,
@@ -106,6 +115,7 @@ def quick_run(script_name: str, *parents: str, **parameters: JSONABLE) -> Any:
 
 	'''
 	return get_profile().quick_run(script_name, *parents, **parameters)
+
 
 
 def initialize(*projects: str, **meta: Any) -> None:
@@ -131,6 +141,7 @@ def initialize(*projects: str, **meta: Any) -> None:
 	return get_profile().initialize(*projects, **meta)
 
 
+
 def cleanup() -> None:
 	'''
 	Cleans up the projects and profile, which by default just updates the project/profile info
@@ -143,11 +154,11 @@ def cleanup() -> None:
 
 	'''
 	return get_profile().cleanup()
-
 # endregion
 
-# region Create Config
 
+
+# region Create Config
 def create_config(*configs: str, **parameters: JSONABLE) -> AbstractConfig:
 	'''
 	Process the provided info using the current project into a config object.
@@ -160,6 +171,7 @@ def create_config(*configs: str, **parameters: JSONABLE) -> AbstractConfig:
 		Config object resulting from loading/merging `configs` and including `data`.
 	'''
 	return get_current_project().create_config(*configs, **parameters)
+
 
 
 def parse_argv(argv: Sequence[str], script_name=None) -> AbstractConfig:
@@ -181,5 +193,4 @@ def parse_argv(argv: Sequence[str], script_name=None) -> AbstractConfig:
 
 	'''
 	return get_current_project().parse_argv(argv, script_name=script_name)
-
 # endregion

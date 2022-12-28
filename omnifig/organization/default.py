@@ -1,9 +1,9 @@
 
-from typing import Dict, Optional, Union, Any, Iterator, NamedTuple, Type, List, Callable
+from typing import Dict, Optional, Union, Any, Iterator, NamedTuple, Type, List
 import os
 from collections import deque
 from pathlib import Path
-from omnibelt import unspecified_argument, get_printer, Class_Registry, JSONABLE
+from omnibelt import unspecified_argument, get_printer, Class_Registry
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator
 
@@ -30,6 +30,7 @@ class Profile(ProfileBase, default_profile=True):
 			'''
 			pass
 
+
 		def __init__(self, path: Optional[Union[str, Path]], *,
 		             creator_registry: Optional[Creator_Registry] = None,
 		             component_registry: Optional[Component_Registry] = None,
@@ -48,6 +49,7 @@ class Profile(ProfileBase, default_profile=True):
 				'modifier': modifier_registry,
 			})
 
+
 		def related(self) -> Iterator[AbstractProject]:
 			'''
 			Iterate over all projects related to this one (based on ``related`` in the project info file).
@@ -62,6 +64,7 @@ class Profile(ProfileBase, default_profile=True):
 				except self._profile.UnknownProjectError:
 					pass
 
+
 		def missing_related(self) -> Iterator[str]:
 			'''
 			Iterate over all projects related to this one that cannot be found by the current profile.
@@ -75,6 +78,7 @@ class Profile(ProfileBase, default_profile=True):
 					self._profile.get_project(ident)
 				except self._profile.UnknownProjectError:
 					yield ident
+
 
 		def validate_main(self, config: AbstractConfig) -> Optional['ProjectBase']:
 			'''
@@ -92,6 +96,7 @@ class Profile(ProfileBase, default_profile=True):
 			runner = config.pull('_meta.main_runner', None, silent=True)
 			if runner is not None:
 				return runner
+
 
 		def validate_run(self, config: AbstractConfig) -> Optional['ProjectBase']:
 			'''
@@ -129,6 +134,7 @@ class Profile(ProfileBase, default_profile=True):
 			'''
 			return self.find_artifact('creator', name, default=default)
 
+
 		def register_creator(self, name: str, typ: Type[AbstractCreator], *,
 		                     description: Optional[str] = None) -> NamedTuple:
 			'''
@@ -144,6 +150,7 @@ class Profile(ProfileBase, default_profile=True):
 
 			'''
 			return self.register_artifact('creator', name, typ, description=description)
+
 
 		def iterate_creators(self) -> Iterator[NamedTuple]:
 			'''
@@ -173,6 +180,7 @@ class Profile(ProfileBase, default_profile=True):
 			'''
 			return self.find_artifact('component', name, default=default)
 
+
 		def register_component(self, name: str, typ: Type, *, creator: Union[str, AbstractCreator] = None,
 		                       description: Optional[str] = None) -> NamedTuple:
 			'''
@@ -189,6 +197,7 @@ class Profile(ProfileBase, default_profile=True):
 
 			'''
 			return self.register_artifact('component', name, typ, creator=creator, description=description)
+
 
 		def iterate_components(self) -> Iterator[NamedTuple]:
 			'''
@@ -218,6 +227,7 @@ class Profile(ProfileBase, default_profile=True):
 			'''
 			return self.find_artifact('modifier', name, default=default)
 
+
 		def register_modifier(self, name: str, typ: Type, *, description: Optional[str] = None) -> NamedTuple:
 			'''
 			Register a modifier with the given name.
@@ -233,6 +243,7 @@ class Profile(ProfileBase, default_profile=True):
 			'''
 			return self.register_artifact('modifier', name, typ, description=description)
 
+
 		def iterate_modifiers(self) -> Iterator[NamedTuple]:
 			'''
 			Iterates over all registered modifiers entries.
@@ -243,6 +254,7 @@ class Profile(ProfileBase, default_profile=True):
 			'''
 			return self.iterate_artifacts('modifier')
 		# endregion
+
 
 		def find_local_artifact(self, artifact_type: str, ident: str,
 		                        default: Optional[Any] = unspecified_argument) -> Optional[NamedTuple]:
@@ -264,6 +276,7 @@ class Profile(ProfileBase, default_profile=True):
 
 			'''
 			return super().find_artifact(artifact_type, ident, default=default)
+
 
 		def _find_nonlocal_artifact(self, artifact_type: str, ident: str) -> Optional[NamedTuple]:
 			'''
@@ -348,16 +361,20 @@ class Profile(ProfileBase, default_profile=True):
 
 
 	_profile_env_variable = 'FIG_PROFILE'
+
+
 	def __init__(self, data: Union[str, Path, Dict, None] = None):
 		if data is None:
 			data = os.environ.get(self._profile_env_variable, None)
 		super().__init__(data)
 		self._base_projects = []
 
+
 	@property
 	def projects(self) -> List[Project]:
 		'''Convenience property for accessing the projects in the profile. Recemmended for debugging only.'''
 		return self._loaded_projects
+
 
 	def _activate(self) -> None:
 		'''
@@ -388,6 +405,7 @@ class Profile(ProfileBase, default_profile=True):
 		'''
 		return iter(self._base_projects)
 
+
 	def iterate_projects(self) -> Iterator[Project]:
 		'''
 		Iterates through the projects in the profile in the order they were created.
@@ -404,11 +422,14 @@ class Profile(ProfileBase, default_profile=True):
 				yield project
 			past.add(project)
 
+
 	class UnknownProjectError(KeyError):
 		'''Raised when trying to get a project with an invalid path.'''
 		pass
 
+
 	_default_project_name = 'default'
+
 
 	def get_project(self, ident: Union[str, Path] = None, is_current: Optional[bool] = None) -> Project:
 		'''
@@ -473,19 +494,6 @@ class Profile(ProfileBase, default_profile=True):
 		if is_current:
 			self._current_project_key = proj.name
 		return proj
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

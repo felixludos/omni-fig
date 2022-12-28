@@ -1,13 +1,10 @@
-from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator, NamedTuple, ContextManager
+from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Type, Iterator, NamedTuple, ContextManager
 from pathlib import Path
-import inspect
 from contextlib import nullcontext
 import yaml
 from collections import OrderedDict
-from omnibelt import get_printer, unspecified_argument, extract_function_signature, \
-	JSONABLE, Primitive, primitive, Modifiable
-from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode, AutoAddressNode, AddressNode
+from omnibelt import get_printer, unspecified_argument, Primitive, primitive, Modifiable
+from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager, \
 	AbstractCustomArtifact, AbstractCertifiable
@@ -15,6 +12,7 @@ from .abstract import AbstractSearch, AbstractReporter
 
 from .. import __info__
 prt = get_printer(__info__.get('logger_name'))
+
 
 
 class ConfigNode(AutoTreeNode, AbstractConfig):
@@ -39,6 +37,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 		'''
 		return self.manager.export(self, name, root=root)
+
 
 	@classmethod
 	def from_raw(cls, raw: Any, *, parent: Optional['ConfigNode'] = unspecified_argument,
@@ -109,9 +108,11 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			def __exit__(self, exc_type, exc_val, exc_tb):
 				self.__class__.past = self._old
 
+
 		def sub_search(self) -> 'ContextManager':
 			'''Returns a context manager that allows new searches to reference back to this search'''
 			return self._sub_search(self)
+
 
 		def __init__(self, origin: 'ConfigNode', queries: Optional[Sequence[str]], default: Any,
 		             parent_search: Optional['ConfigNode.Search'] = unspecified_argument, **kwargs):
@@ -136,6 +137,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			self.force_create = False
 			self.parent_search = parent_search
 			self.extra_queries = None
+
 
 		def _resolve_query(self, src: 'ConfigNode', query: str, *remaining: str,
 		                   chain: Optional[List[str]] = None) -> Tuple[Optional['ConfigNode'], Tuple, List[str]]:
@@ -194,6 +196,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			chain.append(query)
 			return result, remaining, chain
 
+
 		def _find_node(self) -> 'ConfigNode':
 			'''
 			Traverses the config tree from the origin node to find the node corresponding to the queries
@@ -220,7 +223,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			self.query_node = result
 			self.result_node = self.process_node(result)
 			return self.result_node
-		
+
+
 		def find_node(self, silent: Optional[bool] = None) -> 'ConfigNode':
 			'''
 			Traverses the config tree from the origin node to find the node corresponding to the queries
@@ -243,6 +247,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				return self.default
 			result._trace = self
 			return result
+
 
 		def find_product(self, silent: Optional[bool] = None) -> Any:
 			'''
@@ -289,6 +294,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 						else node._process(silent=silent)
 					node._trace = old
 			return result
+
 
 		def process_node(self, node: 'ConfigNode') -> 'ConfigNode':  # resolves delegations
 			'''
@@ -348,6 +354,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 	SearchFailed = Search.SearchFailed
 
+
 	class Reporter(AbstractReporter):
 		'''Formats and prints the results of a search over the config tree.'''
 		def __init__(self, indent: str = ' > ', flair: str = '| ', alias_fmt: str = ' --> ', colon:str = ': ',
@@ -370,6 +377,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			self.colon = colon
 			self.max_num_aliases = max_num_aliases
 
+
 		@classmethod
 		def _node_depth(cls, node: 'ConfigNode', _fuel: int = 1000) -> int:
 			'''
@@ -390,7 +398,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			if node.parent is None:
 				return 0
 			return cls._node_depth(node.parent, _fuel=_fuel - 1) + 1
-		
+
+
 		@staticmethod
 		def log(*msg: str, end: str = '\n', sep: str = ' ', silent: Optional[bool] = None) -> str:
 			'''
@@ -410,7 +419,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			if not silent:
 				print(msg, end='')
 			return msg
-		
+
+
 		def get_key(self, trace: 'ConfigNode.Search') -> str:
 			'''
 			Formats the key of the node (taking parents into account).
@@ -435,6 +445,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				key = self.alias_fmt.join(queries)
 			return key
 
+
 		def _stylize(self, node: 'ConfigNode', line: str) -> str:
 			'''
 			Stylizes the line based on the search origin's depth and the reporter's flair.
@@ -452,6 +463,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				node = trace.origin
 			indent = self._node_depth(node) * self.indent
 			return f'{self.flair}{indent}{line}'
+
 
 		def _format_component(self, key: str, component_type: str, modifiers: Sequence[str],
 		                      creator_type: Optional[str]) -> str:
@@ -477,6 +489,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			key = '' if key is None else f'{key} '
 			return f'{key}type={component_type!r}{mod_info}'
 
+
 		def _format_value(self, value: Any) -> str:
 			'''
 			Formats the value of the node (e.g. when the product is a python primitive).
@@ -489,6 +502,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 			'''
 			return repr(value)
+
 
 		def report_node(self, node: 'ConfigNode', *, silent: bool = None) -> Optional[str]:
 			'''
@@ -503,6 +517,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 			'''
 			pass
+
 
 		def report_default(self, node: 'ConfigNode', default: Any, *, silent: bool = None) -> Optional[str]:
 			'''
@@ -523,6 +538,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			line = f'{key}{self.colon}{self._format_value(default)} (by default)'
 			return self.log(self._stylize(node, line), silent=silent)
 
+
 		def report_empty(self, node: 'ConfigNode', *, silent: bool = None) -> Optional[str]:
 			'''
 			Reports when a node was found, but it was empty and prints it to the console.
@@ -540,6 +556,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 			line = f'{key}{self.colon}<is empty>'
 			return self.log(self._stylize(node, line), silent=silent)
+
 
 		def report_iterator(self, node: 'ConfigNode', product: Optional[bool] = False, *,
 		                    silent: Optional[bool] = None) -> Optional[str]:
@@ -560,6 +577,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			N = len(node)
 			size = f' [{N} element{"s" if N == 0 or N > 1 else ""}]'
 			return self.log(self._stylize(node, f'ITERATOR {key}{size}'), silent=silent)
+
 
 		def reuse_product(self, node: 'ConfigNode', product: Any, *, silent: bool = None) -> Optional[str]:
 			'''
@@ -584,6 +602,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			line = f'REUSING {self._format_component(key, component_type, modifiers, creator_type)}'
 			return self.log(self._stylize(node, line), silent=silent)
 
+
 		def create_primitive(self, node: 'ConfigNode', value: Primitive = unspecified_argument, *,
 		                     silent: bool = None) -> Optional[str]:
 			'''
@@ -606,6 +625,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			line = f'{key}{self.colon}{self._format_value(value)}'
 			return self.log(self._stylize(node, line), silent=silent)
 
+
 		def create_container(self, node: 'ConfigNode', *, silent: bool = None) -> Optional[str]:
 			'''
 			Reports when a product was created that was a container and prints it to the console.
@@ -626,6 +646,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			x = f'{x}s' if N != 1 else x
 			line = f'{key} [{t} with {N} {x}]'
 			return self.log(self._stylize(node, line), silent=silent)
+
 
 		def create_component(self, node: 'ConfigNode', *, component_type: str = None,
 		                     modifiers: Optional[Sequence[str]] = None, creator_type: str = None,
@@ -699,7 +720,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				silent = creator.silent
 			return super().replace(creator, config, component_type=component_type, modifiers=modifiers, project=project,
 			                       component_entry=component_entry, silent=silent, **kwargs)
-		
+
+
 		def __init__(self, config: 'ConfigNode', *, component_type: Optional[str] = unspecified_argument,
 		             modifiers: Optional[Sequence[str]] = None, project: Optional[AbstractProject] = None,
 		             component_entry: Optional[NamedTuple] = unspecified_argument, silent: Optional[bool] = None,
@@ -741,7 +763,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			self.component_type = component_type
 			self.modifiers = modifiers
 			self.component_entry = component_entry
-		
+
+
 		def validate(self, config: 'AbstractConfig') -> AbstractCreator:
 			'''
 			Validates the creator. If the creator is invalid, a new one is created and returned
@@ -766,6 +789,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				entry = self.project.find_artifact('creator', creator)
 				if type(self) != entry.cls:
 					return entry.cls.replace(self, config).validate(config)
+
 
 		@staticmethod
 		def _modify_component(component: NamedTuple, modifiers: Optional[Tuple] = ()) -> Type:
@@ -797,6 +821,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				cls = type('_'.join(base.__name__ for base in bases), bases, {})
 			return cls
 
+
 		def _create_component(self, config: 'ConfigNode', args: Tuple, kwargs: Dict[str, Any],
 		                      silent: bool = None) -> Any:
 			'''
@@ -820,7 +845,6 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			                                 creator_type=self._creator_name, silent=silent)
 			cls = self._modify_component(self.component_entry,
 			                             [self.project.find_artifact('modifier', mod) for mod in self.modifiers])
-			# assert isinstance(cls, type), f'This creator can only be used for components that are classes: {cls!r}'
 
 			if isinstance(cls, type) and issubclass(cls, AbstractConfigurable):
 				obj = cls.init_from_config(config, args, kwargs, silent=silent)
@@ -831,15 +855,14 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				obj = cls(config, *args, **kwargs)
 				if old_silent is not None:
 					settings['silent'] = old_silent
-				# fixed_args, fixed_kwargs = self._fix_args_and_kwargs(config, cls.__init__, args, kwargs, silent=silent)
-				# obj = cls(*fixed_args, **fixed_kwargs)
 
 			if isinstance(obj, AbstractCertifiable):
 				obj = obj.__certify__(config)
 
 			config._trace = None
 			return obj
-		
+
+
 		def _create_container(self, config: 'ConfigNode', silent: Optional[bool] = None) -> Any:
 			'''
 			Creates the container, such as a :class:`dict` or :class:`list` based on the config tree structure.
@@ -882,7 +905,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 			config._trace = None
 			return product
-		
+
+
 		def _create_primitive(self, config: 'ConfigNode', silent: Optional[bool] = None) -> Any:
 			'''
 			Creates the primitive, such as a :class:`str` or :class:`int` based on the payload of the config node.
@@ -899,6 +923,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			config.reporter.create_primitive(config, value=payload, silent=silent)
 			config._trace = None
 			return payload
+
 
 		def _setup_context(self, config: 'ConfigNode') -> None:
 			'''
@@ -920,6 +945,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 					raise config.CycleError(config)
 				table[config] = False
 
+
 		def _end_context(self, config: 'ConfigNode', product: Any) -> None:
 			'''
 			This cleans up the creator after creating the product.
@@ -937,6 +963,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				ConfigNode.DefaultCreator._creation_context = None
 			elif reset is not None:
 				del ConfigNode.DefaultCreator._creation_context[config]
+
 
 		def create_product(self, config: 'ConfigNode', args: Optional[Tuple] = None,
 		           kwargs: Optional[Dict[str,Any]] = None, *, silent: Optional[bool] = None) -> Any:
@@ -996,6 +1023,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		'''
 		return self.Search(origin=self, queries=queries, default=default, **kwargs)
 
+
 	def peeks(self, *queries: str, default: Optional[Any] = AbstractConfig._empty_default,
 	          silent: Optional[bool] = None) -> 'ConfigNode':
 		'''
@@ -1018,6 +1046,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 		'''
 		return self.search(*queries, default=default).find_node(silent=silent)
+
 
 	def pulls(self, *queries: str, default: Optional[Any] = AbstractConfig._empty_default,
 	          silent: Optional[bool] = None, **kwargs) -> Any:
@@ -1043,6 +1072,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 		'''
 		return self.search(*queries, default=default, **kwargs).find_product(silent=silent)
+
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, silent: Optional[bool] = None) -> bool:
 		'''
@@ -1073,15 +1103,18 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			return True
 		return False
 
+
 	def __len__(self):
 		'''Number of children of the node.'''
 		return len(list(self._child_keys()))
-	
+
+
 	def _child_keys(self) -> Iterator[str]:
 		'''Returns the keys of the children of the node.'''
 		for key, child in self.named_children():
 			if child is not self.empty_value and not child.has_payload or child.payload not in {'__x__', '_x_'}:
 				yield key
+
 
 	def peek_children(self, *, silent: Optional[bool] = None) -> Iterator['ConfigNode']:
 		'''
@@ -1098,6 +1131,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		'''
 		for key, child in self.peek_named_children(silent=silent):
 			yield child
+
 
 	def peek_named_children(self, *, silent: Optional[bool] = None) -> Iterator[Tuple[str, 'ConfigNode']]:
 		'''
@@ -1117,6 +1151,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			child = self.search(key).find_node(silent=silent)
 			yield key, child
 
+
 	def pull_children(self, *, force_create: Optional[bool] = False, silent: Optional[bool] = None) -> Iterator[Any]:
 		'''
 		Returns an iterator over the products of the child nodes of ``self``.
@@ -1133,6 +1168,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		'''
 		for key, product in self.pull_named_children(force_create=force_create, silent=silent):
 			yield product
+
 
 	def pull_named_children(self, *, force_create: Optional[bool] = False, silent: Optional[bool] = None) \
 			-> Iterator[Tuple[str, Any]]:
@@ -1182,6 +1218,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		else:
 			out = node.process(*args, **kwargs)
 			return out
+
 
 	def peeks_process(self, *queries, default: Optional[Any] = AbstractConfig._empty_default,
 	                  **kwargs: Any) -> Any:
@@ -1244,6 +1281,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			out = node.create(*args, **kwargs)
 			return out
 
+
 	def peeks_create(self, *queries, default: Optional[Any] = AbstractConfig._empty_default,
 	                  **kwargs: Any) -> Any:
 		'''
@@ -1275,6 +1313,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			out = node.process(**kwargs)
 			return out
 
+
 	def __init__(self, *args, reporter: Optional[Reporter] = None, settings: Optional[Settings] = None,
 	             project: Optional[AbstractProject] = None, manager: Optional[AbstractConfigManager] = None,
 	             **kwargs):
@@ -1304,15 +1343,18 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		if self.settings is None:
 			self.settings = self.Settings()
 
+
 	def __eq__(self, other):
 		'''Compares this config node to another object.'''
 		return type(self) == type(other) \
 		       and id(self.root) == id(other.root) \
 		       and self.my_address() == other.my_address()
 
+
 	def __hash__(self):
 		'''Returns a hash value for this config node.'''
 		return hash(self.my_address())
+
 
 	@property
 	def project(self):
@@ -1330,6 +1372,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		else:
 			parent.project = project
 
+
 	@property
 	def composition(self) -> Tuple[str]:
 		'''
@@ -1342,6 +1385,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			return self.parent.composition
 		return self._composition
 
+
 	@property
 	def sources(self) -> Tuple[str]:
 		'''
@@ -1353,6 +1397,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				return ()
 			return self.parent.sources
 		return self._sources
+
 
 	@property
 	def manager(self):
@@ -1369,7 +1414,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			self._manager = manager
 		else:
 			parent.manager = manager
-	
+
+
 	@property
 	def trace(self) -> Optional[Search]:
 		'''
@@ -1377,6 +1423,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		(generally only used by creators and reporters).
 		'''
 		return self._trace
+
 
 	@property
 	def reporter(self) -> Reporter:
@@ -1394,6 +1441,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		else:
 			parent.reporter = reporter
 
+
 	@property
 	def settings(self) -> Settings:
 		'''Returns the (global) settings associated with this config tree.'''
@@ -1410,6 +1458,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		else:
 			parent.settings = settings
 
+
 	@property
 	def silent(self) -> bool:
 		'''Returns whether this config node is in silent mode.'''
@@ -1419,9 +1468,11 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		'''Sets whether this config node is in silent mode.'''
 		self.settings['silent'] = value
 
+
 	class ReadOnlyError(Exception):
 		'''Raised when a read-only config node is attempted to be modified.'''
 		pass
+
 
 	class ConfigContext:
 		'''
@@ -1471,6 +1522,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			.create_product(self, args=component_args, kwargs=component_kwargs, silent=silent)
 		return out
 
+
 	def _process(self, component_args: Optional[Tuple] = None, component_kwargs: Optional[Dict[str, Any]] = None,
 	             silent: Optional[bool] = None, **kwargs: Any) -> Any:
 		'''
@@ -1498,6 +1550,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			self.reporter.reuse_product(self, self._product)
 		return self._product
 
+
 	def create(self, *args: Any, **kwargs: Any) -> Any:
 		'''
 		Creates a new value based on the contents of self.
@@ -1511,11 +1564,13 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 		'''
 		return self._create(args, kwargs, silent=self.settings.get('silent', None))
-	
+
+
 	def create_silent(self, *args: Any, **kwargs: Any) -> Any:
 		'''Convenience method for creating a value in silent mode.'''
 		return self._create(args, kwargs, silent=True)
-	
+
+
 	def process(self, *args: Any, **kwargs: Any) -> Any:
 		'''
 		Processes the config object using the contents of self.
@@ -1533,14 +1588,17 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		'''
 		return self._process(args, kwargs, silent=self.settings.get('silent', None))
 
+
 	def process_silent(self, *args: Any, **kwargs: Any) -> Any:
 		'''Convenience method for processing a value in silent mode.'''
 		return self._process(args, kwargs, silent=True)
+
 
 	@property
 	def product_exists(self) -> bool:
 		'''Returns True if the product of this config node has already been created.'''
 		return self._product is not None
+
 
 	def clear_product(self, recursive: bool = True) -> None:
 		'''
@@ -1572,13 +1630,16 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		return yaml.dump(self.to_python(), stream, default_flow_style=default_flow_style, sort_keys=sort_keys,
 		                 **kwargs)
 
+
 	def __str__(self):
 		'''Returns a string representation of the contents of this config node.'''
 		return self.to_yaml()
 
+
 	def __repr__(self):
 		'''Returns a string representation of this config node.'''
 		return f'<{self.__class__.__name__} {len(self)} children>'
+
 
 	def update(self, update: 'ConfigNode', *, clear_product: bool = True) -> 'ConfigNode':
 		'''

@@ -1,7 +1,6 @@
-from typing import Optional
-
 from ..abstract import AbstractConfig
 from ..registration import meta_rule
+
 
 
 @meta_rule(name='quiet', code='q', priority=10, num_args=0, description='Set config to silent')

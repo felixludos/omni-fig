@@ -7,12 +7,13 @@ from .config import ConfigNode
 from .top import create_config
 
 
+
 class ConfigExporter(Exporter, extensions=['.fig.yml', '.fig.yaml'], types=[ConfigNode]):
 	'''
 	Exporter for config objects, can load and save config objects in four formats: json, yaml, toml,
 	and the native ".fig.yml" format (which is equivalent to yaml).
-
 	'''
+
 	@staticmethod
 	def _load_export(path: Union[Path, str], src: Type[ExportManager], **kwargs) -> Any:
 		'''
@@ -29,6 +30,7 @@ class ConfigExporter(Exporter, extensions=['.fig.yml', '.fig.yaml'], types=[Conf
 
 		'''
 		return create_config(path, **kwargs)
+
 
 	@staticmethod
 	def _export_payload(payload: Any, path: Union[Path, str],

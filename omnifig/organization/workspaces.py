@@ -4,13 +4,12 @@ import inspect
 from collections import OrderedDict
 from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry, colorize, include_modules
 
-
 from ..abstract import AbstractConfig, AbstractProject, AbstractMetaRule, AbstractCustomArtifact
 from ..config import ConfigManager
 
-
 from .. import __info__
 prt = get_printer(__info__.get('logger_name'))
+
 
 
 class ProjectBase(AbstractProject):
@@ -33,6 +32,7 @@ class ProjectBase(AbstractProject):
 		cls._type_name = name
 		if name is not None:
 			cls.global_type_registry.new(name, cls)
+
 
 	@classmethod
 	def get_project_type(cls, ident: str) -> NamedTuple:
@@ -140,8 +140,10 @@ class GeneralProject(ProjectBase, name='general'):
 		'''Registry for scripts (functions) that can be run from the command line.'''
 		pass
 
+
 	Config_Manager = ConfigManager
 	'''Default Config Manager'''
+
 
 	def __init__(self, path: Optional[Union[str, Path]], *, script_registry: Optional[Script_Registry] = None,
 	             config_manager: Optional[Config_Manager] = None, **kwargs):
@@ -191,6 +193,7 @@ class GeneralProject(ProjectBase, name='general'):
 				src = [src]
 			self._run_dependencies(src, pkgs)
 
+
 	def _activate(self, *args, **kwargs):
 		'''
 		Activates the project including the info from the data file
@@ -202,6 +205,7 @@ class GeneralProject(ProjectBase, name='general'):
 		with self._profile.project_context(self):
 			self.load_dependencies()
 
+
 	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()) -> None:
 		'''Registers all specified config files and directories'''
 		for path in paths:
@@ -211,6 +215,7 @@ class GeneralProject(ProjectBase, name='general'):
 			elif path.is_dir():
 				self.register_config_dir(path, recursive=True)
 
+
 	def _run_dependencies(self, srcs: Optional[Sequence[Union[str , Path]]] = (),
 	                      packages: Optional[Sequence[str]] = ()) -> None:
 		'''Imports all specified packages and runs the specified python files'''
@@ -218,6 +223,7 @@ class GeneralProject(ProjectBase, name='general'):
 		modules = [*map(Path,srcs), *packages]
 		if len(modules):
 			include_modules(*modules, root=self.root)
+
 
 	# region Organization
 	def extract_info(self, other: 'GeneralProject') -> None:
@@ -227,6 +233,7 @@ class GeneralProject(ProjectBase, name='general'):
 		self._profile = other._profile
 		self.config_manager = other.config_manager
 		self._artifact_registries = other._artifact_registries
+
 
 	def validate(self) -> AbstractProject:
 		'''Validates the project and returns a new project with the validated info.'''
@@ -239,24 +246,30 @@ class GeneralProject(ProjectBase, name='general'):
 			return proj
 		return self
 
+
 	def __str__(self):
 		return f'{self.__class__.__name__}[{self.name}]({self.root})'
-	
+
+
 	def __repr__(self):
 		return f'{self.__class__.__name__}[{self.name}]({self.root})'
+
 
 	def __eq__(self, other):
 		if not isinstance(other, GeneralProject):
 			return False
 		return self.info_path == other.info_path
 
+
 	def __hash__(self):
 		return hash(self.info_path)
+
 
 	@property
 	def name(self):
 		'''The name of the project'''
 		return self.data.get('name', '')
+
 
 	@property
 	def root(self) -> Path:
@@ -264,24 +277,29 @@ class GeneralProject(ProjectBase, name='general'):
 		if self._path is not None:
 			return self._path.parent
 
+
 	@property
 	def info_path(self) -> Path:
 		'''The path to the info file.'''
 		return self._path
 	# endregion
 
+
 	# region Running/Ops
 	def create_config(self, *parents: str, **parameters):
 		'''Creates a config with the given parameters using the config manager.'''
 		return self.config_manager.create_config(parents, parameters)
 
+
 	def parse_argv(self, argv, *, script_name=None) -> AbstractConfig:
 		'''Parses the given command line arguments into a config object.'''
 		return self.config_manager.parse_argv(argv, script_name=script_name)
 
+
 	def iterate_meta_rules(self) -> Iterator[NamedTuple]:
 		'''Iterates over all meta rules in the associated profile.'''
 		return self._profile.iterate_meta_rules()
+
 
 	TerminationFlag = AbstractMetaRule.TerminationFlag
 	def _check_meta_rules(self, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
@@ -312,6 +330,7 @@ class GeneralProject(ProjectBase, name='general'):
 					config = out
 		return config
 
+
 	def _run(self, script_entry: Script_Registry.entry_cls, config: AbstractConfig,
 	         args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None) -> Any:
 		'''
@@ -336,6 +355,7 @@ class GeneralProject(ProjectBase, name='general'):
 		if isinstance(fn, AbstractCustomArtifact):
 			item = fn.top
 		return item(config, *args, **kwargs)
+
 
 	def run_local(self, config: AbstractConfig, *, script_name: Optional[str] = None,
 	              args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None,
@@ -373,10 +393,13 @@ class GeneralProject(ProjectBase, name='general'):
 		return self._run(entry, config, args, kwargs)
 	# endregion
 
+
 	# region Registration
 	class UnknownArtifactTypeError(KeyError):
 		'''Raised when an unknown artifact type is encountered.'''
 		pass
+
+
 	def find_artifact(self, artifact_type: str, ident: str,
 	                  default: Optional[Any] = unspecified_argument) -> NamedTuple:
 		'''
@@ -407,6 +430,7 @@ class GeneralProject(ProjectBase, name='general'):
 			pass
 		raise self.UnknownArtifactError(artifact_type, ident)
 
+
 	def register_artifact(self, artifact_type, ident: str, artifact: Union[str, Type, Callable], *,
 	                      project: Optional[AbstractProject] = unspecified_argument, **kwargs) -> NamedTuple:
 		'''
@@ -434,6 +458,7 @@ class GeneralProject(ProjectBase, name='general'):
 		if registry is None:
 			raise self.UnknownArtifactTypeError(artifact_type)
 		return registry.new(ident, artifact, project=project, **kwargs)
+
 
 	def iterate_artifacts(self, artifact_type: str) -> Iterator[NamedTuple]:
 		'''
@@ -475,6 +500,7 @@ class GeneralProject(ProjectBase, name='general'):
 		'''
 		return self.find_artifact('config', name, default=default)
 
+
 	def register_config(self, name: Union[str, Path], path: Union[str, Path] = None, **kwargs) -> NamedTuple:
 		'''
 		Registers a config file with the given name.
@@ -494,6 +520,7 @@ class GeneralProject(ProjectBase, name='general'):
 		'''
 		return self.register_artifact('config', name, path, **kwargs)
 
+
 	def iterate_configs(self) -> Iterator[NamedTuple]:
 		'''
 		Iterates over all registered config file entries.
@@ -503,6 +530,7 @@ class GeneralProject(ProjectBase, name='general'):
 
 		'''
 		return self.iterate_artifacts('config')
+
 
 	def register_config_dir(self, path: Union[str, Path], *, recursive: Optional[bool] = True,
 	                        prefix: Optional[str] = None, delimiter: Optional[str] = None) -> List[NamedTuple]:
@@ -552,6 +580,7 @@ class GeneralProject(ProjectBase, name='general'):
 		'''
 		return self.find_artifact('script', name, default=default)
 
+
 	def register_script(self, name: str, fn: Callable[[AbstractConfig], Any], *, description: Optional[str] = None,
 	                    hidden: Optional[bool] = None) -> NamedTuple:
 		'''
@@ -569,6 +598,7 @@ class GeneralProject(ProjectBase, name='general'):
 
 		'''
 		return self.register_artifact('script', name, fn, description=description, hidden=hidden)
+
 
 	def iterate_scripts(self) -> Iterator[NamedTuple]:
 		'''

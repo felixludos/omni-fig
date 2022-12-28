@@ -8,6 +8,7 @@ from . import __info__
 prt = get_printer(__info__.get('logger_name'))
 
 
+
 class Activatable:
 	'''
 	Mix-in class for objects that can be activated and deactivated.
@@ -22,10 +23,12 @@ class Activatable:
 		super().__init__(*args, **kwargs)
 		self._is_activated = False
 
+
 	@property
 	def is_activated(self) -> bool:
 		'''Flag whether the object is currently activated'''
 		return self._is_activated
+
 
 	def activate(self, *args: Any, **kwargs: Any) -> None:
 		'''
@@ -44,6 +47,7 @@ class Activatable:
 		self._activate(*args, **kwargs)
 		self._is_activated = True
 
+
 	def _activate(self, *args: Any, **kwargs: Any) -> None:
 		'''
 		Internal method to activate the object. This should be overridden by subclasses.
@@ -59,6 +63,7 @@ class Activatable:
 
 		'''
 		pass
+
 
 	def deactivate(self, *args, **kwargs):
 		'''
@@ -76,6 +81,7 @@ class Activatable:
 			return
 		self._deactivate(*args, **kwargs)
 		self._is_activated = False
+
 
 	def _deactivate(self, *args, **kwargs):
 		'''
@@ -97,6 +103,7 @@ class Activatable:
 
 class FileInfo:
 	'''Mix-in class for objects that loads and stores information from a file.'''
+
 
 	@staticmethod
 	def load_raw_info(path: Path) -> Dict[str, Any]:
@@ -122,6 +129,7 @@ class FileInfo:
 		raw['info_dir'] = str(path.parent)
 		return raw
 
+
 	def __init__(self, data: Union[str, Path, Dict[str, Any]] = None, **kwargs: Any):
 		'''
 		Loads the info if the provided `data` is a file path.
@@ -139,16 +147,20 @@ class FileInfo:
 			data = OrderedDict()
 		self.data = data
 
+
 	@property
 	def name(self):
 		'''The name of the object, as specified in the info file.'''
 		return self.data.get('name', '')
 
+
 	def __repr__(self):
 		return f'{self.__class__.__name__}({self.name})'
 
+
 	def __str__(self):
 		return f'{self.__class__.__name__}[{self.name}]({", ".join(self.data.keys())})'
+
 
 	def extract_info(self, other: 'FileInfo'):
 		'''

@@ -174,11 +174,11 @@ def test_xray():
 
 	proj = profile.get_project('example2')
 
-	print('\n')
-
+	print()
 	proj.xray('component')
 	assert len(list(proj.iterate_components())) == 4
 
+	print()
 	proj.xray('modifier')
 	assert len(list(proj.iterate_modifiers())) == 3
 
@@ -200,7 +200,7 @@ def test_xray():
 
 # TEST: modifying with and without configurable modifiers/components
 
-
+# TEST: meta rules
 
 
 

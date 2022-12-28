@@ -7,13 +7,18 @@ from omnibelt import unspecified_argument, Registry, Primitive, JSONABLE
 from .mixins import Activatable, FileInfo
 
 
-class AbstractConfig: # TODO: copy, deepcopy, etc
+
+class AbstractConfig: # TODO: copy, deepcopy
 	'''Abstract class for config objects'''
+
 
 	_empty_default = unspecified_argument
 
+
 	class SearchFailed(KeyError):
+		'''Raised when a search fails'''
 		pass
+
 
 	@property
 	@abc.abstractmethod
@@ -26,11 +31,13 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''Sets the project object associated with this config'''
 		raise NotImplementedError
 
+
 	@property
 	@abc.abstractmethod
 	def root(self) -> 'AbstractConfig':
 		'''Returns the root node of the config object'''
 		raise NotImplementedError
+
 
 	def peek(self, query: Optional[str] = None, default: Optional[Any] = _empty_default, *,
 	         silent: Optional[bool] = False) -> 'AbstractConfig':
@@ -49,6 +56,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		return self.peeks(query, default=default, silent=silent)
 
+
 	def pull(self, query: Optional[str] = None, default: Optional[Any] = _empty_default, *,
 	         silent: Optional[bool] = False) -> Any:
 		'''
@@ -65,6 +73,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		return self.pulls(query, default=default, silent=silent)
+
 
 	def push_pull(self, addr: str, value: Any, *, overwrite: bool = True, silent: Optional[bool] = False) -> Any:
 		'''
@@ -83,6 +92,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		self.push(addr, value, overwrite=overwrite, silent=silent)
 		return self.pull(addr, silent=silent)
+
 
 	def push_peek(self, addr: str, value: Any, *, overwrite: bool = True, silent: Optional[bool] = False) \
 			-> 'AbstractConfig':
@@ -103,6 +113,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		self.push(addr, value, overwrite=overwrite, silent=silent)
 		return self.peek(addr, silent=silent)
 
+
 	def peeks(self, *queries, default: Optional[Any] = _empty_default,
 	          silent: Optional[bool] = False) -> 'AbstractConfig':
 		'''
@@ -120,6 +131,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		raise NotImplementedError
 
+
 	def pulls(self, *queries: str, default: Optional[Any] = _empty_default, silent: Optional[bool] = False) -> Any:
 		'''
 		Returns the value found by searching for the queries in the config object.
@@ -134,6 +146,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
+
 
 	def push(self, addr: str, value: Any, overwrite: bool = True, *, silent: Optional[bool] = False) -> bool:
 		'''
@@ -151,6 +164,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		raise NotImplementedError
 
+
 	def update(self, update: 'AbstractConfig') -> 'AbstractConfig':
 		'''
 		Updates the config object with the given config object (recursively overwriting common keys).
@@ -163,7 +177,8 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
-	
+
+
 	def silence(self, silent: bool = True) -> ContextManager:
 		'''
 		Context manager to silence the config object.
@@ -191,6 +206,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		raise NotImplementedError
 
+
 	def peek_children(self, *, silent: Optional[bool] = None) -> Iterator['AbstractConfig']:
 		'''
 		Returns an iterator of the child config objects of self.
@@ -203,6 +219,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
+
 
 	def pull_named_children(self, *, force_create: Optional[bool] = False, silent: Optional[bool] = None) \
 			-> Iterator[Tuple[str, Any]]:
@@ -218,6 +235,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
+
 
 	def pull_children(self, *, force_create: Optional[bool] = False, silent: Optional[bool] = None) -> Iterator[Any]:
 		'''
@@ -247,6 +265,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
+
 
 	def peek_create(self, query, default: Optional[Any] = _empty_default, *args, **kwargs):
 		'''
@@ -284,6 +303,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		raise NotImplementedError
 
+
 	def peek_process(self, query, default: Optional[Any] = _empty_default, *args, **kwargs):
 		'''
 		Composes the peek and process methods into a single method.
@@ -300,6 +320,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
+
 
 
 class AbstractConfigurable:
@@ -325,6 +346,8 @@ class AbstractConfigurable:
 		'''
 		raise NotImplementedError
 
+
+
 class AbstractCertifiable(AbstractConfigurable):
 	'''Abstract mix-in for objects that can must be certified after intialization.'''
 
@@ -337,6 +360,7 @@ class AbstractCertifiable(AbstractConfigurable):
 
 		'''
 		return self
+
 
 
 class AbstractConfigManager:
@@ -358,6 +382,7 @@ class AbstractConfigManager:
 		'''
 		raise NotImplementedError
 
+
 	def register_config_dir(self, root: Union[str, Path]) -> List[NamedTuple]:
 		'''
 		Recursively registers all config files found in the given directory.
@@ -370,6 +395,7 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
+
 
 	def find_config_entry(self, name: str) -> NamedTuple:
 		'''
@@ -387,6 +413,7 @@ class AbstractConfigManager:
 		'''
 		raise NotImplementedError
 
+
 	def iterate_configs(self) -> Iterator[NamedTuple]:
 		'''
 		Iterates over all registered config files.
@@ -396,6 +423,7 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
+
 
 	def find_config_path(self, name: str) -> Path:
 		'''
@@ -412,6 +440,7 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
+
 
 	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> AbstractConfig:
 		'''
@@ -433,6 +462,7 @@ class AbstractConfigManager:
 		'''
 		raise NotImplementedError
 
+
 	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None) -> AbstractConfig:
 		'''
 		Creates a config object from the given config file names and provided arguments.
@@ -446,7 +476,8 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
-	
+
+
 	def load_raw_config(self, path: Union[str, Path]) -> JSONABLE:
 		'''
 		Loads a config file from the given path and returns the raw config data
@@ -464,7 +495,8 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
-	
+
+
 	def configurize(self, raw: JSONABLE) -> AbstractConfig:
 		'''
 		Converts the given raw config data into a config object.
@@ -480,7 +512,8 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
-	
+
+
 	def merge_configs(self, *configs: AbstractConfig) -> AbstractConfig:
 		'''
 		Merges the given config objects into a single config object.
@@ -496,6 +529,7 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
+
 
 	@staticmethod
 	def update_config(base: AbstractConfig, update: AbstractConfig) -> AbstractConfig:
@@ -513,13 +547,16 @@ class AbstractConfigManager:
 		raise NotImplementedError
 
 
+
 class AbstractCustomArtifact:
 	@staticmethod
 	def top(config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 		raise NotImplementedError
 
+
 	def get_wrapped(self) -> Union[Callable, Type]:
 		raise NotImplementedError
+
 
 
 class AbstractScript:
@@ -529,14 +566,17 @@ class AbstractScript:
 		raise NotImplementedError
 
 
+
 class AbstractComponent:
 	'''Abstract class for components. (generally doesn't have to be used)'''
 	pass
 
 
+
 class AbstractModifier:
 	'''Abstract class for modifiers. (generally doesn't have to be used)'''
 	pass
+
 
 
 class AbstractCreator:
@@ -560,8 +600,10 @@ class AbstractCreator:
 		'''
 		return cls(config, **kwargs)
 
+
 	def __init__(self, config: AbstractConfig, **kwargs: Any):
 		super().__init__(**kwargs)
+
 
 	def create(self, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 		'''
@@ -577,6 +619,7 @@ class AbstractCreator:
 
 		'''
 		return self.create_product(config, args=args, kwargs=kwargs)
+
 
 	def create_product(self, config: AbstractConfig, args: Optional[Tuple] = None,
 	                   kwargs: Optional[Dict[str,Any]] = None) -> Any:
@@ -626,6 +669,7 @@ class AbstractRunMode(Activatable):
 		self.cleanup() # (optional) cleanup
 		return out # return output
 
+
 	def run(self, config: AbstractConfig, *, script_name: Optional[str] = None,
 	        args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, **meta: Any) -> Any:
 		'''
@@ -650,6 +694,7 @@ class AbstractRunMode(Activatable):
 			return transfer.run(config, script_name=script_name)
 		return self.run_local(config, script_name=script_name, args=args, kwargs=kwargs, meta=meta)
 
+
 	def cleanup(self):
 		'''
 		After running the script through :func:`main()`, this method is called
@@ -660,6 +705,7 @@ class AbstractRunMode(Activatable):
 
 		'''
 		pass
+
 
 	def validate_main(self, config: AbstractConfig) -> Optional['AbstractRunMode']:
 		'''
@@ -675,6 +721,7 @@ class AbstractRunMode(Activatable):
 		'''
 		pass
 
+
 	def validate_run(self, config: AbstractConfig) -> Optional['AbstractRunMode']:
 		'''
 		Validates the config object before running the script.
@@ -687,6 +734,7 @@ class AbstractRunMode(Activatable):
 
 		'''
 		pass
+
 
 	def parse_argv(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> AbstractConfig:
 		'''
@@ -707,6 +755,7 @@ class AbstractRunMode(Activatable):
 
 		'''
 		raise NotImplementedError
+
 
 	def run_local(self, config: AbstractConfig, *, script_name: Optional[str] = None, args: Optional[Tuple] = None,
 	        kwargs: Optional[Dict[str, Any]] = None, meta: Optional[Dict[str, Any]] = None) -> Any:
@@ -738,6 +787,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 		super().__init__(path, **kwargs)
 		self._profile = profile
 
+
 	def __eq__(self, other: 'AbstractProject') -> bool:
 		'''
 		Compares two projects based on their paths.
@@ -750,6 +800,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 
 		'''
 		return self.data['info_path'] == other.data['info_path']
+
 
 	@property
 	def profile(self) -> 'AbstractProfile':
@@ -772,7 +823,8 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 
 		'''
 		return self._profile.iterate_meta_rules()
-	
+
+
 	class UnknownArtifactError(Registry.NotFoundError):
 		'''Raised when trying to find an artifact that is not registered.'''
 		def __init__(self, artifact_type: str, ident: str):
@@ -805,6 +857,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 		'''
 		raise self.UnknownArtifactError(artifact_type, ident)
 
+
 	def register_artifact(self, artifact_type: str, ident: str, artifact: Union[Type, Callable],
 	                      **kwargs: Any) -> NamedTuple:
 		'''
@@ -822,6 +875,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 
 		'''
 		raise NotImplementedError
+
 
 	def iterate_artifacts(self, artifact_type: str) -> Iterator[NamedTuple]:
 		'''
@@ -851,6 +905,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 
 		'''
 		raise NotImplementedError
+
 
 	def quick_run(self, script_name: str, *configs: str, **parameters: JSONABLE) -> Any:
 		'''
@@ -891,6 +946,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	@classmethod
 	def replace_profile(cls, profile: 'AbstractProfile') -> 'AbstractProfile':
 		'''
@@ -905,6 +961,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	@classmethod
 	def get_profile(cls) -> 'AbstractProfile':
 		'''
@@ -915,6 +972,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	@classmethod
 	def register_meta_rule(cls, name: str, func: Callable[[AbstractConfig, Dict[str, Any]], Optional[AbstractConfig]],
@@ -940,6 +998,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	@classmethod
 	def get_meta_rule(cls, name: str) -> NamedTuple:
 		'''
@@ -953,6 +1012,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	@classmethod
 	def iterate_meta_rules(cls) -> Iterator[NamedTuple]:
@@ -979,6 +1039,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	def initialize(self, *projects: str) -> None:
 		'''
 		Initializes the specified projects (including activating them, which generally registers
@@ -992,6 +1053,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	def main(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
 		'''
@@ -1007,6 +1069,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
 	        kwargs: Optional[Dict[str, Any]] = None, **meta: Any) -> Any:
@@ -1026,6 +1089,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	def quick_run(self, script_name: str, *configs: str, **parameters: Any) -> Any:
 		'''
 		Creates a config object and runs the script using :func:`quick_run()` of the current project.
@@ -1040,6 +1104,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	def cleanup(self) -> None:
 		'''
@@ -1067,6 +1132,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		return super().extract_info(other)
 
+
 	def get_current_project(self) -> AbstractProject:
 		'''
 		Gets the current project instance.
@@ -1076,6 +1142,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	def switch_project(self, ident: Optional[str] = None) -> AbstractProject:
 		'''
@@ -1090,6 +1157,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	def project_context(self, ident: Optional[Union[str, AbstractProject]] = None) -> ContextManager[AbstractProject]:
 		'''
 		Context manager to temporarily switch to a different current project.
@@ -1103,6 +1171,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	def iterate_projects(self) -> Iterator[AbstractProject]:
 		'''
 		Iterates over all loaded projects.
@@ -1112,6 +1181,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	def get_project(self, ident: Optional[str] = None) -> AbstractProject:
 		'''
@@ -1134,6 +1204,7 @@ class AbstractMetaRule:
 	class TerminationFlag(KeyboardInterrupt):
 		'''Raised if the subsequent script should not be run.'''
 		pass
+
 
 	@classmethod
 	def run(cls, config: AbstractConfig, meta: Dict[str, Any]) -> Optional[AbstractConfig]:

@@ -17,7 +17,8 @@ class _MetaRule_Registry(Function_Registry, components=['code', 'priority', 'num
 	pass
 
 
-class ProfileBase(AbstractProfile):  # profile that should be extended
+
+class ProfileBase(AbstractProfile):
 	'''
 	Generally, a run environment uses a single profile to keep track of loading projects,
 	and invoking the top level methods (such as :func:`entry()`, :func:`main()`, :func:`run()`,
@@ -33,17 +34,19 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 	_default_profile_cls = None
 	_profile = None
-	
+
 	def __init_subclass__(cls, default_profile: Optional[bool] = False, **kwargs):
 		super().__init_subclass__(**kwargs)
 		cls._profile = None
 		if default_profile is not None:
 			ProfileBase._default_profile_cls = cls
-	
+
+
 	# region Class Methods
 	Project: ProjectBase = ProjectBase
 	'''Default project class that is used when creating a new project'''
-	
+
+
 	@classmethod
 	def get_project_type(cls, ident: str) -> NamedTuple:
 		'''
@@ -57,7 +60,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return cls.Project.get_project_type(ident)
-	
+
+
 	@classmethod
 	def replace_profile(cls, profile: 'ProfileBase' = None) -> 'ProfileBase':
 		'''
@@ -76,7 +80,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		old = cls._profile
 		cls._profile = profile
 		return old
-	
+
+
 	@classmethod
 	def get_profile(cls) -> 'ProfileBase':
 		'''
@@ -90,7 +95,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 			cls._profile = cls._default_profile_cls()
 			cls._profile.activate()
 		return cls._profile
-	
+
+
 	@classmethod
 	def register_meta_rule(cls, name: str, func: Callable[[AbstractConfig, Dict[str, Any]], Optional[AbstractConfig]],
 	                       *, code: str, description: Optional[str] = None, priority: Optional[int] = 0,
@@ -116,7 +122,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		'''
 		cls.meta_rule_registry.new(name, func, code=code, priority=priority, num_args=num_args,
 		                           description=description)
-	
+
+
 	@classmethod
 	def get_meta_rule(cls, name: str) -> NamedTuple:
 		'''
@@ -130,7 +137,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return cls.meta_rule_registry.find(name)
-	
+
+
 	@classmethod
 	def iterate_meta_rules(cls) -> Iterator[NamedTuple]:
 		'''
@@ -143,19 +151,21 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		entries = list(cls.meta_rule_registry.values())
 		for entry in sorted(entries, key=lambda e: (e.priority, e.name), reverse=True):
 			yield entry
-	
 	# endregion
+
 	
 	def __init__(self, data: Dict[str, Any] = None) -> None:
 		super().__init__(data)
 		self._loaded_projects = OrderedDict()
 		self._current_project_key = None
 
+
 	@property
 	def path(self):
 		path = self.data.get('info_path', None)
 		if path is not None:
 			return Path(path)
+
 
 	# region Top Level Methods
 	def entry(self, script_name: Optional[str] = None) -> None:
@@ -171,7 +181,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		'''
 		argv = sys.argv[1:]
 		self.main(argv, script_name=script_name)
-	
+
+
 	def initialize(self, *projects: str, **kwargs: Any) -> None:
 		'''
 		Initializes the specified projects (including activating them, which generally registers
@@ -190,7 +201,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 				self.get_project(project).activate()
 		else:
 			self.get_current_project().activate()
-	
+
+
 	def main(self, argv: Sequence[str], *, script_name: str = None) -> None:
 		'''
 		Runs the script with the given arguments using :func:`main()` of the current project.
@@ -223,7 +235,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return self.get_current_project().run(config, script_name=script_name, args=args, kwargs=kwargs)
-	
+
+
 	def quick_run(self, script_name: str, *configs: str, **parameters: Any):
 		'''
 		Creates a config object and runs the script using :func:`quick_run()` of the current project.
@@ -238,7 +251,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return self.get_current_project().quick_run(script_name, *configs, **parameters)
-	
+
+
 	def cleanup(self, *args: Any, **kwargs: Any) -> None:
 		'''
 		Calls :func:`cleanup()` of the current project.
@@ -252,12 +266,13 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return self.get_current_project().cleanup(*args, **kwargs)
-
 	# endregion
-	
+
+
 	def __str__(self):
 		return f'{self.__class__.__name__}[{self.name}]({", ".join(self._loaded_projects)})'
-	
+
+
 	def extract_info(self, other: 'ProfileBase') -> None:
 		'''
 		Extract data from the provided profile instance and store it in self.
@@ -274,7 +289,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		super().extract_info(other)
 		self._loaded_projects = other._loaded_projects  # .copy()
 		self._current_project_key = other._current_project_key
-	
+
+
 	def get_current_project(self) -> Project:
 		'''
 		Gets the current project instance.
@@ -284,7 +300,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return self.get_project(self._current_project_key)
-	
+
+
 	def switch_project(self, ident: Union[str, AbstractProject] = None) -> AbstractProject:
 		'''
 		Switches the current project to the one with the given identifier.
@@ -299,7 +316,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		proj = self.get_project(ident)
 		self._current_project_key = proj.name
 		return proj
-	
+
+
 	def iterate_projects(self) -> Iterator[AbstractProject]:
 		'''
 		Iterates over all loaded projects.
@@ -323,6 +341,7 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return self._project_context(self, ident)
+
 
 	class _project_context:
 		'''

@@ -7,8 +7,6 @@ from ..registration import Meta_Rule
 
 
 
-# TODO: use xray for prettier printing
-
 class Help_Rule(Meta_Rule, name='help', code='h', priority=99, num_args=0, description='Display this help message'):
 	'''
 	When activated, this rule prints the help message for the current project (and then exits the program).
@@ -80,6 +78,8 @@ Specify a registered script name to run
 		         for r in project.iterate_meta_rules() if r.code is not None][:num]
 
 		minfo = tabulate(metas, headers=['Code', 'Name', 'Description'], )  # tablefmt="plain"
+
+		# TODO: use xray for prettier printing
 
 		scripts = [(s.name, '-' if s.description is None else s.description)
 		           for s in project.iterate_artifacts('script') if not s.hidden]  # [:num]

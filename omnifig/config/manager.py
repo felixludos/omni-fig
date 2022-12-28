@@ -27,6 +27,7 @@ class ConfigManager(AbstractConfigManager):
 		self.registry = Path_Registry()
 		self.project = project
 
+
 	def export(self, config: AbstractConfig, name: Union[str, Path], root: Optional[Path] = None) -> Path:
 		'''
 		Exports the given config to the given path (in yaml format).
@@ -42,6 +43,7 @@ class ConfigManager(AbstractConfigManager):
 		'''
 		return export(config, name=name, root=root)
 
+
 	def iterate_configs(self) -> Iterator[NamedTuple]:
 		'''
 		Iterates over all registered config file entries.
@@ -51,6 +53,7 @@ class ConfigManager(AbstractConfigManager):
 
 		'''
 		yield from self.registry.values()
+
 
 	def register_config(self, name: Union[str, Path], path: Union[str, Path] = None, **kwargs) -> NamedTuple:
 		'''
@@ -75,6 +78,7 @@ class ConfigManager(AbstractConfigManager):
 		if name is None:
 			name = Path(path).stem
 		return self.registry.new(name, path, **kwargs)
+
 
 	def register_config_dir(self, root: Union[str, Path], *, recursive: Optional[bool] = True,
 	                        prefix: Optional[str] = None, delimiter: Optional[str] = None) -> List[NamedTuple]:
@@ -124,6 +128,7 @@ class ConfigManager(AbstractConfigManager):
 			return None
 		return val
 
+
 	class AmbiguousRuleError(Exception):
 		'''
 		Raised when a rule is ambiguous (i.e. multiple configs match the same rule)
@@ -131,9 +136,11 @@ class ConfigManager(AbstractConfigManager):
 		'''
 		pass
 
+
 	class UnknownMetaError(ValueError):
 		'''While parsing command-line arguments, a meta config was referenced that was not registered'''
 		pass
+
 
 	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> AbstractConfig:
 		'''
@@ -251,6 +258,7 @@ class ConfigManager(AbstractConfigManager):
 
 		return self.create_config(configs, data)
 
+
 	def find_config_path(self, name: str) -> Path:
 		'''
 		Finds the path to a config file by name.
@@ -274,9 +282,11 @@ class ConfigManager(AbstractConfigManager):
 				return Path(name)
 			raise
 
+
 	class ConfigNotRegistered(KeyError):
 		'''A config was not registered'''
 		pass
+
 
 	def find_config_entry(self, name: str) -> NamedTuple:
 		'''
@@ -370,6 +380,7 @@ class ConfigManager(AbstractConfigManager):
 			return load_export(path=path, fmt='toml', _dict=OrderedDict)
 		raise ValueError(f'Unknown config file type: {path}')
 
+
 	def create_config(self, configs: Optional[Sequence[Union[str, Path]]] = None, data: Optional[JSONABLE] = None, *,
 	                  project: Optional[AbstractProject] = unspecified_argument) -> AbstractConfig:
 		'''
@@ -401,7 +412,6 @@ class ConfigManager(AbstractConfigManager):
 		used_paths = {}
 
 		todo = list(configs)
-		# data[self._config_parents_key] = list(configs)
 		while len(todo):
 			name = todo.pop()
 			path = self.find_config_path(name)
@@ -419,13 +429,9 @@ class ConfigManager(AbstractConfigManager):
 			order = linearize(graph, heads=[None], order=True)[None]
 			ancestry = [ancestry_names[p] for p in order[1:]]
 			order = [data] + [raws[p] for p in order[1:]]
-			# order = list(reversed(order))
 		else:
 			order = [data]
 			ancestry = []
-
-		# if ancestry_key is not None:
-		# 	ancestors = [raw.get(ancestry_key, None) for raw in order[1:]]
 
 		merged = self._merge_raw_configs(order)
 
@@ -440,6 +446,7 @@ class ConfigManager(AbstractConfigManager):
 		merged.manager = self
 		return merged
 
+
 	def configurize(self, raw: JSONABLE, **kwargs: Any) -> AbstractConfig:
 		'''
 		Converts raw data into a config object (using the config class of this manager ``ConfigNode``).
@@ -453,7 +460,8 @@ class ConfigManager(AbstractConfigManager):
 
 		'''
 		return self.ConfigNode.from_raw(raw, **kwargs)
-	
+
+
 	def merge_configs(self, *configs: AbstractConfig) -> AbstractConfig:
 		'''
 		Given a list of config objects, merges them into a single config object in the given order.
@@ -471,7 +479,8 @@ class ConfigManager(AbstractConfigManager):
 		while len(todo):
 			self.update_config(merged, todo.pop())
 		return merged
-	
+
+
 	@staticmethod
 	def update_config(base: AbstractConfig, update: AbstractConfig) -> AbstractConfig:
 		'''
