@@ -1,4 +1,4 @@
-from typing import List, Optional, Any, Sequence
+from typing import List, Optional, Any, Sequence, ContextManager
 from omnibelt import Primitive, unspecified_argument
 
 from ..abstract import AbstractConfig
@@ -24,8 +24,9 @@ class AbstractSearch:
 		'''Finds the node that contains the product, and then extracts the product'''
 		raise NotImplementedError
 
-	def sub_search(self, origin: 'AbstractSearch', queries: Optional[List[str]]) -> 'AbstractSearch':
-		'''Creates a new search (potentially with new queries) that can still reference the original search'''
+	@staticmethod
+	def sub_search(origin: 'AbstractSearch') -> 'ContextManager':
+		'''Creates a context manager for new searches to be able to reference the original search `origin`'''
 		raise NotImplementedError
 
 
@@ -52,8 +53,8 @@ class AbstractReporter:
 		'''Reports a config node defaulted to the given value'''
 		raise NotImplementedError
 
-	def report_iterator(self, node: 'AbstractConfig', product: bool = False, include_key: bool = False,
-	                    silent: bool = None) -> Optional[str]:
+	def report_iterator(self, node: 'AbstractConfig', product: Optional[bool] = False, *,
+	                    silent: Optional[bool] = None) -> Optional[str]:
 		'''Reports the start of an iterator over the config node'''
 		raise NotImplementedError
 
