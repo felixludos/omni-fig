@@ -160,7 +160,7 @@ class GeneralProject(ProjectBase, name='general'):
 		}
 
 
-	def load_dependencies(self):
+	def load(self):
 		'''
 		Loads all dependencies for the project including config files/directories, packages, and source files
 		based on the contents of the project's info file.
@@ -183,9 +183,15 @@ class GeneralProject(ProjectBase, name='general'):
 			# packages
 			pkgs = []
 			if 'package' in self.data:
-				pkgs = [self.data['package']] + pkgs
+				if isinstance(self.data['package'], str):
+					pkgs.append(self.data['package'])
+				else:
+					pkgs.extend(self.data['package'])
 			if 'packages' in self.data:
-				pkgs = self.data['packages'] + pkgs
+				if isinstance(self.data['packages'], str):
+					pkgs.append(self.data['packages'])
+				else:
+					pkgs.extend(self.data['packages'])
 
 			# source files
 			src = self.data.get('src', [])
@@ -203,7 +209,7 @@ class GeneralProject(ProjectBase, name='general'):
 		super()._activate(*args, **kwargs)
 		prt.info(f'Activating project {self.name} ({self.root})')
 		with self._profile.project_context(self):
-			self.load_dependencies()
+			self.load()
 
 
 	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()) -> None:

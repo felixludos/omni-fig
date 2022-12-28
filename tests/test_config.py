@@ -28,19 +28,6 @@ def test_register_load_config():
 	
 	C = fig.create_config('t/h/e')
 	assert C.pull('nothing') == 'special'
-	
-def test_raw_param():
-	
-	C = fig.parse_argv(['--b', 'baba', '--a', '''{"r":10, "b":100}''',
-	                                          '--c', '''["asdf", 10, 4.e-4]'''], script_name='some-script')
-	
-	assert id(C['a'].parent) == id(C)
-	
-	assert C.pull('b') == 'baba'
-	assert C.pull('a.b') == 100
-	assert C.pull('a.r') == 10
-	assert C.pull('c')[0] == 'asdf'
-	assert C.pull('c')[-1] == 4e-4
 
 
 def test_hierarchy():

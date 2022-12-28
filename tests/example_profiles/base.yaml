@@ -8,4 +8,5 @@ projects:
   example2: tests/example_projects/p2
 
   example4: tests/example_projects/p4
+  example5: tests/example_projects/p5
 

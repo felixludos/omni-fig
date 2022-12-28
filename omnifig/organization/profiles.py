@@ -196,11 +196,12 @@ class ProfileBase(AbstractProfile):
 
 		'''
 		self.activate(**kwargs)
+		self.get_current_project().activate()
 		if len(projects):
 			for project in projects:
 				self.get_project(project).activate()
-		else:
-			self.get_current_project().activate()
+
+
 
 
 	def main(self, argv: Sequence[str], *, script_name: str = None) -> None:

@@ -392,6 +392,23 @@ class Profile(ProfileBase, default_profile=True):
 		self._current_project_key = None
 
 
+	def initialize(self, *projects: str, **kwargs: Any) -> None:
+		'''
+		Initializes the profile by activating it and then activating all projects specified, also adds the
+		projects to the profile's active base projects.
+
+		Args:
+			*projects: The names of projects to activate and add to the active base projects.
+			**kwargs: Additional keyword arguments to pass to the project initialization methods.
+
+		Returns:
+			None
+
+		'''
+		super().initialize(*projects, **kwargs)
+		self._base_projects.extend(projects)
+
+
 	def iterate_base_projects(self) -> Iterator[Project]:
 		'''
 		Iterates through the active base projects in the profile.
@@ -403,7 +420,12 @@ class Profile(ProfileBase, default_profile=True):
 			An iterator over the active base projects.
 
 		'''
-		return iter(self._base_projects)
+		past = set()
+		for base in self._base_projects:
+			proj = self.get_project(base)
+			if proj not in past:
+				past.add(proj)
+				yield proj
 
 
 	def iterate_projects(self) -> Iterator[Project]:
@@ -429,6 +451,31 @@ class Profile(ProfileBase, default_profile=True):
 
 
 	_default_project_name = 'default'
+
+	def _infer_project(self, ident: Union[str, Path, None]) -> Optional[Project]:
+		'''
+		Checks if the directory (current working directory by default) is inside a known project directory,
+		and if so, returns that project.
+
+		Args:
+			ident: of the project to get (expected to be None usually).
+
+		Returns:
+
+		'''
+		path = ident
+		if path is None:
+			path = Path().cwd()
+
+		full = path.absolute()
+		options = {name: Path(proj_path).absolute() for name, proj_path in self.data.get('projects', {}).items()}
+
+		costs = {name: len(full.relative_to(proj_path).parts)
+		         for name, proj_path in options.items() if str(full).startswith(str(proj_path))}
+
+		if not costs:
+			return None
+		return self.get_project(min(costs, key=costs.get))
 
 
 	def get_project(self, ident: Union[str, Path] = None, is_current: Optional[bool] = None) -> Project:
@@ -460,6 +507,8 @@ class Profile(ProfileBase, default_profile=True):
 		if ident is None:
 			if self._current_project_key is not None:
 				return self._loaded_projects[self._current_project_key]
+
+			ident = self._infer_project(ident)
 
 		if ident in self._loaded_projects:
 			return self._loaded_projects[ident]

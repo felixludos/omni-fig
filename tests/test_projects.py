@@ -1,42 +1,40 @@
 
 import sys, os
+from pathlib import Path
+
 
 import _test_util as tu
+from _test_util import reset_profile
 
 
 import omnifig as fig
 
-def _reset_profile(name='base'):
-	os.environ['FIG_PROFILE'] = str(tu.PROFILES_PATH / f'{name}.yaml')
-	fig.ProfileBase._profile = None
-	return fig.get_profile()
-
 
 def test_base_profile():
-	profile = _reset_profile()
+	profile = reset_profile()
 	assert profile.name == 'base-profile'
 	assert profile.path == tu.PROFILES_PATH / 'base.yaml'
 	assert profile is fig.ProfileBase._profile
 
 
 def test_missing_profile():
-	profile = _reset_profile('does-not-exist')
+	profile = reset_profile('does-not-exist')
 	assert profile.name == ''
 
 
 def test_bad_profile():
-	profile = _reset_profile('bad')
+	profile = reset_profile('bad')
 	assert profile.name == ''
 
 
 def test_current_project():
-	profile = _reset_profile()
+	profile = reset_profile()
 	proj = fig.get_current_project()
 	assert proj.name == profile._default_project_name # 'default'
 
 
 def test_load_project():
-	profile = _reset_profile()
+	profile = reset_profile()
 
 	old = profile.get_current_project()
 
@@ -61,7 +59,7 @@ def test_load_project():
 
 
 def test_load_missing_project():
-	profile = _reset_profile()
+	profile = reset_profile()
 
 	try:
 		fig.get_project('does-not-exist')
@@ -72,18 +70,18 @@ def test_load_missing_project():
 
 
 def test_new_profile():
-	profile = _reset_profile()
+	profile = reset_profile()
 	fig.get_current_project()
 	assert len(list(profile.iterate_projects())) == 1
 
-	_reset_profile()
+	reset_profile()
 
 	profile = fig.get_profile()
 	assert len(list(profile.iterate_projects())) == 0
 
 
 def test_ambiguous_project_name():
-	profile = _reset_profile()
+	profile = reset_profile()
 
 	proj = profile.get_project('example1')
 	assert not proj.is_activated
@@ -102,7 +100,7 @@ def test_ambiguous_project_name():
 
 def test_active_project():
 	assert not getattr(fig, '_loaded_p2', False) # flag
-	profile = _reset_profile('active')
+	profile = reset_profile('active')
 	assert getattr(fig, '_loaded_p2', False) # means p2 source code was run
 	del fig._loaded_p2
 
@@ -123,7 +121,7 @@ def test_active_project():
 
 def test_explicit_project_file():
 
-	profile = _reset_profile('multi')
+	profile = reset_profile('multi')
 
 	proj = profile.get_current_project()
 	assert proj.name == 'default'
@@ -164,13 +162,55 @@ def test_explicit_project_file():
 
 
 
-# def test_hijack_project(): # "hijack" project contents
-# 	pass
+def test_load_noncurrent_project(): # "hijack" project contents
+	reset_profile()
+
+	default = fig.get_current_project()
+
+	assert default.name == 'default'
+	assert not default.is_activated
+
+	proj = fig.get_project('example2')
+
+	assert fig.get_current_project().name == 'default'
+	assert not default.is_activated
+
+	proj.load()
+
+	assert fig.get_current_project().name == 'default'
+	assert not default.is_activated
+	assert not proj.is_activated
+
+	assert len(list(default.iterate_components())) == 4
+
+	assert fig.get_current_project().name == 'default'
+	assert default.is_activated
+	assert not proj.is_activated
+
+	proj.activate()
+
+	assert len(list(proj.iterate_components())) == 4
+
+	assert [e.cls.__name__ for e in proj.iterate_components()] \
+	       == [e.cls.__name__ for e in default.iterate_components()]
 
 
+def test_infer_project():
+
+	profile = reset_profile()
+	profile.data['projects'] = {name: str(Path(path).absolute()) for name, path in profile.data['projects'].items()}
+
+	old = os.getcwd()
+	os.chdir(str(tu.PROJECTS_PATH / 'p1' / 'some' / 'sub-dir'))
+
+	proj = fig.get_current_project()
+
+	assert proj.name == 'project1'
+
+	os.chdir(old)
 
 def test_xray():
-	profile = _reset_profile()
+	profile = reset_profile()
 
 	proj = profile.get_project('example2')
 
@@ -183,26 +223,91 @@ def test_xray():
 	assert len(list(proj.iterate_modifiers())) == 3
 
 
-#
-# def test_related():
-# 	pass
-#
-#
-# def test_profile_initialize():
-# 	pass
+
+def test_find_base_projects():
+	reset_profile()
+
+	fig.initialize('example2', 'example4')
+
+	assert fig.get_current_project().name == 'default'
+
+	proj = fig.get_project()
+	p2 = fig.get_project('example2')
+	p4 = fig.get_project('example4')
+
+	assert proj.find_component('cmp1').cls.__name__ == 'Cmpn1'
+	assert proj.find_component('example4:cmp1').cls.__name__ == 'P4C1'
+	assert p2.find_component('cmp1').cls.__name__ == 'Cmpn1'
+	assert p4.find_component('cmp1').cls.__name__ == 'P4C1'
+
+	@fig.component('cmp1')
+	class MyCmpn1:
+		pass
+
+	assert proj.find_component('cmp1').cls.__name__ == 'MyCmpn1'
+	assert proj.find_component('example2:cmp1').cls.__name__ == 'Cmpn1'
+	assert proj.find_component('example4:cmp1').cls.__name__ == 'P4C1'
+	assert p2.find_component('cmp1').cls.__name__ == 'Cmpn1'
+	assert p4.find_component('cmp1').cls.__name__ == 'P4C1'
+
+	assert proj.find_component('cmp100').cls.__name__ == 'P4C100'
+	assert p2.find_component('cmp100').cls.__name__ == 'P4C100'
+
+	assert proj.find_component('cmp2').cls.__name__ == 'Cmpn2'
+	assert p2.find_component('cmp2').cls.__name__ == 'Cmpn2'
+	assert p4.find_component('cmp2').cls.__name__ == 'Cmpn2'
 
 
 
-# TEST: explicit project artifact ":" syntax - not related or base
+def test_related():
+	profile = reset_profile()
+	assert len(list(profile.iterate_projects())) == 0
 
-# TEST: artifact descriptions/xraying
+	fig.initialize('example2')
+	assert len(list(profile.iterate_projects())) == 2
 
+	assert fig.get_current_project().name == 'default'
 
-# TEST: modifying with and without configurable modifiers/components
+	proj = fig.switch_project('example4')
+	assert len(list(profile.iterate_projects())) == 3
 
-# TEST: meta rules
+	proj.activate()
 
+	assert len(list(profile.iterate_projects())) == 3
+	assert fig.get_current_project() is proj
+	assert proj.is_activated
 
+	p1 = fig.get_project('example1')
+	assert not p1.is_activated
+
+	p2 = fig.get_project('example2')
+	assert p2.is_activated
+
+	assert len(list(profile.iterate_projects())) == 4
+	assert 'example5' not in profile._loaded_projects
+
+	try:
+		proj.find_component('cmp6')
+	except proj.UnknownArtifactError:
+		pass
+	else:
+		assert False, 'expected exception'
+
+	assert 'example5' in profile._loaded_projects
+	assert len(list(profile.iterate_projects())) == 5
+
+	p5 = fig.get_project('example5')
+
+	assert p5.is_activated
+	assert proj.find_component('cmp5').cls.__name__ == 'P5C5'
+
+	assert proj.find_component('cmp3').cls.__name__ == 'P5C3'
+	assert proj.find_component('example2:cmp3').cls.__name__ == 'Cmpn3'
+
+	assert proj.find_component('cmp1').cls.__name__ == 'P4C1'
+	assert proj.find_component('example2:cmp1').cls.__name__ == 'Cmpn1'
+
+	assert proj.find_component('cmp4').cls.__name__ == 'Cmpn4'
 
 
 

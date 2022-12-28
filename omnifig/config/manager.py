@@ -196,6 +196,7 @@ class ConfigManager(AbstractConfigManager):
 									meta[waiting_key] = []
 							else:
 								meta[name] = True
+								break
 						if not len(text):
 							break
 					else:
