@@ -21,10 +21,12 @@ class ConfigManager(AbstractConfigManager):
 
 	ConfigNode = ConfigNode
 
-	Config_Registry = Path_Registry
+	class Config_Registry(Path_Registry, components=['project']):
+		'''Registry for config files.'''
+		pass
 
 	def __init__(self, project: AbstractProject):
-		self.registry = Path_Registry()
+		self.registry = self.Config_Registry()
 		self.project = project
 
 
@@ -66,7 +68,7 @@ class ConfigManager(AbstractConfigManager):
 		Args:
 			name: to register the config under
 			path: of the config file (if not provided, the provided name is assumed to be a path)
-			**kwargs: Other arguments to pass to the ``Path_Registry.register`` method
+			**kwargs: Other arguments to pass to the ``Config_Registry.register`` method
 
 		Returns:
 			The entry of the config file that was registered
@@ -115,11 +117,11 @@ class ConfigManager(AbstractConfigManager):
 		root = Path(root)
 		entries = []
 		for ext in self._config_exts:
-			for path in root.glob(f'**/*.{ext}' if recursive else f'*.{ext}'):
+			for path in sorted(root.glob(f'**/*.{ext}' if recursive else f'*.{ext}')):
 				terms = path.relative_to(root).parts[:-1]
 				name = path.stem
 				ident = prefix + delimiter.join(terms + (name,))
-				entries.append(self.register_config(ident, path))
+				entries.append(self.register_config(ident, path, project=self.project))
 		return entries
 
 	def _parse_raw_arg(self, arg: str) -> JSONABLE:
@@ -129,17 +131,19 @@ class ConfigManager(AbstractConfigManager):
 		return val
 
 
-	class AmbiguousRuleError(Exception):
-		'''
-		Raised when a rule is ambiguous (i.e. multiple configs match the same rule)
-		while parsing command-line arguments
-		'''
-		pass
+	# class AmbiguousRuleError(Exception):
+	# 		AmbiguousRuleError: if a rule is ambiguous (usually because multiple rules match the given argument)
+	# 	'''
+	# 	Raised when a rule is ambiguous (i.e. multiple configs match the same rule)
+	# 	while parsing command-line arguments
+	# 	'''
+	# 	pass
 
 
-	class UnknownMetaError(ValueError):
+	class UnknownBehaviorError(ValueError):
 		'''While parsing command-line arguments, a meta config was referenced that was not registered'''
-		pass
+		def __init__(self, term):
+			super().__init__(f'{term!r} was not recognized (and consequently removed) by any registered Behaviors.')
 
 
 	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> AbstractConfig:
@@ -154,67 +158,33 @@ class ConfigManager(AbstractConfigManager):
 			A config object containing the parsed arguments
 
 		Raises:
-			AmbiguousRuleError: if a rule is ambiguous (usually because multiple rules match the given argument)
-			UnknownMetaError: if a meta config is referenced that is not registered
+			UnknownBehaviorError: if an unknown behavior config is encountered
 			ValueError: if an argument is invalid
 
 		'''
-		waiting_key = None
-		waiting_meta = 0
+
+		meta = {}
+		argv = list(argv)
+
+		for behavior in self.project.behaviors():
+			out = behavior.parse_argv(meta, argv, script_name=script_name)
+			if out is not None:
+				argv = out
 
 		remaining = list(reversed(argv))
-		
-		meta = {}
-		while len(remaining):
-			term = remaining.pop()
 
-			if waiting_meta > 0:
-				val = self._parse_raw_arg(term)
-				if waiting_key in meta and isinstance(meta[waiting_key], list):
-					meta[waiting_key].append(val)
-				else:
-					meta[waiting_key] = val
-				waiting_meta -= 1
-				if waiting_meta == 0:
-					waiting_key = None
-
-			elif term.startswith('-') and not term.startswith('--'):
-				text = term[1:]
-				while len(text) > 0:
-					for rule in self.project.iterate_meta_rules():
-						name = rule.name
-						code = rule.code
-						if code is not None and text.startswith(code):
-							text = text[len(code):]
-							num = rule.num_args
-							if num:
-								if len(text):
-									raise self.AmbiguousRuleError(code, text)
-								waiting_key = name
-								waiting_meta = num
-								if num > 1:
-									meta[waiting_key] = []
-							else:
-								meta[name] = True
-								break
-						if not len(text):
-							break
-					else:
-						raise self.UnknownMetaError(text)
-
-			elif script_name is not unspecified_argument:
-				remaining.append(term)
-				break
-
-			elif term != '_' and script_name is unspecified_argument:
-				script_name = term
-				
-			else:
-				break
-
+		# parse script (if provided)
+		term = remaining.pop()
+		if term.startswith('-') and not term.startswith('--'):
+			raise self.UnknownBehaviorError(term)
+		elif script_name is not unspecified_argument:
+			remaining.append(term)
+		elif term != '_' and script_name is unspecified_argument:
+			script_name = term
 		if script_name not in {None, unspecified_argument}:
 			meta['script_name'] = script_name
 
+		# parse remaining (keyword) arguments
 		configs = []
 		while len(remaining):
 			term = remaining.pop()
@@ -252,12 +222,12 @@ class ConfigManager(AbstractConfigManager):
 		if waiting_arg_key is not None:
 			data[waiting_arg_key] = True
 
-		if '_meta' in data:
-			data['_meta'].update(meta)
-		else:
-			data['_meta'] = meta
-
-		return self.create_config(configs, data)
+		# configurize parsed data (including meta)
+		config = self.create_config(configs, data)
+		meta = self.create_config(None, meta)
+		meta_base = config.push_peek('_meta', {}, silent=True, overwrite=False)
+		meta_base.update(meta)
+		return config
 
 
 	def find_config_path(self, name: str) -> Path:

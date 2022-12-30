@@ -1,20 +1,14 @@
-from typing import Dict, Tuple, Optional, Any, Sequence, Callable, Iterator, NamedTuple, Union, ContextManager
+from typing import Dict, Tuple, Optional, Any, Sequence, Iterator, NamedTuple, Union, ContextManager, Type
 from pathlib import Path
 import sys
 from collections import OrderedDict
-from omnibelt import get_printer, Function_Registry
+from omnibelt import get_printer, Class_Registry, JSONABLE, unspecified_argument
 
-from ..abstract import AbstractConfig, AbstractProfile, AbstractProject
+from ..abstract import AbstractConfig, AbstractProfile, AbstractProject, AbstractBehavior
 from .workspaces import ProjectBase
 
 from .. import __info__
 prt = get_printer(__info__.get('logger_name'))
-
-
-
-class _MetaRule_Registry(Function_Registry, components=['code', 'priority', 'num_args', 'description']):
-	'''The registry for meta rules (used by profiles).'''
-	pass
 
 
 
@@ -29,8 +23,10 @@ class ProfileBase(AbstractProfile):
 
 	'''
 
-	meta_rule_registry = _MetaRule_Registry()
-	'''Global registry for meta rules (used by the profile).'''
+	class _Behavior_Registry(Class_Registry, components=['description']):
+		'''The registry for behaviors (used by projects to modify the behavior when running scripts).'''
+		pass
+	behavior_registry = _Behavior_Registry() # one global instance (even independent of the profile instance)
 
 	_default_profile_cls = None
 	_profile = None
@@ -44,16 +40,16 @@ class ProfileBase(AbstractProfile):
 
 	# region Class Methods
 	Project: ProjectBase = ProjectBase
-	'''Default project class that is used when creating a new project'''
 
 
 	@classmethod
-	def get_project_type(cls, ident: str) -> NamedTuple:
+	def get_project_type(cls, ident: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
 		'''
 		Gets the project type entry for the given identifier (from a registry).
 
 		Args:
 			ident: Name of the registered project type.
+			default: Default value to return if the identifier is not found.
 
 		Returns:
 			Project type entry.
@@ -98,59 +94,53 @@ class ProfileBase(AbstractProfile):
 
 
 	@classmethod
-	def register_meta_rule(cls, name: str, func: Callable[[AbstractConfig, Dict[str, Any]], Optional[AbstractConfig]],
-	                       *, code: str, description: Optional[str] = None, priority: Optional[int] = 0,
-	                       num_args: Optional[int] = 0) -> NamedTuple:
+	def register_behavior(cls, name: str, typ: Type[AbstractBehavior], *,
+	                      description: Optional[str] = None) -> NamedTuple:
 		'''
-		Registers a new meta rule in the profile.
+		Registers a new behavior in the profile.
 
-		Meta rules are functions that are applied in order of their priority to the config object
-		before running a script to modify the behavior.
+		Behaviors are classes which are instantiated and managed by .
 
 		Args:
-			name: Name of the meta rule.
-			func: Callable meta rule function (input should be config object and dict of meta params,
-			output is None or a new config object).
-			code: Code to invoke the meta rule function (parsed into the config from :code:`sys.argv`).
-			priority: Order in which the meta rule is applied (higher priority is applied first).
-			num_args: When invoking the meta rule from the command line, the number of arguments
-			required for this meta rule
+			name: Name of the behavior.
+			typ: Behavior class (recommended to subclass :class:`AbstractBehavior`).
+			description: Description of the behavior.
 
 		Returns:
-			Registration entry for the meta rule.
+			Registration entry for the behavior.
 
 		'''
-		cls.meta_rule_registry.new(name, func, code=code, priority=priority, num_args=num_args,
-		                           description=description)
+		cls.behavior_registry.new(name, typ, description=description)
 
 
 	@classmethod
-	def get_meta_rule(cls, name: str) -> NamedTuple:
+	def get_behavior(cls, name: str) -> NamedTuple:
 		'''
-		Gets the meta rule entry for the given identifier (from the registry).
+		Gets the behavior entry for the given identifier (from the registry).
 
 		Args:
-			name: Name of the registered meta rule.
+			name: Name of the registered behavior.
 
 		Returns:
-			Meta rule entry.
+			Behavior entry.
 
 		'''
-		return cls.meta_rule_registry.find(name)
+		return cls.behavior_registry.find(name)
 
 
 	@classmethod
-	def iterate_meta_rules(cls) -> Iterator[NamedTuple]:
+	def iterate_behaviors(cls) -> Iterator[NamedTuple]:
 		'''
-		Iterates over all registered meta rules.
+		Iterates over all registered behaviors.
 
 		Returns:
-			Iterator over all meta rule entries.
+			Iterator over all behavior entries.
 
 		'''
-		entries = list(cls.meta_rule_registry.values())
-		for entry in sorted(entries, key=lambda e: (e.priority, e.name), reverse=True):
-			yield entry
+		# entries = list(cls.behavior_registry.values())
+		# for entry in sorted(entries, key=lambda e: (e.priority, e.name), reverse=True):
+		# 	yield entry
+		yield from cls.behavior_registry.values()
 	# endregion
 
 	
@@ -202,8 +192,6 @@ class ProfileBase(AbstractProfile):
 				self.get_project(project).activate()
 
 
-
-
 	def main(self, argv: Sequence[str], *, script_name: str = None) -> None:
 		'''
 		Runs the script with the given arguments using :func:`main()` of the current project.
@@ -218,7 +206,26 @@ class ProfileBase(AbstractProfile):
 
 		'''
 		return self.get_current_project().main(argv, script_name=script_name)
-	
+
+
+	def run_script(self, script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
+		'''
+		Runs the script registered with the given name and the given arguments using
+		:func:`run_script()` of the current project.
+
+		Args:
+			script_name: Name of the script to run (must be registered).
+			config: Config object to run the script with.
+			*args: Manual arguments to pass to the script.
+			**kwargs: Manual keyword arguments to pass to the script.
+
+		Returns:
+			The output of the script.
+
+		'''
+		return self.get_current_project().run_script(script_name, config, *args, **kwargs)
+
+
 	def run(self, config: AbstractConfig, *, script_name: Optional[str] = None, args: Optional[Tuple] = None,
 	        kwargs: Optional[Dict[str, Any]] = None, **meta: Any):
 		'''
@@ -268,6 +275,42 @@ class ProfileBase(AbstractProfile):
 		'''
 		return self.get_current_project().cleanup(*args, **kwargs)
 	# endregion
+
+
+	def create_config(self, *configs: str, **parameters: JSONABLE) -> AbstractConfig:
+		'''
+		Process the provided data to create a config object (using the current project).
+
+		Args:
+			configs: usually a list of parent configs to be merged
+			parameters: any manual parameters to include in the config object
+
+		Returns:
+			Config object resulting from loading/merging `configs` and including `data`.
+		'''
+		return self.get_current_project().create_config(*configs, **parameters)
+
+
+	def parse_argv(self, argv: Sequence[str], script_name=None) -> AbstractConfig:
+		'''
+		Parses the given arguments and returns a config object.
+
+		Arguments are expected in the following order (all of which are optional):
+			1. Behaviors to modify the config loading process and script execution.
+			2. Name of the script to run.
+			3. Names of registered config files that should be loaded and merged (in order of precedence).
+			4. Manual config parameters (usually keys, prefixed by :code:`--` and corresponding values)
+
+		Args:
+			argv: List of arguments to parse (expected to be :code:`sys.argv[1:]`).
+			script_name: Manually specified name of the script (defaults to what is specified in the resulting config).
+
+		Returns:
+			Config object containing the parsed arguments.
+
+		'''
+		return self.get_current_project().parse_argv(argv, script_name=script_name)
+
 
 
 	def __str__(self):

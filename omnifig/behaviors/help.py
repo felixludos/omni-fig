@@ -1,13 +1,13 @@
-from typing import Optional
 from tabulate import tabulate
 
 from ..abstract import AbstractConfig
 from .. import get_current_project
-from ..registration import Meta_Rule
+
+from .base import Behavior
 
 
 
-class Help_Rule(Meta_Rule, name='help', code='h', priority=99, num_args=0, description='Display this help message'):
+class Help(Behavior, name='help', code='h', priority=99, num_args=0, description='Display this help message'):
 	'''
 	When activated, this rule prints the help message for the current project (and then exits the program).
 	'''
@@ -48,13 +48,13 @@ Specify a registered script name to run
 {doc}'''
 
 	@classmethod
-	def run(cls, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
+	def pre_run(cls, meta: AbstractConfig, config: AbstractConfig) -> None:
 		'''
 		When activated, this rule prints the help message for the current project (and then exits the program).
 
 		Args:
-			config: The config object
-			meta: The meta config object (used to check if the rule is activated)
+			meta: The meta config object (used to check if the rule is activated with the ``quiet`` key)
+			config: The config object to be modified
 
 		Returns:
 			``None``
@@ -65,7 +65,6 @@ Specify a registered script name to run
 		'''
 
 		show_help = meta.pull('help', False, silent=True)
-
 		if not show_help:
 			return
 

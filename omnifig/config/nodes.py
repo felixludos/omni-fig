@@ -239,6 +239,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				SearchFailed: if the node could not be found and no default was provided
 
 			'''
+			if silent is None:
+				silent = self.origin.silent
 			try:
 				result = self._find_node()
 			except self.SearchFailed:
@@ -246,6 +248,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 					raise
 				return self.default
 			result._trace = self
+			self.origin.reporter.report_node(result, silent=silent)
 			return result
 
 
@@ -270,6 +273,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				SearchFailed: if the node could not be found and no default was provided
 
 			'''
+			if silent is None:
+				silent = self.origin.silent
 			try:
 				node = self._find_node()
 			except self.SearchFailed:
@@ -1547,7 +1552,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		if (allow_create and self._product is None) or force_create:
 			self._product = self._create(component_args, component_kwargs, silent=silent, **kwargs)
 		else:
-			self.reporter.reuse_product(self, self._product)
+			self.reporter.reuse_product(self, self._product, silent=silent)
 		return self._product
 
 

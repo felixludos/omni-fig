@@ -103,19 +103,25 @@ def test_parse_argv_meta():
 	assert C.pull('_meta.quiet')
 	assert C.pull('_meta.debug', False) is False
 
+	C = fig.parse_argv(['-q', '--b', 'baba', '--x=99', '-q'], script_name='some-script')
+
+	assert C.pull('_meta.script_name') == 'some-script'
+	assert C.pull('_meta.quiet')
+	assert C.pull('_meta.debug', False) is False
+
 	C = fig.parse_argv(['-q', '-d', '--b', 'baba', '--x=99'], script_name='some-script')
 
 	assert C.pull('_meta.script_name') == 'some-script'
 	assert C.pull('_meta.quiet')
 	assert C.pull('_meta.debug')
 
-	C = fig.parse_argv(['-qd', '--b', 'baba', '--x=99'], script_name='some-script')
+	C = fig.parse_argv(['-q', '--b', 'baba', '--x=99', '-d'], script_name='some-script')
 
 	assert C.pull('_meta.script_name') == 'some-script'
 	assert C.pull('_meta.quiet')
 	assert C.pull('_meta.debug')
 
-	C = fig.parse_argv(['-qd', '-h', '--b', 'baba', '--x=99'], script_name='some-script')
+	C = fig.parse_argv(['-q', '-h', '--b', 'baba', '-d', '--x=99'], script_name='some-script')
 
 	assert C.pull('_meta.script_name') == 'some-script'
 	assert C.pull('_meta.quiet')

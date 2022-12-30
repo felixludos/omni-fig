@@ -1,9 +1,11 @@
 
 from typing import Dict, Optional, Union, Any, Iterator, NamedTuple, Type, List
 import os
+from itertools import chain
 from collections import deque
 from pathlib import Path
-from omnibelt import unspecified_argument, get_printer, Class_Registry
+from tabulate import tabulate
+from omnibelt import unspecified_argument, get_printer, Class_Registry, colorize
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator
 
@@ -65,6 +67,79 @@ class Profile(ProfileBase, default_profile=True):
 					pass
 
 
+		def nonlocal_projects(self) -> Iterator[NamedTuple]:
+			'''
+			Iterator over all projects that are related to this one, followed by all active base projects
+			of the profile (without repeating any projects).
+
+			Returns:
+				An iterator over all projects that are related to this one, followed by all active base projects
+
+			'''
+			past = {self}
+			for proj in chain(self.related(), self._profile.iterate_base_projects()):
+				if proj in past:
+					continue
+				yield proj
+				past.add(proj)
+
+
+		def xray(self, artifact: str, *, include_nonlocal: Optional[bool] = True, as_list: Optional[bool] = False,
+		         sort: Optional[bool] = False, reverse: Optional[bool] = False) -> Optional[List[NamedTuple]]:
+			'''
+			Prints a list of all artifacts of the given type accessible from this project
+			(including related and active base projects).
+
+			Args:
+				artifact: artifact type (e.g. 'script', 'config')
+				include_nonlocal: whether to include artifacts from non-local projects
+					(related and active base projects)
+				as_list: instead of printing, return the list of artifacts
+				sort: sort the list of artifacts by name
+				reverse: reverse the order of the list of artifacts
+
+			Returns:
+				list: if as_list is True, returns a list of artifacts
+
+			Raises:
+				UnknownArtifactTypeError: if the given artifact type does not exist
+
+			'''
+			if not include_nonlocal:
+				return super().xray(artifact, as_list=as_list, sort=sort, reverse=reverse)
+
+			local = super().xray(artifact, reverse=False, as_list=True, sort=sort)
+
+			vocab = {e.name for e in local}
+			full = [(entry, False) for entry in local]
+
+			for proj in self.nonlocal_projects():
+				for entry in proj.xray(artifact, include_nonlocal=False, reverse=False, as_list=True, sort=sort):
+					name = entry.name
+					full.append((entry, name in vocab))
+					vocab.add(name)
+
+			if sort:
+				full.sort(key=lambda e: e[0].name)
+			if reverse:
+				full.reverse()
+
+			if as_list:
+				return [e[0] for e in full]
+
+			if len(full):
+				rows, descs = zip(*[self._format_xray_entry(t) for t, _ in full])
+				for row, (entry, is_dup) in zip(rows, full):
+					if is_dup:
+						row[0] = colorize(row[0], color="red")
+				descs = [None if d is None else f'\t[{d}]' for d in descs]
+
+				table = tabulate(rows, tablefmt='simple')
+
+				lines = [line for lines in zip(table.splitlines()[1:-1], descs) for line in lines if line is not None]
+				print('\n'.join(lines))
+
+
 		def missing_related(self) -> Iterator[str]:
 			'''
 			Iterate over all projects related to this one that cannot be found by the current profile.
@@ -78,42 +153,6 @@ class Profile(ProfileBase, default_profile=True):
 					self._profile.get_project(ident)
 				except self._profile.UnknownProjectError:
 					yield ident
-
-
-		def validate_main(self, config: AbstractConfig) -> Optional['ProjectBase']:
-			'''
-			Validate the current project (``self``) with the given config for ``main()``.
-
-			This enables the config to specify a different project before the current one is even activated.
-
-			Args:
-				config: the config object
-
-			Returns:
-				The project that according to the config should run ``main()``, defaults to ``self``.
-
-			'''
-			runner = config.pull('_meta.main_runner', None, silent=True)
-			if runner is not None:
-				return runner
-
-
-		def validate_run(self, config: AbstractConfig) -> Optional['ProjectBase']:
-			'''
-			Validate the current project (``self``) with the given config for ``run()``.
-
-			This enables the config to specify a different project to run the script.
-
-			Args:
-				config: the config object
-
-			Returns:
-				The project that according to the config should run ``run()``, defaults to ``self``.
-
-			'''
-			runner = config.pull('_meta.runner', None, silent=True)
-			if runner is not None:
-				return runner
 
 
 		# region Registration
@@ -384,11 +423,14 @@ class Profile(ProfileBase, default_profile=True):
 			None
 
 		'''
+		# self.get_project()  # loads project
+
 		active_projects = self.data.get('active-projects', [])
 		for project in active_projects:
 			proj = self.get_project(project)
 			proj.activate()
 			self._base_projects.append(proj)
+
 		self._current_project_key = None
 
 

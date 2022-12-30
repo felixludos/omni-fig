@@ -44,7 +44,7 @@ def project_context(ident: Union[str, Path] = None) -> ContextManager:
 
 
 # region Running
-def entry(script_name: str = None) -> None:
+def entry(script_name: Optional[str] = None) -> None:
 	'''
 	Recommended entry point when running a script from the terminal.
 	This is also the entry point for the ``fig`` command.
@@ -82,7 +82,7 @@ def main(argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
 
 
 
-def run(script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
+def run_script(script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 	'''
 	Runs the specified script registered with ``script_name`` using the current project.
 
@@ -96,7 +96,24 @@ def run(script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> 
 		The output of the script, raises MissingScriptError if the script is not found
 
 	'''
-	return get_profile().run(config, script_name=script_name, args=args, kwargs=kwargs)
+	return get_profile().run_script(script_name, config, *args, **kwargs)
+
+
+
+def run(config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
+	'''
+	Runs the specified script registered with ``script_name`` using the current project.
+
+	Args:
+		config: The config object passed to the script
+		*args: Manual arguments to be passed to the script
+		**kwargs: Manual keyword arguments to be passed to the script
+
+	Returns:
+		The output of the script, raises MissingScriptError if the script is not found
+
+	'''
+	return get_profile().run(config, args=args, kwargs=kwargs)
 
 
 
@@ -118,7 +135,7 @@ def quick_run(script_name: str, *parents: str, **parameters: JSONABLE) -> Any:
 
 
 
-def initialize(*projects: str, **meta: Any) -> None:
+def initialize(*projects: str, **settings: Any) -> None:
 	'''
 	Initializes omni-fig by running the "princeps" file (if one exists),
 	loading the profile, and any active projects. Additionally, loads the
@@ -132,28 +149,13 @@ def initialize(*projects: str, **meta: Any) -> None:
 
 	Args:
 		projects: additional projects that should be initialized
-		meta: settings to be checked before defaulting to ``os.environ`` or global settings
+		settings: extra global settings (unused by default)
 
 	Returns:
 		:code:`None`
 
 	'''
-	return get_profile().initialize(*projects, **meta)
-
-
-
-def cleanup() -> None:
-	'''
-	Cleans up the projects and profile, which by default just updates the project/profile info
-	yaml file if new information was added to the project/profile.
-
-	Generally, this should be run after running any desired scripts.
-
-	Returns:
-		:code:`None`
-
-	'''
-	return get_profile().cleanup()
+	return get_profile().initialize(*projects, **settings)
 # endregion
 
 
@@ -161,7 +163,7 @@ def cleanup() -> None:
 # region Create Config
 def create_config(*configs: str, **parameters: JSONABLE) -> AbstractConfig:
 	'''
-	Process the provided info using the current project into a config object.
+	Process the provided data to create a config object (using the current project).
 
 	Args:
 		configs: usually a list of parent configs to be merged
@@ -170,11 +172,11 @@ def create_config(*configs: str, **parameters: JSONABLE) -> AbstractConfig:
 	Returns:
 		Config object resulting from loading/merging `configs` and including `data`.
 	'''
-	return get_current_project().create_config(*configs, **parameters)
+	return get_profile().create_config(*configs, **parameters)
 
 
 
-def parse_argv(argv: Sequence[str], script_name=None) -> AbstractConfig:
+def parse_argv(argv: Sequence[str], *, script_name: Optional[str] = None) -> AbstractConfig:
 	'''
 	Parses the given arguments and returns a config object.
 
@@ -192,5 +194,5 @@ def parse_argv(argv: Sequence[str], script_name=None) -> AbstractConfig:
 		Config object containing the parsed arguments.
 
 	'''
-	return get_current_project().parse_argv(argv, script_name=script_name)
+	return get_profile().parse_argv(argv, script_name=script_name)
 # endregion

@@ -2,8 +2,8 @@ from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Callable, 
 from inspect import Parameter
 from omnibelt import extract_function_signature, get_printer
 
-from .abstract import AbstractCreator, AbstractConfig, AbstractProject, AbstractMetaRule, AbstractCustomArtifact
-from .top import get_current_project, get_profile
+from .abstract import AbstractCreator, AbstractConfig, AbstractProject, AbstractCustomArtifact
+from .top import get_current_project
 
 from . import __info__
 prt = get_printer(__info__.get('logger_name'))
@@ -101,13 +101,14 @@ class creator(_Project_Registration_Decorator):
 	Usually, the default creator is sufficient, but this decorator can be used to register a custom creator.
 	'''
 
-	def __init__(self, name: Optional[str] = None):
+	def __init__(self, name: Optional[str] = None, description: Optional[str] = None):
 		'''
 
 		Args:
 			name: name of item to be registered (defaults to its __name__)
+			description: a short description of what the script does (defaults to first line of its docstring)
 		'''
-		super().__init__(name=name)
+		super().__init__(name=name, description=description)
 
 
 	@staticmethod
@@ -304,74 +305,41 @@ class autocomponent(_AutofillMixin, component):
 	
 
 
-class meta_rule(_Registration_Decorator):
-	'''
-	Decorator to register a meta rule.
-
-	Meta rules are called by a project before a script is run, to enable modifying the config object
-	or even the script itself. Meta rules must be a callable that takes a config object and a dict
-	of meta settings as input.
-
-	Note:
-		It's generally recommended not to use this decorator, and subclass :class:`MetaRule` instead
-		(which registers automatically).
-
-	'''
-
-	def __init__(self, name: str, code: str, description: Optional[str] = None,
-	             priority: Optional[int] = 0, num_args: Optional[int] = 0, **kwargs):
-		'''
-
-		Args:
-			name: name of item to be registered (defaults to its __name__)
-			code: code to invoke the meta rule from the command line (without the `-` prefix)
-			description: a short description of what the meta rule does (defaults to first line of its docstring)
-			priority: priority of the meta rule (higher priority meta rules are run first)
-			num_args: number of arguments that the meta rule takes (used when parsing :code:`sys.argv`)
-		'''
-		super().__init__(name=name, code=code, description=description, priority=priority, num_args=num_args, **kwargs)
-
-
-	@staticmethod
-	def register(name: str, item: Callable[[AbstractConfig, AbstractConfig], Optional[AbstractConfig]], *,
-	             code: str, description: Optional[str] = None, priority: Optional[int] = 0,
-	             num_args: Optional[int] = 0) -> None:
-		'''Registers a meta rule to the profile (so it is used by all projects).'''
-		get_profile().register_meta_rule(name, item, code=code, description=description, priority=priority,
-		                                 num_args=num_args)
-
-
-
-class Meta_Rule(AbstractMetaRule):
-	'''Recommended parent class for meta rules.'''
-	def __init_subclass__(cls, code: Optional[str] = None, name: Optional[str] = None, priority: int = 0,
-	                      num_args: int = 0, description: Optional[str] = None, **kwargs):
-		super().__init_subclass__(**kwargs)
-		if code is not None and name is None:
-			prt.warning(f'No name for {Meta_Rule.__name__} {cls.__name__} provided, will default to {cls.__name__!r}')
-			name = cls.__name__
-		if code is None and name is not None:
-			prt.error(f'No code for {Meta_Rule.__name__} {name!r} provided, '
-			          f'cannot register a {Meta_Rule.__name__} without a code')
-		if code is not None and name is not None:
-			meta_rule(name=name, code=code, priority=priority, num_args=num_args, description=description)(cls.run)
-
-
-	@classmethod
-	def run(cls, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
-		'''
-		Called before a specified script is run (usually found in the `meta` config with key :code:`script_name`).
-
-		Args:
-			config: Config object that will be used to run the script (unless it is modified here)
-			meta: Meta config object that contains meta settings (such as the script name)
-
-		Returns:
-			Modified config object (or :code:`None` if no modification is needed)
-
-		'''
-		pass
-
+# class meta_rule(_Registration_Decorator):
+# 	'''
+# 	Decorator to register a meta rule.
+#
+# 	Meta rules are called by a project before a script is run, to enable modifying the config object
+# 	or even the script itself. Meta rules must be a callable that takes a config object and a dict
+# 	of meta settings as input.
+#
+# 	Note:
+# 		It's generally recommended not to use this decorator, and subclass :class:`MetaRule` instead
+# 		(which registers automatically).
+#
+# 	'''
+#
+# 	def __init__(self, name: str, code: str, description: Optional[str] = None,
+# 	             priority: Optional[int] = 0, num_args: Optional[int] = 0, **kwargs):
+# 		'''
+#
+# 		Args:
+# 			name: name of item to be registered (defaults to its __name__)
+# 			code: code to invoke the meta rule from the command line (without the `-` prefix)
+# 			description: a short description of what the meta rule does (defaults to first line of its docstring)
+# 			priority: priority of the meta rule (higher priority meta rules are run first)
+# 			num_args: number of arguments that the meta rule takes (used when parsing :code:`sys.argv`)
+# 		'''
+# 		super().__init__(name=name, code=code, description=description, priority=priority, num_args=num_args, **kwargs)
+#
+#
+# 	@staticmethod
+# 	def register(name: str, item: Callable[[AbstractConfig, AbstractConfig], Optional[AbstractConfig]], *,
+# 	             code: str, description: Optional[str] = None, priority: Optional[int] = 0,
+# 	             num_args: Optional[int] = 0) -> None:
+# 		'''Registers a meta rule to the profile (so it is used by all projects).'''
+# 		get_profile().register_meta_rule(name, item, code=code, description=description, priority=priority,
+# 		                                 num_args=num_args)
 
 
 

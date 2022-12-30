@@ -1,10 +1,11 @@
 from typing import Optional, Union, Sequence, NamedTuple, Tuple, Any, Dict, List, Type, Iterator, Callable
 from pathlib import Path
+from tabulate import tabulate
 import inspect
 from collections import OrderedDict
 from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry, colorize, include_modules
 
-from ..abstract import AbstractConfig, AbstractProject, AbstractMetaRule, AbstractCustomArtifact
+from ..abstract import AbstractConfig, AbstractProject, AbstractBehavior, AbstractCustomArtifact
 from ..config import ConfigManager
 
 from .. import __info__
@@ -35,9 +36,9 @@ class ProjectBase(AbstractProject):
 
 
 	@classmethod
-	def get_project_type(cls, ident: str) -> NamedTuple:
+	def get_project_type(cls, ident: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
 		'''Accesses the project type entry for the given identifier (from a registry).'''
-		return cls.global_type_registry.find(ident)
+		return cls.global_type_registry.find(ident, default=default)
 
 
 
@@ -59,81 +60,103 @@ class GeneralProject(ProjectBase, name='general'):
 				p = path / name
 				if p.exists():
 					return p
-		# raise FileNotFoundError(f'path does not exist: {path}')
 		prt.warning(f'Could not infer project path from {path} (using blank project)')
 
 
-	@staticmethod
-	def _print_artifact_entry(entry):
+	def _format_xray_entry(self, entry: NamedTuple) -> Tuple[str, Optional[str]]:
 		'''Prints a single artifact entry (e.g. script) with pretty formatting (including color)'''
 
 		desc = getattr(entry, 'description', None)
 
 		key_fmt = colorize('{key}', color='green')
 
+		proj = getattr(entry, 'project', None)
+
 		item = getattr(entry, 'cls', None)
 		if item is None:
 			item = getattr(entry, 'fn', None)
-		suffix = ''
 		if isinstance(item, AbstractCustomArtifact):
 			item = item.get_wrapped()
-			suffix = ' (auto)'
 		bases = getattr(item, '__bases__', None)
+
+		path = getattr(entry, 'path', None)
+
+		terms = [proj.name if proj is not None else '',
+
+		         key_fmt.format(key=entry.name)]
+
 		if bases is not None:
-			# bases = [f'{b.__module__}.{b.__name__}' for b in item.__bases__]
-			bases = [b.__name__ for b in item.__bases__]
-			lines = [f'{key_fmt.format(key=entry.name)}: {item.__module__}.{colorize(item.__name__, color="blue")} '
-			         f'({", ".join(bases)}){suffix}']
+			terms.append(colorize(item.__name__, color="blue"))
+
+			terms.append(item.__module__)
+
+			terms.append(f'{", ".join([b.__name__ for b in item.__bases__])}')
 
 		elif item is not None:
-			lines = [f'{key_fmt.format(key=entry.name)}: {item.__module__}.{colorize(item.__name__, color="blue")}'
-			         f'{inspect.signature(item)}{suffix}']
+			terms.append(colorize(item.__name__, color="blue"))
+
+			terms.append(item.__module__)
+
+			terms.append(str(inspect.signature(item)))
+
+		elif path is not None: # config
+
+			root = getattr(proj, 'root', None)
+
+			if root is not None:
+				try:
+					extra = str(path.relative_to(root))
+				except:
+					extra = str(path)
+				terms.append(extra)
+
+			else:
+				terms.append('')
 
 		else:
-			raise NotImplementedError(entry)
+			raise NotImplementedError(f'Unknown entry type: {entry}')
 
-		if desc is not None and len(desc):
-			lines.append(desc)
+		return terms, desc
 
-		return '\n\t'.join(lines)
 
 
 	def xray(self, artifact: str, *, sort: Optional[bool] = False, reverse: Optional[bool] = False,
-	         as_dict: Optional[bool] = False) -> Optional[Dict[str, NamedTuple]]:
+	         as_list: Optional[bool] = False) -> Optional[List[NamedTuple]]:
 		'''
-		Prints a list of all artifacts registered to the project of the given type.
+		Prints a list of all artifacts of the given type accessible from this project
+		(including related and active base projects).
 
 		Args:
 			artifact: artifact type (e.g. 'script', 'config')
 			sort: sort the list of artifacts by name
 			reverse: reverse the order of the list of artifacts
-			as_dict: instead of printing, return the list of artifacts as a dictionary[artifact_name] = artifact_entry
+			as_list: instead of printing, return the list of artifacts
 
 		Returns:
-			dict: if as_dict is True, returns a dictionary of the artifact entries
+			list: if as_list is True, returns a list of artifacts
 
 		Raises:
 			UnknownArtifactTypeError: if the given artifact type does not exist
 
 		'''
-		self.activate()
-		registry = self._artifact_registries.get(artifact)
-		if registry is None:
-			raise self.UnknownArtifactTypeError(artifact)
+		terms = list(self.iterate_artifacts(artifact))
 
-		keys = list(registry.keys())
 		if sort:
-			keys = sorted(keys, reverse=reverse)
-		elif reverse:
-			keys = reversed(keys)
+			terms.sort(key=lambda x: x.name)
+		if reverse:
+			terms.reverse()
 
-		table = OrderedDict([(k, registry[k]) for k in keys])
+		if as_list:
+			return terms
 
-		if as_dict:
-			return table
+		if len(terms):
+			rows, descs = zip(*[self._format_xray_entry(t) for t in terms])
+			descs = [None if d is None else f'\t[{d}]' for d in descs]
 
-		lines = [self._print_artifact_entry(entry) for entry in table.values()]
-		print('\n'.join(lines))
+			table = tabulate(rows, tablefmt='simple')
+
+			lines = [line for lines in zip(table.splitlines()[1:-1], descs) for line in lines if line is not None]
+			print('\n'.join(lines))
 
 
 	class Script_Registry(Function_Registry, components=['description', 'hidden', 'project']):
@@ -153,6 +176,7 @@ class GeneralProject(ProjectBase, name='general'):
 			config_manager = self.Config_Manager(self)
 		path = self.infer_path(path)
 		super().__init__(path, **kwargs)
+		self._behaviors = None
 		self._path = None if path is None else path.absolute()
 		self.config_manager = config_manager
 		self._artifact_registries = {
@@ -172,6 +196,10 @@ class GeneralProject(ProjectBase, name='general'):
 
 		'''
 		if self.root is not None:
+			# load any dependencies
+			for dep in self.data.get('dependencies', []):
+				self._profile.get_project(dep).load()
+
 			# config files/directories
 			self.load_configs(self.data.get('configs', []))
 			if self.data.get('auto_config', True):
@@ -302,42 +330,159 @@ class GeneralProject(ProjectBase, name='general'):
 		return self.config_manager.parse_argv(argv, script_name=script_name)
 
 
-	def iterate_meta_rules(self) -> Iterator[NamedTuple]:
-		'''Iterates over all meta rules in the associated profile.'''
-		return self._profile.iterate_meta_rules()
+	def behaviors(self) -> Iterator[AbstractBehavior]:
+		'''Iterates over all behaviors associated with this project.'''
+		# return self._profile.iterate_behaviors()
+		if self._behaviors is None:
+			self._behaviors = [entry.cls(self) for entry in self._profile.iterate_behaviors()]
+		yield from sorted(self._behaviors, reverse=True)
 
 
-	TerminationFlag = AbstractMetaRule.TerminationFlag
-	def _check_meta_rules(self, config: AbstractConfig, meta: AbstractConfig) -> Optional[AbstractConfig]:
+	def validate_run(self, config: AbstractConfig) -> Optional[AbstractProject]:
 		'''
-		Applies the meta rules (registered in the profile) in order of priority using the meta config.
+		Validates the project ``self`` using the given config object before running it.
+
+		More specifically, this method calls :meth:`validate_project` on all behaviors associated with the project
+		with the config object as argument. If any of the behaviors returns a new project, this project
+		is returned (and used for the script execution instead). Otherwise, ``None`` is returned.
 
 		Args:
-			config: Config object that will be used to run the script.
-			meta: Meta config object for meta rules.
+			config: The config object to use for validation.
 
 		Returns:
-			The potentially modified config object to use for running the script.
-
-		Raises:
-			:code:`TerminationFlag` if a meta rule requests termination.
+			The new project to use for the script execution or ``None`` if no new project was returned.
 
 		'''
-		for rule in self.iterate_meta_rules():
+		for behavior in self.behaviors():
+			out = behavior.validate_project(config)
+			if out is not None:
+				return out
+
+
+	def main(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
+		'''
+		Runs the script with the given arguments using the config object obtained by parsing ``argv``.
+
+		More specifically, this method does the following:
+			1. Activates the project (loads any specified source files or packages for the script, if not done yet).
+			2. Instantiates all behaviors associated with the project.
+			3. Parses the command line arguments into a config object.
+			4. Validates the current project using the config object and behaviors (see :meth:`validate_run`).
+			5. Runs the script using the config object (see :meth:`run_script`).
+			6. Cleans up the project (see :meth:`cleanup`).
+
+		Args:
+			argv: List of top-level arguments (expected to be :code:`sys.argv[1:]`).
+			script_name: specified name of the script
+			(defaults to what is specified in argv when it is parsed into a config object).
+
+		Returns:
+			The output of the script.
+
+		'''
+		self.activate()  # load the project
+
+		self._behaviors = None  # clear the behaviors cache
+		behaviors = [behavior for behavior in self.behaviors()]  # instantiate all behaviors
+
+		config = self.parse_argv(argv, script_name=script_name)
+
+		transfer = self.validate_run(config)  # can update/modify the project based on the config
+		if transfer is not None:
+			return transfer.main(argv, script_name=script_name)
+
+		output = self.run_script(script_name, config)  # run based on the config
+		self.cleanup()  # cleanup
+		return output  # return output
+
+
+	def run_script(self, script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
+		'''
+		Runs the script with the given arguments using :func:`run()` of the current project.
+
+		Args:
+			script_name: The script name to run (must be registered).
+			config: Config object to run the script with (must include the script under :code:`_meta.script_name`).
+			args: Additional positional arguments to pass to the script.
+			kwargs: Additional keyword arguments to pass to the script.
+
+		Returns:
+			The output of the script.
+
+		'''
+		if script_name is not None:
+			config.push('_meta.script_name', script_name, overwrite=True, silent=True) # TODO: handle readonly configs
+		return self.run(config, *args, **kwargs)
+
+
+	def run(self, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
+		'''
+		Runs the given script with the given config using this project.
+
+		Args:
+			config: The config to use for running the script (must include the script under :code:`_meta.script_name`).
+			args: Additional positional arguments to pass to the script.
+			kwargs: Additional keyword arguments to pass to the script.
+
+		Returns:
+			The return value of the script.
+
+		'''
+		config.project = self
+		meta = config.push_peek('_meta', {}, overwrite=False, silent=True) # TODO: handle readonly configs
+
+		behaviors = [behavior for behavior in self.behaviors() if behavior.include(meta)]
+
+		# pre run
+		for behavior in behaviors:
 			try:
-				out = rule.fn(config, meta)
-			except self.TerminationFlag:
-				raise
+				out = behavior.pre_run(meta, config)
+			except self.TerminationFlag as e:
+				return e.out
 			except:
-				prt.error(f'Error while running meta rule {rule.name!r}')
+				prt.error(f'Error while running behavior {behavior!r} pre run')
 				raise
 			else:
 				if out is not None:
 					config = out
-		return config
+
+		script_name = meta.pull('script_name', silent=True)
+
+		entry = self.find_script(script_name)
+		try:
+			output = self._run(entry, config, args=args, kwargs=kwargs) # run script
+		except Exception as exc:
+			try:
+				for behavior in behaviors:
+					behavior.handle_exception(meta, config, exc)
+			except self.TerminationFlag as e:
+				return e.out
+			except self.IgnoreException as e:
+				output = e.out
+			else:
+				raise exc
+
+		# post run
+		for behavior in behaviors:
+			try:
+				out = behavior.post_run(meta, config, output)
+			except self.TerminationFlag as e:
+				return e.out
+			except:
+				prt.error(f'Error while running behavior {behavior!r} post run')
+				raise
+			else:
+				if out is not None:
+					output = out
+
+		return output
 
 
-	def _run(self, script_entry: Script_Registry.entry_cls, config: AbstractConfig,
+	TerminationFlag = AbstractBehavior.TerminationFlag
+	IgnoreException = AbstractBehavior.IgnoreException
+
+
+	def _run(self, script_entry: Script_Registry.entry_cls, config: AbstractConfig, *,
 	         args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None) -> Any:
 		'''
 		Runs the given script with the given config.
@@ -353,50 +498,14 @@ class GeneralProject(ProjectBase, name='general'):
 
 		'''
 		if args is None:
-			args = []
+			args = ()
 		if kwargs is None:
 			kwargs = {}
 
 		fn = script_entry.fn
 		if isinstance(fn, AbstractCustomArtifact):
-			item = fn.top
-		return item(config, *args, **kwargs)
-
-
-	def run_local(self, config: AbstractConfig, *, script_name: Optional[str] = None,
-	              args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None,
-	              meta: Optional[AbstractConfig] = None) -> Any:
-		'''
-		Runs the given script with the given config using this project.
-
-		Args:
-			config: The config to use for running the script.
-			script_name: The script name to run (infer from config if None).
-			args: Additional positional arguments to pass to the script.
-			kwargs: Additional keyword arguments to pass to the script.
-			meta: Meta config object for meta rules.
-
-		Returns:
-			The return value of the script.
-
-		'''
-		config.project = self
-		if meta is not None:
-			config.push('_meta', meta, silent=True)
-		if script_name is not None:
-			config.push('_meta.script_name', script_name, overwrite=True, silent=True)
-
-		meta = config.peek('_meta', {}, silent=True)
-		if script_name is None:
-			script_name = meta.pull('script_name', silent=True)
-
-		try:
-			config = self._check_meta_rules(config, meta)
-		except self.TerminationFlag:
-			return
-
-		entry = self.find_script(script_name)
-		return self._run(entry, config, args, kwargs)
+			fn = fn.top
+		return fn(config, *args, **kwargs)
 	# endregion
 
 
@@ -456,7 +565,7 @@ class GeneralProject(ProjectBase, name='general'):
 			UnknownArtifactTypeError: If the artifact type does not exist.
 
 		'''
-		if project is unspecified_argument:
+		if project is unspecified_argument or project is None:
 			project = self
 		if artifact_type == 'config':
 			return self.config_manager.register_config(ident, artifact, project=project)
@@ -535,7 +644,7 @@ class GeneralProject(ProjectBase, name='general'):
 			An iterator over all registered config file entries.
 
 		'''
-		return self.iterate_artifacts('config')
+		yield from self.iterate_artifacts('config')
 
 
 	def register_config_dir(self, path: Union[str, Path], *, recursive: Optional[bool] = True,
@@ -614,7 +723,7 @@ class GeneralProject(ProjectBase, name='general'):
 			An iterator over all registered script entries.
 
 		'''
-		return self.iterate_artifacts('script')
+		yield from self.iterate_artifacts('script')
 	# endregion
 	pass
 

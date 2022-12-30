@@ -7,16 +7,13 @@ import omnifig as fig
 # from omnifig.config import EmptyElement, ConfigType
 
 import _test_objs
+# NOTE: due to the registration when this gets imported (and the profile getting resetted in the other test scripts),
+# this test must be run before any other
 
 def test_create_obj():
 	A = fig.create_config()
 	A.push('a.b.c', 10)
-	# A.set('a.b.c', 10)
-	#
-	# assert 'a' in A
-	# assert 'b' in A.get('a')
-	# assert 'c' in A.get('a.b')
-	# assert type(A) == type(A.get('a'))
+
 	assert A.pull('a.b.c') == 10
 	assert str(A) == 'a:\n  b: {c: 10}\n'
 

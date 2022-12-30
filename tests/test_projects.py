@@ -215,13 +215,56 @@ def test_xray():
 	proj = profile.get_project('example2')
 
 	print()
+	proj.xray('script')
+
+	print()
 	proj.xray('component')
-	assert len(list(proj.iterate_components())) == 4
 
 	print()
 	proj.xray('modifier')
-	assert len(list(proj.iterate_modifiers())) == 3
 
+	print()
+	proj.xray('creator')
+
+	print()
+	proj.xray('config')
+
+
+	assert len(proj.xray('script', as_list=True)) == 1
+	assert len(proj.xray('component', as_list=True)) == 4
+	assert len(proj.xray('modifier', as_list=True)) == 3
+	assert len(proj.xray('creator', as_list=True)) == 0
+	assert len(proj.xray('config', as_list=True)) == 3
+
+
+
+def test_xray_related():
+	profile = reset_profile('active')
+
+	fig.initialize('example3')
+
+	proj = profile.switch_project('example4')
+
+	print()
+	proj.xray('script')
+
+	print()
+	proj.xray('component')
+
+	print()
+	proj.xray('modifier')
+
+	print()
+	proj.xray('creator')
+
+	print()
+	proj.xray('config')
+
+	assert len(proj.xray('script', as_list=True)) == 2
+	assert len(proj.xray('component', as_list=True)) == 11
+	assert len(proj.xray('modifier', as_list=True)) == 4
+	assert len(proj.xray('creator', as_list=True)) == 1
+	assert len(proj.xray('config', as_list=True)) == 3
 
 
 def test_find_base_projects():

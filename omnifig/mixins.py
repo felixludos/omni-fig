@@ -44,8 +44,8 @@ class Activatable:
 		'''
 		if self._is_activated:
 			return
-		self._activate(*args, **kwargs)
 		self._is_activated = True
+		self._activate(*args, **kwargs)
 
 
 	def _activate(self, *args: Any, **kwargs: Any) -> None:

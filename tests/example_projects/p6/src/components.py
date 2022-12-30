@@ -1,13 +1,5 @@
 import omnifig as fig
 
-fig._loaded_p2 = True
-
-
-@fig.script('add-1', description='simple add 1')
-def add_1(config, **kwargs):
-	return 1
-
-
 
 @fig.component('cmp1', description='dont use this')
 class Cmpn1(fig.Configurable):
@@ -37,7 +29,7 @@ class Cmpn4(Cmpn1):
 
 
 
-@fig.modifier('mod1')
+@fig.modifier('mod1', description='mods are pretty cool')
 class Mod1(fig.Configurable):
 	def __init__(self, a, c=5, **kwargs):
 		super().__init__(a, c=c, **kwargs)
@@ -52,6 +44,5 @@ class Mod3(Mod1):
 	@fig.config_aliases(a=['c'])
 	def __init__(self, a=1):
 		super().__init__(a=a, b=10)
-
 
 
