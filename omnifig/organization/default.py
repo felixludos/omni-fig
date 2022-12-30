@@ -12,8 +12,7 @@ from ..abstract import AbstractConfig, AbstractProject, AbstractCreator
 from .profiles import ProfileBase
 from .workspaces import ProjectBase, GeneralProject
 
-from .. import __info__
-prt = get_printer(__info__.get('logger_name'))
+from .. import __logger__ as prt
 
 
 
@@ -295,28 +294,6 @@ class Profile(ProfileBase, default_profile=True):
 		# endregion
 
 
-		def find_local_artifact(self, artifact_type: str, ident: str,
-		                        default: Optional[Any] = unspecified_argument) -> Optional[NamedTuple]:
-			'''
-			Finds the artifact with the given type and identifier in ``self``
-			without checking related projects or active projects in the profile.
-
-			Args:
-				artifact_type: The type of artifact to find.
-				ident: The identifier of the artifact to find.
-				default: The default value to return if the artifact is not found.
-
-			Returns:
-				The artifact entry from the registry corresponding to the given type.
-
-			Raises:
-				UnknownArtifactTypeError: If the artifact type is not registered.
-				UnknownArtifactError: If the artifact is not found and no default is given.
-
-			'''
-			return super().find_artifact(artifact_type, ident, default=default)
-
-
 		def _find_nonlocal_artifact(self, artifact_type: str, ident: str) -> Optional[NamedTuple]:
 			'''
 			Finds the artifact with the given type and identifier in the related projects and,
@@ -483,8 +460,8 @@ class Profile(ProfileBase, default_profile=True):
 		past = set()
 		for project in self._loaded_projects.values():
 			if project not in past:
+				past.add(project)
 				yield project
-			past.add(project)
 
 
 	class UnknownProjectError(KeyError):
@@ -494,7 +471,7 @@ class Profile(ProfileBase, default_profile=True):
 
 	_default_project_name = 'default'
 
-	def _infer_project(self, ident: Union[str, Path, None]) -> Optional[Project]:
+	def _infer_project_path(self, ident: Union[str, Path, None]) -> Optional[Union[Path, str]]:
 		'''
 		Checks if the directory (current working directory by default) is inside a known project directory,
 		and if so, returns that project.
@@ -509,6 +486,11 @@ class Profile(ProfileBase, default_profile=True):
 		if path is None:
 			path = Path().cwd()
 
+		contents = set(os.listdir(path))
+		for fname in self.Project.info_file_names:
+			if fname in contents:
+				return path
+
 		full = path.absolute()
 		options = {name: Path(proj_path).absolute() for name, proj_path in self.data.get('projects', {}).items()}
 
@@ -517,7 +499,7 @@ class Profile(ProfileBase, default_profile=True):
 
 		if not costs:
 			return None
-		return self.get_project(min(costs, key=costs.get))
+		return min(costs, key=costs.get)
 
 
 	def get_project(self, ident: Union[str, Path] = None, is_current: Optional[bool] = None) -> Project:
@@ -546,18 +528,19 @@ class Profile(ProfileBase, default_profile=True):
 		'''
 		if is_current is None:
 			is_current = self._current_project_key is None
+
 		if ident is None:
 			if self._current_project_key is not None:
 				return self._loaded_projects[self._current_project_key]
 
-			ident = self._infer_project(ident)
+			ident = self._infer_project_path(ident)
 
 		if ident in self._loaded_projects:
 			return self._loaded_projects[ident]
 
 		if isinstance(ident, ProjectBase):
 			proj = ident
-			ident = proj.name
+			ident = proj.data.get('name', None)
 		else:
 			# create new
 			path = ident
@@ -569,18 +552,26 @@ class Profile(ProfileBase, default_profile=True):
 
 			proj = self.Project(path, profile=self)
 			proj = proj.validate()
-			if ident is None:
-				ident = self._default_project_name
-			if 'name' not in proj.data:
-				proj.data['name'] = ident
-			if proj.name in self._loaded_projects:
-				prt.warning('project name already loaded: %s (will now overwrite)', proj.name)
 
-		if ident is not None and ident != proj.name:
-			if self.data.get('projects', {}).get(proj.name) is not None:
-				raise ValueError('project name already exists: %s', ident)
-			prt.warning('project name does not match profiles name for it: %s != %s', ident, proj.name)
+		if 'name' not in proj.data:
+			proj.data['name'] = ident.stem if isinstance(ident, Path) \
+				else (self._default_project_name if ident is None else ident)
+
+		if self._loaded_projects.get(proj.name, proj) is not proj:
+			# raise ValueError(f'Project with name {proj.name} already exists!')
+			prt.warning(f'project name already loaded: {proj.name} (will now overwrite)')
+
+		if ident is not None:
+			if not isinstance(ident, Path) and ident != proj.name:
+				if self.data.get('projects', {}).get(proj.name) is not None:
+					raise ValueError('project name already exists: %s', ident)
+				prt.warning(f'project name does not match profiles name for it: {ident} != {proj.name}')
+
+			if self._loaded_projects.get(ident, proj) is not proj:
+				# raise ValueError(f'Project with name {proj.name} already exists!')
+				prt.warning(f'project name already loaded: {ident} (will now overwrite)')
 			self._loaded_projects[ident] = proj
+
 		self._loaded_projects[proj.name] = proj
 		if is_current:
 			self._current_project_key = proj.name

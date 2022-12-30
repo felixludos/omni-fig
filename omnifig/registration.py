@@ -5,8 +5,7 @@ from omnibelt import extract_function_signature, get_printer
 from .abstract import AbstractCreator, AbstractConfig, AbstractProject, AbstractCustomArtifact
 from .top import get_current_project
 
-from . import __info__
-prt = get_printer(__info__.get('logger_name'))
+from . import __logger__ as prt
 
 
 

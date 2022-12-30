@@ -19,6 +19,21 @@ class AbstractConfig: # TODO: copy, deepcopy
 		'''Raised when a search fails'''
 		pass
 
+	@property
+	def cro(self) -> Tuple[str, ...]:
+		'''
+		Returns the list of all config files that were composed to produce this config tree.
+		Analogous to the method resolution order (``mro``) for classes.
+		'''
+		raise NotImplementedError
+
+	@property
+	def bases(self) -> Tuple[str, ...]:
+		'''
+		Returns the list of config files that were explicitly mentioned to produce this config tree.
+		Analogous to ``__bases__`` for classes.
+		'''
+		raise NotImplementedError
 
 	@property
 	@abc.abstractmethod
@@ -366,7 +381,14 @@ class AbstractCertifiable(AbstractConfigurable):
 class AbstractConfigManager:
 	'''Abstract class for config managers.'''
 
+
+	class ConfigNotRegistered(KeyError):
+		'''A config was not registered'''
+		pass
+
+
 	ConfigNode = None
+
 
 	def register_config(self, name: str, path: Union[str, Path]) -> NamedTuple:
 		'''
@@ -397,23 +419,6 @@ class AbstractConfigManager:
 		raise NotImplementedError
 
 
-	def find_config_entry(self, name: str) -> NamedTuple:
-		'''
-		Finds the entry for the config file with the given name in the registry.
-
-		Args:
-			name: Name of the config file to find.
-
-		Returns:
-			The entry for the config file with the given name.
-
-		Raises:
-			:class:`KeyError`: If the config file is not registered.
-
-		'''
-		raise NotImplementedError
-
-
 	def iterate_configs(self) -> Iterator[NamedTuple]:
 		'''
 		Iterates over all registered config files.
@@ -425,12 +430,49 @@ class AbstractConfigManager:
 		raise NotImplementedError
 
 
-	def find_config_path(self, name: str) -> Path:
+	def find_local_config_entry(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the entry for the config file with the given name in the registry.
+
+		Args:
+			name: Name of the config file to find.
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			The entry for the config file with the given name.
+
+		Raises:
+			:class:`KeyError`: If the config file is not registered.
+
+		'''
+		raise NotImplementedError
+
+
+	def find_project_config_entry(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the entry for a config by name. Including checking the nonlocal projects.
+
+		Args:
+			name: of the config file used to register the config
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			The entry for the config
+
+		Raises:
+			ConfigNotFoundError: if the config is not registered
+
+		'''
+		raise NotImplementedError
+
+
+	def find_config_path(self, name: str, default: Optional[Any] = unspecified_argument) -> Path:
 		'''
 		Finds the path to the config file with the given name in the registry.
 
 		Args:
 			name: Name of the config file to find.
+			default: Default value to return if the artifact is not found.
 
 		Returns:
 			The path to the config file with the given name.
@@ -622,7 +664,7 @@ class AbstractCreator:
 class AbstractRunMode(Activatable):
 	'''Abstract class for run modes. Run modes include Projects and Profiles'''
 
-	def main(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
+	def main(self, argv: Sequence[str], script_name: Optional[str] = None) -> Any:
 		'''
 		Runs the script with the given arguments using the config object obtained by parsing ``argv``.
 
@@ -765,6 +807,18 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 		return self._profile
 
 
+	def nonlocal_projects(self) -> Iterator[NamedTuple]:
+		'''
+		Iterator over all projects that are related to this one, followed by all active base projects
+		of the profile (without repeating any projects).
+
+		Returns:
+			An iterator over all projects that are related to this one, followed by all active base projects
+
+		'''
+		raise NotImplementedError
+
+
 	def behaviors(self) -> Iterator[NamedTuple]:
 		'''
 		Iterates over all behavior instances associated with this project.
@@ -787,7 +841,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 
 
 	def xray(self, artifact: str, *, sort: Optional[bool] = False, reverse: Optional[bool] = False,
-	         as_list: Optional[bool] = False) -> Optional[Dict[str, NamedTuple]]:
+	         as_list: Optional[bool] = False) -> Optional[List[NamedTuple]]:
 		'''
 		Prints a list of all artifacts of the given type accessible from this project
 		(including related and active base projects).
@@ -806,6 +860,28 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 
 		'''
 		raise NotImplementedError
+
+
+	def find_local_artifact(self, artifact_type: str, ident: str,
+	                        default: Optional[Any] = unspecified_argument) -> Optional[NamedTuple]:
+		'''
+		Finds the artifact with the given type and identifier in ``self``
+		without checking related projects or active projects in the profile.
+
+		Args:
+			artifact_type: The type of artifact to find.
+			ident: The identifier of the artifact to find.
+			default: The default value to return if the artifact is not found.
+
+		Returns:
+			The artifact entry from the registry corresponding to the given type.
+
+		Raises:
+			UnknownArtifactTypeError: If the artifact type is not registered.
+			UnknownArtifactError: If the artifact is not found and no default is given.
+
+			'''
+		raise self.UnknownArtifactError(artifact_type, ident)
 
 
 	def find_artifact(self, artifact_type: str, ident: str,
@@ -1237,6 +1313,8 @@ class AbstractBehavior:
 
 	class TerminationFlag(KeyboardInterrupt): # TODO: can decide the output
 		'''Raised if the subsequent script should not be run.'''
+
+		out = None
 		def __init__(self, out: Any = None):
 			'''
 			Prevents the subsequent script from being run.

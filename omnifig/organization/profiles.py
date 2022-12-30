@@ -7,8 +7,7 @@ from omnibelt import get_printer, Class_Registry, JSONABLE, unspecified_argument
 from ..abstract import AbstractConfig, AbstractProfile, AbstractProject, AbstractBehavior
 from .workspaces import ProjectBase
 
-from .. import __info__
-prt = get_printer(__info__.get('logger_name'))
+from .. import __logger__ as prt
 
 
 
@@ -192,7 +191,7 @@ class ProfileBase(AbstractProfile):
 				self.get_project(project).activate()
 
 
-	def main(self, argv: Sequence[str], *, script_name: str = None) -> None:
+	def main(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> None:
 		'''
 		Runs the script with the given arguments using :func:`main()` of the current project.
 
@@ -226,23 +225,20 @@ class ProfileBase(AbstractProfile):
 		return self.get_current_project().run_script(script_name, config, *args, **kwargs)
 
 
-	def run(self, config: AbstractConfig, *, script_name: Optional[str] = None, args: Optional[Tuple] = None,
-	        kwargs: Optional[Dict[str, Any]] = None, **meta: Any):
+	def run(self, config: AbstractConfig, *args: Any, **kwargs: Any):
 		'''
 		Runs the script with the given arguments using :func:`run()` of the current project.
 
 		Args:
 			config: Config object to run the script with.
-			script_name: Name of the script to run (usually must be registered beforehand to find the function).
-			args: Manual arguments to pass to the script.
-			kwargs: Manual keyword arguments to pass to the script.
-			**meta: Meta arguments to modify the run mode (generally not recommended).
+			*args: Manual arguments to pass to the script.
+			**kwargs: Manual keyword arguments to pass to the script.
 
 		Returns:
 			The output of the script.
 
 		'''
-		return self.get_current_project().run(config, script_name=script_name, args=args, kwargs=kwargs)
+		return self.get_current_project().run(config, *args, **kwargs)
 
 
 	def quick_run(self, script_name: str, *configs: str, **parameters: Any):

@@ -6,14 +6,17 @@ from ..abstract import AbstractConfig, AbstractProject
 from .base import Behavior
 
 
-from .. import __info__
-prt = get_printer(__info__.get('logger_name'))
+from .. import __logger__ as prt
+
 
 
 class Debug(Behavior, name='debug', code='d', priority=100, description='Switch to debug mode'):
 	'''
 	When activated, this behavior updates the config object with the config file ``debug``.
 	If for any reason the config file ``debug`` has already been loaded, this behavior will do nothing.
+
+	Note that only a local ``debug`` config is merged, so the ``debug`` config file must be
+	registered with the current project.
 	'''
 	def __init__(self, project: AbstractProject, **kwargs: Any):
 		'''
@@ -47,8 +50,17 @@ class Debug(Behavior, name='debug', code='d', priority=100, description='Switch 
 		'''
 		if meta.pull('debug', False, silent=True) and not self._debug_done:
 			self._debug_done = True
-			config.update(self.project.create_config('debug'))
-			prt.info('Using debug mode')
-			return config
+			entry = self.project.find_local_artifact('config', 'debug', default=None)
+			if entry is not None:
+				debug = self.project.create_config(entry.path)
+				cro = ('debug',) + debug.cro[1:] + tuple(c for c in config.cro if c not in debug.cro)
+				config.update(debug)
+				config._cro = cro
+				config._bases = ('debug',)
+				prt.info('Using debug mode')
+				return config
+
+			prt.error('No debug config found')
+
 
 

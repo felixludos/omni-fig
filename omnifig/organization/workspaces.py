@@ -8,8 +8,7 @@ from omnibelt import unspecified_argument, get_printer, Class_Registry, Function
 from ..abstract import AbstractConfig, AbstractProject, AbstractBehavior, AbstractCustomArtifact
 from ..config import ConfigManager
 
-from .. import __info__
-prt = get_printer(__info__.get('logger_name'))
+from .. import __logger__ as prt
 
 
 
@@ -45,7 +44,8 @@ class ProjectBase(AbstractProject):
 class GeneralProject(ProjectBase, name='general'):
 	'''Project class that includes basic functionality such as a script registry and config manager.'''
 
-	_info_file_names = {'.fig.project.yml', '.fig.project.yaml', 'fig.project.yml', 'fig.project.yaml'}
+	info_file_names = {'.fig.project.yml', '.fig.project.yaml', 'fig.project.yml', 'fig.project.yaml'}
+
 
 	def infer_path(self, path: Optional[Union[str, Path]] = None) -> Path:
 		'''Infers the path of the project from the given path or the current working directory.'''
@@ -56,7 +56,7 @@ class GeneralProject(ProjectBase, name='general'):
 		if path.is_file():
 			return path
 		if path.is_dir():
-			for name in self._info_file_names:
+			for name in self.info_file_names:
 				p = path / name
 				if p.exists():
 					return p
@@ -81,23 +81,25 @@ class GeneralProject(ProjectBase, name='general'):
 
 		path = getattr(entry, 'path', None)
 
-		terms = [proj.name if proj is not None else '',
+		terms = [
+			proj.name if proj is not None else '',
 
-		         key_fmt.format(key=entry.name)]
+		    key_fmt.format(key=entry.name)
+		]
 
 		if bases is not None:
 			terms.append(colorize(item.__name__, color="blue"))
 
 			terms.append(item.__module__)
 
-			terms.append(f'{", ".join([b.__name__ for b in item.__bases__])}')
+			terms.append(f'<{", ".join([b.__name__ for b in item.__bases__])}>')
 
 		elif item is not None:
 			terms.append(colorize(item.__name__, color="blue"))
 
 			terms.append(item.__module__)
 
-			terms.append(str(inspect.signature(item)))
+			terms.append(f'{inspect.signature(item)}')
 
 		elif path is not None: # config
 
@@ -117,7 +119,6 @@ class GeneralProject(ProjectBase, name='general'):
 			raise NotImplementedError(f'Unknown entry type: {entry}')
 
 		return terms, desc
-
 
 
 	def xray(self, artifact: str, *, sort: Optional[bool] = False, reverse: Optional[bool] = False,
@@ -325,7 +326,7 @@ class GeneralProject(ProjectBase, name='general'):
 		return self.config_manager.create_config(parents, parameters)
 
 
-	def parse_argv(self, argv, *, script_name=None) -> AbstractConfig:
+	def parse_argv(self, argv: Sequence[str], *, script_name: Optional[str] = unspecified_argument) -> AbstractConfig:
 		'''Parses the given command line arguments into a config object.'''
 		return self.config_manager.parse_argv(argv, script_name=script_name)
 
@@ -359,7 +360,7 @@ class GeneralProject(ProjectBase, name='general'):
 				return out
 
 
-	def main(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
+	def main(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> Any:
 		'''
 		Runs the script with the given arguments using the config object obtained by parsing ``argv``.
 
@@ -410,10 +411,14 @@ class GeneralProject(ProjectBase, name='general'):
 			The output of the script.
 
 		'''
-		if script_name is not None:
+		if script_name not in {None, unspecified_argument}:
 			config.push('_meta.script_name', script_name, overwrite=True, silent=True) # TODO: handle readonly configs
 		return self.run(config, *args, **kwargs)
 
+
+	class NoScriptError(ValueError):
+		'''Raised when the script name is not specified.'''
+		pass
 
 	def run(self, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 		'''
@@ -446,8 +451,9 @@ class GeneralProject(ProjectBase, name='general'):
 				if out is not None:
 					config = out
 
-		script_name = meta.pull('script_name', silent=True)
-
+		script_name = meta.pull('script_name', None, silent=True)
+		if script_name is None:
+			raise self.NoScriptError
 		entry = self.find_script(script_name)
 		try:
 			output = self._run(entry, config, args=args, kwargs=kwargs) # run script
@@ -515,8 +521,8 @@ class GeneralProject(ProjectBase, name='general'):
 		pass
 
 
-	def find_artifact(self, artifact_type: str, ident: str,
-	                  default: Optional[Any] = unspecified_argument) -> NamedTuple:
+	def find_local_artifact(self, artifact_type: str, ident: str,
+	                        default: Optional[Any] = unspecified_argument) -> Optional[NamedTuple]:
 		'''
 		Finds the artifact of the given type and registered with the given identifier.
 
@@ -535,15 +541,42 @@ class GeneralProject(ProjectBase, name='general'):
 		'''
 		self.activate()
 		if artifact_type == 'config':
-			return self.config_manager.find_config_entry(ident)
-		registry = self._artifact_registries.get(artifact_type)
-		if registry is None:
-			raise self.UnknownArtifactTypeError(artifact_type)
-		try:
-			return registry.find(ident, default=unspecified_argument)
-		except registry.NotFoundError:
-			pass
+			try:
+				return self.config_manager.find_local_config_entry(ident, default=default)
+			except self.config_manager.ConfigNotRegistered:
+				pass
+		else:
+			registry = self._artifact_registries.get(artifact_type)
+			if registry is None:
+				raise self.UnknownArtifactTypeError(artifact_type)
+			try:
+				return registry.find(ident, default=unspecified_argument)
+			except registry.NotFoundError:
+				pass
+		if default is not unspecified_argument:
+			return default
 		raise self.UnknownArtifactError(artifact_type, ident)
+
+
+	def find_artifact(self, artifact_type: str, ident: str,
+	                  default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds an artifact in the project's registries, including related and active base projects.
+		Artifacts are data or functionality such as configs and components.
+
+		Args:
+			artifact_type: Type of artifact to find (eg. 'config' or 'component').
+			ident: Name of the artifact that was registered.
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			Artifact object, or, if a default value is given and artifact is not found.
+
+		Raises:
+			:class:`UnknownArtifactError`: if the artifact is not found and no default is specified.
+
+		'''
+		return self.find_local_artifact(artifact_type, ident, default=default)
 
 
 	def register_artifact(self, artifact_type, ident: str, artifact: Union[str, Type, Callable], *,

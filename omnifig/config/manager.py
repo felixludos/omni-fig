@@ -17,7 +17,8 @@ class ConfigManager(AbstractConfigManager):
 	_config_path_delimiter = '/'
 	_config_exts = ('yaml', 'yml', 'json', 'tml', 'toml')
 	_config_nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
-	_config_parents_key = '_base'
+	_config_parent_key = '_base'
+	_config_parents_key = '_bases'
 
 	ConfigNode = ConfigNode
 
@@ -171,56 +172,59 @@ class ConfigManager(AbstractConfigManager):
 			if out is not None:
 				argv = out
 
-		remaining = list(reversed(argv))
-
-		# parse script (if provided)
-		term = remaining.pop()
-		if term.startswith('-') and not term.startswith('--'):
-			raise self.UnknownBehaviorError(term)
-		elif script_name is not unspecified_argument:
-			remaining.append(term)
-		elif term != '_' and script_name is unspecified_argument:
-			script_name = term
-		if script_name not in {None, unspecified_argument}:
-			meta['script_name'] = script_name
-
-		# parse remaining (keyword) arguments
 		configs = []
-		while len(remaining):
-			term = remaining.pop()
-			
-			if term.startswith('--'):
-				remaining.append(term)
-				break
-			else:
-				configs.append(term)
-
-		waiting_arg_key = None
 		data = {}
-		while len(remaining):
+
+		remaining = list(reversed(argv))
+		if len(remaining):
+			# parse script (if provided)
 			term = remaining.pop()
-			
-			if term.startswith('--'):
-				if waiting_arg_key is not None:
-					data[waiting_arg_key] = True
+			if term.startswith('-') and not term.startswith('--'):
+				raise self.UnknownBehaviorError(term)
+			elif term.startswith('--'):
+				remaining.append(term)
+			elif script_name is not unspecified_argument:
+				remaining.append(term)
+			elif term != '_' and script_name is unspecified_argument:
+				script_name = term
+			if script_name not in {None, unspecified_argument}:
+				meta['script_name'] = script_name
 
-				key, *other = term[2:].split('=', 1)
-				if len(other) and len(other[0]):
-					if len(other) > 1:
-						raise ValueError(f'Invalid argument {term} (avoid using "=" in argument names)')
-					data[key] = self._parse_raw_arg(other[0])
+			# parse remaining (keyword) arguments
+			while len(remaining):
+				term = remaining.pop()
+
+				if term.startswith('--'):
+					remaining.append(term)
+					break
 				else:
-					waiting_arg_key = key
+					configs.append(term)
 
-			elif waiting_arg_key is not None:
-				data[waiting_arg_key] = self._parse_raw_arg(term)
-				waiting_arg_key = None
+			waiting_arg_key = None
+			while len(remaining):
+				term = remaining.pop()
 
-			else:
-				raise ValueError(f'Unexpected argument: {term}')
+				if term.startswith('--'):
+					if waiting_arg_key is not None:
+						data[waiting_arg_key] = True
 
-		if waiting_arg_key is not None:
-			data[waiting_arg_key] = True
+					key, *other = term[2:].split('=', 1)
+					if len(other) and len(other[0]):
+						if len(other) > 1:
+							raise ValueError(f'Invalid argument {term} (avoid using "=" in argument names)')
+						data[key] = self._parse_raw_arg(other[0])
+					else:
+						waiting_arg_key = key
+
+				elif waiting_arg_key is not None:
+					data[waiting_arg_key] = self._parse_raw_arg(term)
+					waiting_arg_key = None
+
+				else:
+					raise ValueError(f'Unexpected argument: {term}')
+
+			if waiting_arg_key is not None:
+				data[waiting_arg_key] = True
 
 		# configurize parsed data (including meta)
 		config = self.create_config(configs, data)
@@ -230,41 +234,13 @@ class ConfigManager(AbstractConfigManager):
 		return config
 
 
-	def find_config_path(self, name: str) -> Path:
-		'''
-		Finds the path to a config file by name.
-
-		Args:
-			name: of the config file used to register the config
-
-		Returns:
-			The path to the config file
-
-		Raises:
-			ConfigNotFoundError: if the config is not registered
-
-		'''
-		try:
-			return self.find_config_entry(name).path
-		except self.ConfigNotRegistered:
-			if isinstance(name, Path) and name.is_file():
-				return name
-			elif os.path.isfile(name):
-				return Path(name)
-			raise
-
-
-	class ConfigNotRegistered(KeyError):
-		'''A config was not registered'''
-		pass
-
-
-	def find_config_entry(self, name: str) -> NamedTuple:
+	def find_local_config_entry(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
 		'''
 		Finds the entry for a config by name.
 
 		Args:
 			name: used to register the config
+			default: Default value to return if the artifact is not found.
 
 		Returns:
 			The entry for the config
@@ -277,7 +253,55 @@ class ConfigManager(AbstractConfigManager):
 			return self.registry.find(name)
 		except self.registry.NotFoundError:
 			pass
+		if default is not unspecified_argument:
+			return default
 		raise self.ConfigNotRegistered(name)
+
+
+	def find_project_config_entry(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the entry for a config by name. Including checking the nonlocal projects.
+
+		Args:
+			name: of the config file used to register the config
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			The entry for the config
+
+		Raises:
+			ConfigNotFoundError: if the config is not registered
+
+		'''
+		return self.project.find_artifact('config', name, default=default)
+
+
+	def find_config_path(self, name: str, default: Optional[Any] = unspecified_argument) -> Path:
+		'''
+		Finds the path to a config file by name. Including checking the nonlocal projects.
+
+		Args:
+			name: of the config file used to register the config
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			The path to the config file
+
+		Raises:
+			ConfigNotFoundError: if the config is not registered
+
+		'''
+		if isinstance(name, Path) and name.is_file():
+			return name
+		elif os.path.isfile(name):
+			return Path(name)
+		# return self.find_config_entry(name).path
+		try:
+			return self.find_project_config_entry(name).path
+		except self.ConfigNotRegistered:
+			if default is unspecified_argument:
+				raise
+			return default
 
 
 	@classmethod
@@ -295,9 +319,16 @@ class ConfigManager(AbstractConfigManager):
 			Names of the base configs of the config file (in order)
 
 		'''
-		src = raw.get(cls._config_parents_key, [])
-		if isinstance(src, str):
-			src = [src]
+		src = []
+		if raw is None:
+			return src
+		if cls._config_parent_key is not None:
+			base = raw.get(cls._config_parent_key, [])
+			if isinstance(base, str):
+				base = [base]
+			src.extend(base)
+		if cls._config_parents_key is not None:
+			src.extend(raw.get(cls._config_parents_key, []))
 		assert isinstance(src, list), f'Invalid parents: {src}'
 		return src
 
@@ -391,6 +422,8 @@ class ConfigManager(AbstractConfigManager):
 					raise FileNotFoundError(path)
 				used_paths[name] = path
 				raws[path] = self.load_raw_config(path)
+				if raws[path] is None:
+					raws[path] = {}
 				ancestry_names[path] = name
 				parent_table[path] = self._find_config_parents(path, raws[path])
 				todo.extend(parent_table[path])
@@ -406,8 +439,8 @@ class ConfigManager(AbstractConfigManager):
 
 		merged = self._merge_raw_configs(order)
 
-		merged._composition = tuple(ancestry)
-		merged._sources = tuple(configs)
+		merged._cro = tuple(map(str,ancestry))
+		merged._bases = tuple(map(str,configs))
 
 		if project is not None:
 			merged.project = project

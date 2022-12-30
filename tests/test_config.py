@@ -28,8 +28,6 @@ def test_register_load_config():
 
 
 def test_hierarchy():
-	
-	
 	A = fig.create_config('test2', abc=10.0)
 	
 	assert A.pull('a.b') == 'inside'
@@ -67,6 +65,7 @@ def test_hierarchy():
 	assert D.pull('fruit')[0] == 'strawberries'
 	assert D.pull('fruit')[-1] == 'peaches'
 
+
 def test_deep_hierarchy():
 
 	A = fig.create_config('test3')
@@ -74,11 +73,11 @@ def test_deep_hierarchy():
 	assert A.pull('tree') == 'nodes'
 	
 	assert A.pull('all')[0] == 0
-	print(A.composition)
-	print(type(A.composition))
-	assert A.composition[0] == 'test3'
+	print(A.cro)
+	print(type(A.cro))
+	assert A.cro[0] == 'test3'
 	
-	order = tuple(A.composition[1:])
+	order = tuple(A.cro[1:])
 	assert order == ('t/n0', 't/n1', 't/n3', 't/n5', 't/n2', 't/n4', 't/n6', 't/n7')
 
 

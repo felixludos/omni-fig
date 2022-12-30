@@ -4,8 +4,7 @@ from pathlib import Path
 from collections import OrderedDict
 from omnibelt import load_yaml, get_printer
 
-from . import __info__
-prt = get_printer(__info__.get('logger_name'))
+from . import __logger__ as prt
 
 
 

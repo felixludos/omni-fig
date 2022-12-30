@@ -12,7 +12,7 @@ def test_initialize_empty():
 
 	default = fig.get_current_project()
 
-	assert default.name == 'default'
+	assert default.name == 'omni-fig'
 	assert not default.is_activated
 
 	assert len(list(profile.iterate_projects())) == 1
@@ -31,7 +31,7 @@ def test_initialize():
 
 	default = fig.get_current_project()
 
-	assert default.name == 'default'
+	assert default.name == 'omni-fig'
 	assert not default.is_activated
 
 	fig.initialize('example2')
@@ -44,7 +44,7 @@ def test_initialize():
 	assert default.is_activated
 
 	assert len(list(default.iterate_components())) == 0
-	assert fig.get_current_project().name == 'default'
+	assert fig.get_current_project().name == 'omni-fig'
 
 	assert proj.name == 'example2'
 	assert len(list(proj.iterate_components())) == 4
@@ -56,7 +56,7 @@ def test_initialize_multi():
 
 	default = fig.get_current_project()
 
-	assert default.name == 'default'
+	assert default.name == 'omni-fig'
 	assert not default.is_activated
 
 	assert len(list(profile.iterate_projects())) == 1
@@ -95,6 +95,10 @@ def test_parse_argv():
 	assert C.peek('x').process() == 99
 
 
+def test_parse_argv2():
+	C = fig.parse_argv([])
+	assert len(C) == 0
+
 
 def test_parse_argv_meta():
 	C = fig.parse_argv(['-q', '--b', 'baba', '--x=99'], script_name='some-script')
@@ -128,9 +132,5 @@ def test_parse_argv_meta():
 	assert C.pull('_meta.debug')
 	assert C.pull('_meta.help')
 
-
-
-
-# TEST: entry, main, run, quick_run
 
 

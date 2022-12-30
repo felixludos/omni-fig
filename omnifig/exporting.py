@@ -55,8 +55,17 @@ class ConfigExporter(Exporter, extensions=['.fig.yml', '.fig.yaml'], types=[Conf
 		else:
 			lines = [
 				f'# Exported on {get_now()}',
-			    payload.to_yaml()
 			]
+
+			cro = getattr(payload, 'cro', None)
+			if cro is not None:
+				lines.append(f'# Config resolution order (cro): {cro}')
+
+			bases = getattr(payload, 'bases', None)
+			if bases is not None:
+				lines.append(f'# Config bases: {bases}')
+
+			lines.append(payload.to_yaml())
 			return src.export('\n'.join(lines), path=path, fmt=str)
 
 

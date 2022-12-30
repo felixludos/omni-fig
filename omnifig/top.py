@@ -1,13 +1,12 @@
 from typing import Union, Iterator, Sequence, Any, Optional, ContextManager
 from pathlib import Path
 
-from omnibelt import get_printer, JSONABLE
+from omnibelt import get_printer, JSONABLE, unspecified_argument
 
 from .abstract import AbstractProject, AbstractConfig
 from .organization import get_profile
 
-from . import __info__
-prt = get_printer(__info__.get('logger_name'))
+from . import __logger__ as prt
 
 
 
@@ -44,7 +43,7 @@ def project_context(ident: Union[str, Path] = None) -> ContextManager:
 
 
 # region Running
-def entry(script_name: Optional[str] = None) -> None:
+def entry(script_name: Optional[str] = unspecified_argument) -> None:
 	'''
 	Recommended entry point when running a script from the terminal.
 	This is also the entry point for the ``fig`` command.
@@ -63,7 +62,7 @@ def entry(script_name: Optional[str] = None) -> None:
 
 
 
-def main(argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
+def main(argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> Any:
 	'''
 	Runs the desired script using the provided ``argv`` which are treated as command line arguments
 

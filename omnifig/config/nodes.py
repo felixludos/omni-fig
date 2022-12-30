@@ -10,8 +10,7 @@ from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, Abstrac
 	AbstractCustomArtifact, AbstractCertifiable
 from .abstract import AbstractSearch, AbstractReporter
 
-from .. import __info__
-prt = get_printer(__info__.get('logger_name'))
+from .. import __logger__ as prt
 
 
 
@@ -1338,8 +1337,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		self._project = project
 		self._trace = None
 		self._product = None
-		self._composition = None
-		self._sources = None
+		self._cro = None
+		self._bases = None
 		self._manager = manager
 		self._reporter = reporter
 		self._settings = settings
@@ -1379,29 +1378,29 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 
 	@property
-	def composition(self) -> Tuple[str]:
+	def cro(self) -> Tuple[str, ...]:
 		'''
 		Returns the list of all config files that were composed to produce this config tree.
-		Analogous to ``__mro__`` for classes.
+		Analogous to the method resolution order (``mro``) for classes.
 		'''
-		if self._composition is None:
+		if self._cro is None:
 			if self.parent is None:
 				return ()
-			return self.parent.composition
-		return self._composition
+			return self.parent.cro
+		return self._cro
 
 
 	@property
-	def sources(self) -> Tuple[str]:
+	def bases(self) -> Tuple[str, ...]:
 		'''
 		Returns the list of config files that were explicitly mentioned to produce this config tree.
 		Analogous to ``__bases__`` for classes.
 		'''
-		if self._sources is None:
+		if self._bases is None:
 			if self.parent is None:
 				return ()
-			return self.parent.sources
-		return self._sources
+			return self.parent.bases
+		return self._bases
 
 
 	@property

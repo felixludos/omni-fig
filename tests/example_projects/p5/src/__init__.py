@@ -30,7 +30,9 @@ class the_component(fig.Configurable):
 
 
 @fig.script('add-1', description='add 1 to a number')
-def add_1(config, a, b=2):
+def add_1(config, a=None, b=1):
+	if a is None:
+		a = config.pull('a', 0)
 	return a + b
 
 

@@ -6,9 +6,7 @@ from ..abstract import AbstractBehavior, AbstractConfig, AbstractProject
 from ..top import get_profile
 
 
-from .. import __info__
-prt = get_printer(__info__.get('logger_name'))
-
+from .. import __logger__ as prt
 
 
 

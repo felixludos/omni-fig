@@ -2,12 +2,14 @@
 import sys, os
 from pathlib import Path
 
+from omnibelt import cwd
 
 import _test_util as tu
 from _test_util import reset_profile
 
 
 import omnifig as fig
+
 
 
 def test_base_profile():
@@ -17,9 +19,11 @@ def test_base_profile():
 	assert profile is fig.ProfileBase._profile
 
 
+
 def test_missing_profile():
 	profile = reset_profile('does-not-exist')
 	assert profile.name == ''
+
 
 
 def test_bad_profile():
@@ -27,10 +31,20 @@ def test_bad_profile():
 	assert profile.name == ''
 
 
+
 def test_current_project():
 	profile = reset_profile()
 	proj = fig.get_current_project()
+	assert proj.name == 'omni-fig' # inferred
+
+
+
+def test_current_project2():
+	profile = reset_profile()
+	with cwd(Path('/')):
+		proj = fig.get_current_project()
 	assert proj.name == profile._default_project_name # 'default'
+
 
 
 def test_load_project():
@@ -58,6 +72,7 @@ def test_load_project():
 	assert fig.create_config('just-one').pull('hello') == 'world'
 
 
+
 def test_load_missing_project():
 	profile = reset_profile()
 
@@ -69,6 +84,7 @@ def test_load_missing_project():
 		assert False, 'should have raised an UnknownProjectError'
 
 
+
 def test_new_profile():
 	profile = reset_profile()
 	fig.get_current_project()
@@ -78,6 +94,7 @@ def test_new_profile():
 
 	profile = fig.get_profile()
 	assert len(list(profile.iterate_projects())) == 0
+
 
 
 def test_ambiguous_project_name():
@@ -108,7 +125,7 @@ def test_active_project():
 
 	proj = fig.get_current_project()
 
-	assert proj.name == 'default'
+	assert proj.name == 'omni-fig'
 
 	cmp = proj.find_component('cmp1', None)
 
@@ -119,12 +136,13 @@ def test_active_project():
 	assert cmp.project is profile.get_project('example2')
 
 
+
 def test_explicit_project_file():
 
 	profile = reset_profile('multi')
 
 	proj = profile.get_current_project()
-	assert proj.name == 'default'
+	assert proj.name == 'omni-fig'
 
 	proj3 = profile.get_project('example3')
 	assert proj3.name == 'example3'
@@ -167,23 +185,23 @@ def test_load_noncurrent_project(): # "hijack" project contents
 
 	default = fig.get_current_project()
 
-	assert default.name == 'default'
+	assert default.name == 'omni-fig'
 	assert not default.is_activated
 
 	proj = fig.get_project('example2')
 
-	assert fig.get_current_project().name == 'default'
+	assert fig.get_current_project().name == 'omni-fig'
 	assert not default.is_activated
 
 	proj.load()
 
-	assert fig.get_current_project().name == 'default'
+	assert fig.get_current_project().name == 'omni-fig'
 	assert not default.is_activated
 	assert not proj.is_activated
 
 	assert len(list(default.iterate_components())) == 4
 
-	assert fig.get_current_project().name == 'default'
+	assert fig.get_current_project().name == 'omni-fig'
 	assert default.is_activated
 	assert not proj.is_activated
 
@@ -193,6 +211,7 @@ def test_load_noncurrent_project(): # "hijack" project contents
 
 	assert [e.cls.__name__ for e in proj.iterate_components()] \
 	       == [e.cls.__name__ for e in default.iterate_components()]
+
 
 
 def test_infer_project():
@@ -208,6 +227,8 @@ def test_infer_project():
 	assert proj.name == 'project1'
 
 	os.chdir(old)
+
+
 
 def test_xray():
 	profile = reset_profile()
@@ -228,7 +249,6 @@ def test_xray():
 
 	print()
 	proj.xray('config')
-
 
 	assert len(proj.xray('script', as_list=True)) == 1
 	assert len(proj.xray('component', as_list=True)) == 4
@@ -267,12 +287,13 @@ def test_xray_related():
 	assert len(proj.xray('config', as_list=True)) == 3
 
 
+
 def test_find_base_projects():
 	reset_profile()
 
 	fig.initialize('example2', 'example4')
 
-	assert fig.get_current_project().name == 'default'
+	assert fig.get_current_project().name == 'omni-fig'
 
 	proj = fig.get_project()
 	p2 = fig.get_project('example2')
@@ -309,7 +330,7 @@ def test_related():
 	fig.initialize('example2')
 	assert len(list(profile.iterate_projects())) == 2
 
-	assert fig.get_current_project().name == 'default'
+	assert fig.get_current_project().name == 'omni-fig'
 
 	proj = fig.switch_project('example4')
 	assert len(list(profile.iterate_projects())) == 3
@@ -354,5 +375,15 @@ def test_related():
 
 
 
+def test_infer_project2():
+	profile = reset_profile('does-not-exist')
+
+	with cwd(tu.PROJECTS_PATH / 'p1'):
+		profile = reset_profile()
+
+		print()
+		fig.main(['-h'])
+
+		assert fig.get_current_project().name == 'project1'
 
 

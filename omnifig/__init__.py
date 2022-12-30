@@ -6,6 +6,9 @@ del os
 del __info__['__file__']
 __author__ = __info__['author']
 __version__ = __info__['version']
+import logging
+__logger__ = logging.getLogger(__info__.get('logger_name', __name__))
+del logging
 
 from .organization import get_profile, ProfileBase, ProjectBase, GeneralProject, Profile
 from .registration import script, component, modifier, creator, autocomponent, autoscript
