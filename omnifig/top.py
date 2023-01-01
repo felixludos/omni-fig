@@ -1,12 +1,9 @@
 from typing import Union, Iterator, Sequence, Any, Optional, ContextManager
 from pathlib import Path
-
-from omnibelt import get_printer, JSONABLE, unspecified_argument
+from omnibelt import JSONABLE, unspecified_argument
 
 from .abstract import AbstractProject, AbstractConfig
 from .organization import get_profile
-
-from . import __logger__ as prt
 
 
 

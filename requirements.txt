@@ -1,5 +1,4 @@
 pyyaml
 toml
-C3Linearize
 omnibelt
 tabulate

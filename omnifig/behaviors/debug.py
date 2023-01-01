@@ -1,12 +1,9 @@
 from typing import Optional, Any
-from omnibelt import get_printer
 
+from .. import __logger__ as prt
 from ..abstract import AbstractConfig, AbstractProject
 
 from .base import Behavior
-
-
-from .. import __logger__ as prt
 
 
 

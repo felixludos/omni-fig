@@ -1,12 +1,8 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
-from pathlib import Path
-from omnibelt import unspecified_argument, get_printer
-
-from ..abstract import AbstractBehavior, AbstractConfig, AbstractProject
-from ..top import get_profile
-
+from typing import Any, Dict, List, Optional
 
 from .. import __logger__ as prt
+from ..abstract import AbstractBehavior, AbstractConfig
+from ..top import get_profile
 
 
 
@@ -57,7 +53,10 @@ class Behavior(AbstractBehavior):
 	def __gt__(self, other):
 		'''Compares the behavior to another behavior for ordering.'''
 		return self.priority > other.priority
+
+
 	def __lt__(self, other):
+		'''Compares the behavior to another behavior for ordering.'''
 		return self.priority < other.priority
 
 

@@ -2,13 +2,11 @@ from typing import Optional, Union, Sequence, NamedTuple, Tuple, Any, Dict, List
 from pathlib import Path
 from tabulate import tabulate
 import inspect
-from collections import OrderedDict
-from omnibelt import unspecified_argument, get_printer, Class_Registry, Function_Registry, colorize, include_modules
-
-from ..abstract import AbstractConfig, AbstractProject, AbstractBehavior, AbstractCustomArtifact
-from ..config import ConfigManager
+from omnibelt import unspecified_argument, Class_Registry, Function_Registry, colorize, include_modules
 
 from .. import __logger__ as prt
+from ..abstract import AbstractConfig, AbstractProject, AbstractBehavior, AbstractCustomArtifact
+from ..config import ConfigManager
 
 
 
@@ -44,7 +42,8 @@ class ProjectBase(AbstractProject):
 class GeneralProject(ProjectBase, name='general'):
 	'''Project class that includes basic functionality such as a script registry and config manager.'''
 
-	info_file_names = {'.fig.project.yml', '.fig.project.yaml', 'fig.project.yml', 'fig.project.yaml'}
+	info_file_names = {'.fig.project.yml', '.fig.project.yaml', 'fig.project.yml', 'fig.project.yaml',
+	                   '.omnifig.yml', '.omnifig.yaml', 'omnifig.yml', 'omnifig.yaml'}
 
 
 	def infer_path(self, path: Optional[Union[str, Path]] = None) -> Path:
@@ -166,7 +165,6 @@ class GeneralProject(ProjectBase, name='general'):
 
 
 	Config_Manager = ConfigManager
-	'''Default Config Manager'''
 
 
 	def __init__(self, path: Optional[Union[str, Path]], *, script_registry: Optional[Script_Registry] = None,
@@ -203,11 +201,11 @@ class GeneralProject(ProjectBase, name='general'):
 
 			# config files/directories
 			self.load_configs(self.data.get('configs', []))
-			if self.data.get('auto_config', True):
-				for dname in ['config', 'configs']:
-					path = self.root / dname
-					if path.is_dir():
-						self.load_configs([path])
+			config_dir = self.data.get('auto_config_dir', 'config')
+			if config_dir is not None:
+				path = self.root / config_dir
+				if path.is_dir():
+					self.load_configs([path])
 
 			# packages
 			pkgs = []

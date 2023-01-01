@@ -3,12 +3,12 @@ from pathlib import Path
 from omnibelt import Exporter, ExportManager, get_now
 from omnibelt import exporting_common as _
 
-from .config import ConfigNode
+from .abstract import AbstractConfig
 from .top import create_config
 
 
 
-class ConfigExporter(Exporter, extensions=['.fig.yml', '.fig.yaml'], types=[ConfigNode]):
+class ConfigExporter(Exporter, extensions=['.fig.yml', '.fig.yaml'], types=[AbstractConfig]):
 	'''
 	Exporter for config objects, can load and save config objects in four formats: json, yaml, toml,
 	and the native ".fig.yml" format (which is equivalent to yaml).

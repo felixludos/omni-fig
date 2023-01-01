@@ -1,13 +1,11 @@
-from typing import Dict, Tuple, Optional, Any, Sequence, Iterator, NamedTuple, Union, ContextManager, Type
+from typing import Dict, Optional, Any, Sequence, Iterator, NamedTuple, Union, ContextManager, Type
 from pathlib import Path
 import sys
 from collections import OrderedDict
-from omnibelt import get_printer, Class_Registry, JSONABLE, unspecified_argument
+from omnibelt import Class_Registry, JSONABLE, unspecified_argument
 
 from ..abstract import AbstractConfig, AbstractProfile, AbstractProject, AbstractBehavior
 from .workspaces import ProjectBase
-
-from .. import __logger__ as prt
 
 
 
@@ -27,8 +25,10 @@ class ProfileBase(AbstractProfile):
 		pass
 	behavior_registry = _Behavior_Registry() # one global instance (even independent of the profile instance)
 
+
 	_default_profile_cls = None
 	_profile = None
+
 
 	def __init_subclass__(cls, default_profile: Optional[bool] = False, **kwargs):
 		super().__init_subclass__(**kwargs)
@@ -136,9 +136,6 @@ class ProfileBase(AbstractProfile):
 			Iterator over all behavior entries.
 
 		'''
-		# entries = list(cls.behavior_registry.values())
-		# for entry in sorted(entries, key=lambda e: (e.priority, e.name), reverse=True):
-		# 	yield entry
 		yield from cls.behavior_registry.values()
 	# endregion
 

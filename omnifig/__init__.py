@@ -1,14 +1,4 @@
-import os
-__info__ = {'__file__':os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py')}
-with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '_info.py'), 'r') as f:
-	exec(f.read(), __info__)
-del os
-del __info__['__file__']
-__author__ = __info__['author']
-__version__ = __info__['version']
-import logging
-__logger__ = logging.getLogger(__info__.get('logger_name', __name__))
-del logging
+from ._info import __version__, __author__, __info__, __logger__
 
 from .organization import get_profile, ProfileBase, ProjectBase, GeneralProject, Profile
 from .registration import script, component, modifier, creator, autocomponent, autoscript

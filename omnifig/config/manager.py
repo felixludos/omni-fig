@@ -4,9 +4,7 @@ from pathlib import Path
 import io
 import yaml
 from collections import OrderedDict
-from c3linearize import linearize
-from omnibelt import Path_Registry, JSONABLE, unspecified_argument, export, load_export
-
+from omnibelt import Path_Registry, JSONABLE, unspecified_argument, export, load_export, linearize, CycleDetectedError
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractConfigManager
 from .nodes import ConfigNode
@@ -18,13 +16,14 @@ class ConfigManager(AbstractConfigManager):
 	_config_exts = ('yaml', 'yml', 'json', 'tml', 'toml')
 	_config_nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
 	_config_parent_key = '_base'
-	_config_parents_key = '_bases'
 
 	ConfigNode = ConfigNode
+
 
 	class Config_Registry(Path_Registry, components=['project']):
 		'''Registry for config files.'''
 		pass
+
 
 	def __init__(self, project: AbstractProject):
 		self.registry = self.Config_Registry()
@@ -130,15 +129,6 @@ class ConfigManager(AbstractConfigManager):
 		if isinstance(val, str) and val in self._config_nones:
 			return None
 		return val
-
-
-	# class AmbiguousRuleError(Exception):
-	# 		AmbiguousRuleError: if a rule is ambiguous (usually because multiple rules match the given argument)
-	# 	'''
-	# 	Raised when a rule is ambiguous (i.e. multiple configs match the same rule)
-	# 	while parsing command-line arguments
-	# 	'''
-	# 	pass
 
 
 	class UnknownBehaviorError(ValueError):
@@ -295,7 +285,6 @@ class ConfigManager(AbstractConfigManager):
 			return name
 		elif os.path.isfile(name):
 			return Path(name)
-		# return self.find_config_entry(name).path
 		try:
 			return self.find_project_config_entry(name).path
 		except self.ConfigNotRegistered:
@@ -327,8 +316,6 @@ class ConfigManager(AbstractConfigManager):
 			if isinstance(base, str):
 				base = [base]
 			src.extend(base)
-		if cls._config_parents_key is not None:
-			src.extend(raw.get(cls._config_parents_key, []))
 		assert isinstance(src, list), f'Invalid parents: {src}'
 		return src
 
@@ -383,6 +370,14 @@ class ConfigManager(AbstractConfigManager):
 		raise ValueError(f'Unknown config file type: {path}')
 
 
+	class ConfigCycleError(ValueError):
+		'''
+		Indicates that a cycle in the config bases was detected.
+		'''
+		def __init__(self, bad: List[str]):
+			super().__init__(f'Config cycle detected within: {", ".join(bad)}')
+
+
 	def create_config(self, configs: Optional[Sequence[Union[str, Path]]] = None, data: Optional[JSONABLE] = None, *,
 	                  project: Optional[AbstractProject] = unspecified_argument) -> AbstractConfig:
 		'''
@@ -430,7 +425,16 @@ class ConfigManager(AbstractConfigManager):
 
 		if len(used_paths) != len(todo):
 			graph = {key: [used_paths[name] for name in srcs] for key, srcs in parent_table.items()}
-			order = linearize(graph, heads=[None], order=True)[None]
+
+			try:
+				order = linearize(graph)[None]
+			except CycleDetectedError as c:
+				bad = c.remaining
+				del bad[None]
+				used_names = {path: name for name, path in used_paths.items()}
+				bad = [used_names[path] for path in bad]
+				raise self.ConfigCycleError(sorted(bad))
+
 			ancestry = [ancestry_names[p] for p in order[1:]]
 			order = [data] + [raws[p] for p in order[1:]]
 		else:

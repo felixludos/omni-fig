@@ -3,14 +3,14 @@ from pathlib import Path
 from contextlib import nullcontext
 import yaml
 from collections import OrderedDict
-from omnibelt import get_printer, unspecified_argument, Primitive, primitive, Modifiable
+from omnibelt import unspecified_argument, Primitive, primitive, Modifiable
 from omnibelt.nodes import AutoTreeNode, AutoTreeSparseNode, AutoTreeDenseNode
 
+from .. import __logger__ as prt
 from ..abstract import AbstractConfig, AbstractProject, AbstractCreator, AbstractConfigurable, AbstractConfigManager, \
 	AbstractCustomArtifact, AbstractCertifiable
-from .abstract import AbstractSearch, AbstractReporter
 
-from .. import __logger__ as prt
+from .abstract import AbstractSearch, AbstractReporter
 
 
 
@@ -21,22 +21,6 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 	'''
 
 	Settings = OrderedDict
-
-	def export(self, name: Union[str, Path], root: Optional[Union[str, Path]] = None) -> Optional[Path]:
-		'''
-		Exports the given config to the given path (in yaml format).
-
-		Args:
-			config: object to export
-			name: of file name or path to export to (without extension)
-			root: directory to export to (if not provided, the current working directory is used)
-
-		Returns:
-			The path to which the config was exported
-
-		'''
-		return self.manager.export(self, name, root=root)
-
 
 	@classmethod
 	def from_raw(cls, raw: Any, *, parent: Optional['ConfigNode'] = unspecified_argument,
@@ -1358,6 +1342,22 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 	def __hash__(self):
 		'''Returns a hash value for this config node.'''
 		return hash(self.my_address())
+
+
+	def export(self, name: Union[str, Path], root: Optional[Union[str, Path]] = None) -> Optional[Path]:
+		'''
+		Exports the given config to the given path (in yaml format).
+
+		Args:
+			config: object to export
+			name: of file name or path to export to (without extension)
+			root: directory to export to (if not provided, the current working directory is used)
+
+		Returns:
+			The path to which the config was exported
+
+		'''
+		return self.manager.export(self, name, root=root)
 
 
 	@property

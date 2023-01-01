@@ -65,7 +65,7 @@ Quickstart
 
 .. quickstart-marker-do-not-remove
 
-A project only requires a yaml file called ``.fig.project.yml`` (see documentation_), however, it is also suggested to create a directory called ``config/`` to contain any config yaml files that should automatically be registered when the project is loaded. Usually, when loading a project, that requires running/importing some python files, relative path to the top level source file to run should be specified in the project info file (``.fig.project.yml``) under the key ``src`` and any modules should be specified with ``module``. Below is an example of a simple ``omni-fig`` project with all the suggested bells and whistles:
+A project only requires a yaml file called ``.omnifig.yml`` (see documentation_), however, it is also suggested to create a directory called ``config/`` to contain any config yaml files that should automatically be registered when the project is loaded. Usually, when loading a project, that requires running/importing some python files, relative path to the top level source file to run should be specified in the project info file (``.omnifig.yml``) under the key ``src`` and any modules should be specified with ``module``. Below is an example of a simple ``omni-fig`` project with all the suggested bells and whistles:
 
 .. code-block::
 
@@ -80,14 +80,14 @@ A project only requires a yaml file called ``.fig.project.yml`` (see documentati
     │   └── debug.yaml - config to be automatically used in debug mode
     │
     ├── src/ - any python source files
-    │   ├── __init__.py - python file to be called to load project as a module into omnifig.projects
+    │   ├── __init__.py - gets imported
     │   ├── script1.py - any additional source files part of the module
     │   └── ...
     │
-    ├── .fig.project.yml - project info file
+    ├── .omnifig.yml - project info file
     └── ...
 
-For the example above, ``.fig.project.yml`` should contain something like:
+For the example above, ``.omnifig.yml`` should contain something like:
 
 .. code-block:: yaml
 

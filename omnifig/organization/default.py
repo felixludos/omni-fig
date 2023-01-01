@@ -1,18 +1,16 @@
-
 from typing import Dict, Optional, Union, Any, Iterator, NamedTuple, Type, List
 import os
 from itertools import chain
 from collections import deque
 from pathlib import Path
 from tabulate import tabulate
-from omnibelt import unspecified_argument, get_printer, Class_Registry, colorize
+from omnibelt import unspecified_argument, Class_Registry, colorize
 
-from ..abstract import AbstractConfig, AbstractProject, AbstractCreator
+from .. import __logger__ as prt
+from ..abstract import AbstractProject, AbstractCreator
 
 from .profiles import ProfileBase
 from .workspaces import ProjectBase, GeneralProject
-
-from .. import __logger__ as prt
 
 
 
@@ -400,8 +398,6 @@ class Profile(ProfileBase, default_profile=True):
 			None
 
 		'''
-		# self.get_project()  # loads project
-
 		active_projects = self.data.get('active-projects', [])
 		for project in active_projects:
 			proj = self.get_project(project)
@@ -471,6 +467,7 @@ class Profile(ProfileBase, default_profile=True):
 
 	_default_project_name = 'default'
 
+
 	def _infer_project_path(self, ident: Union[str, Path, None]) -> Optional[Union[Path, str]]:
 		'''
 		Checks if the directory (current working directory by default) is inside a known project directory,
@@ -502,7 +499,7 @@ class Profile(ProfileBase, default_profile=True):
 		return min(costs, key=costs.get)
 
 
-	def get_project(self, ident: Union[str, Path] = None, is_current: Optional[bool] = None) -> Project:
+	def get_project(self, ident: Union[str, Path] = None, is_current: Optional[bool] = None) -> AbstractProject:
 		'''
 		Gets the project with the given name/path. If no name/path is given, then the current project is returned.
 		If the specified project has not been initialized, then it is created using the profile's Project class

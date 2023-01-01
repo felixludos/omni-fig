@@ -2,7 +2,7 @@ from typing import Dict, Union, Any
 import yaml
 from pathlib import Path
 from collections import OrderedDict
-from omnibelt import load_yaml, get_printer
+from omnibelt import load_yaml
 
 from . import __logger__ as prt
 

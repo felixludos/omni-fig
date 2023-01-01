@@ -1,7 +1,7 @@
 
 from pathlib import Path
 
-from _test_util import reset_profile
+from _test_util import reset_profile, PROJECTS_PATH
 
 import omnifig as fig
 
@@ -131,6 +131,44 @@ def test_parse_argv_meta():
 	assert C.pull('_meta.quiet')
 	assert C.pull('_meta.debug')
 	assert C.pull('_meta.help')
+
+
+
+def test_config_cycle():
+	reset_profile()
+	fig.initialize('example7')
+
+	try:
+		fig.create_config('ec')
+	except ValueError as e:
+		assert str(e) == 'Config cycle detected within: ec, ec2'
+
+
+
+def test_config_path():
+	reset_profile()
+	fig.initialize('example7')
+
+	config_path = str(PROJECTS_PATH/'p7'/'config'/'e.yml')
+
+	C = fig.create_config(config_path)
+
+	assert C.pull('y') == 'e'
+
+
+	config_path = str(PROJECTS_PATH.relative_to(Path.cwd())/'p7'/'config'/'e.yml')
+
+	C = fig.create_config(config_path)
+
+	assert C.pull('y') == 'e'
+
+
+	C = fig.main(['get-config', config_path, 'c'])
+
+	assert C.pull('y') == 'e'
+	assert C.pull('w') == 'd'
+	assert C.pull('x') == 'c'
+
 
 
 

@@ -168,13 +168,23 @@ class Configurable(AbstractConfigurable, Modifiable):
 
 
 class Certifiable(Configurable, AbstractCertifiable):
+	'''
+	Simple mix-in to make the initialization of classes through the config a two-stage process.
+	The first stage calls the ``__init__`` method, and then after that is complete, the ``__certify__`` method
+	is called, which can return a new object to replace the original one.
+
+	Note, that ``__certify__`` is only called if the object is initialized through the config (e.g. through ``pull()``).
+	'''
 	def __certify__(self, config: AbstractConfig):
 		return self
 
 
+
 class silent_config_args:
+	'''Decorator to silence the config when extracting arguments from the config'''
 	def __init__(self, *args: str):
 		self.args = args
+
 
 	def __call__(self, fn: Callable) -> Callable:
 		if not hasattr(fn, '_my_silent_config'):
@@ -195,6 +205,7 @@ class config_aliases:
 			and the values should be the name of the argument to query in the config object.
 		'''
 		self.aliases = aliases
+
 
 	def __call__(self, fn: Callable) -> Callable:
 		'''Decorator to add aliases to the config arguments of a method'''

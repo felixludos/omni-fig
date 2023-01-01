@@ -8,9 +8,10 @@ from .mixins import Activatable, FileInfo
 
 
 
-class AbstractConfig: # TODO: copy, deepcopy
+class AbstractConfig:
 	'''Abstract class for config objects'''
 
+	# TODO: copy, deepcopy
 
 	_empty_default = unspecified_argument
 
@@ -18,6 +19,7 @@ class AbstractConfig: # TODO: copy, deepcopy
 	class SearchFailed(KeyError):
 		'''Raised when a search fails'''
 		pass
+
 
 	@property
 	def cro(self) -> Tuple[str, ...]:
@@ -27,6 +29,7 @@ class AbstractConfig: # TODO: copy, deepcopy
 		'''
 		raise NotImplementedError
 
+
 	@property
 	def bases(self) -> Tuple[str, ...]:
 		'''
@@ -34,6 +37,7 @@ class AbstractConfig: # TODO: copy, deepcopy
 		Analogous to ``__bases__`` for classes.
 		'''
 		raise NotImplementedError
+
 
 	@property
 	@abc.abstractmethod
@@ -775,7 +779,6 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 	Abstract class for projects. Projects track artifacts (eg. configs and components) in registries
 	and manage loading configs and running scripts.
 	'''
-
 	def __init__(self, path: Optional[Union[str, Path]] = None, profile: 'AbstractProfile' = None, **kwargs):
 		super().__init__(path, **kwargs)
 		self._profile = profile

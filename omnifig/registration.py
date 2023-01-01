@@ -1,11 +1,9 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Callable, Type
 from inspect import Parameter
-from omnibelt import extract_function_signature, get_printer
+from omnibelt import extract_function_signature
 
 from .abstract import AbstractCreator, AbstractConfig, AbstractProject, AbstractCustomArtifact
 from .top import get_current_project
-
-from . import __logger__ as prt
 
 
 
@@ -302,43 +300,5 @@ class autocomponent(_AutofillMixin, component):
 		'''
 		super().__init__(name=name, creator=creator, description=description, aliases=aliases)
 	
-
-
-# class meta_rule(_Registration_Decorator):
-# 	'''
-# 	Decorator to register a meta rule.
-#
-# 	Meta rules are called by a project before a script is run, to enable modifying the config object
-# 	or even the script itself. Meta rules must be a callable that takes a config object and a dict
-# 	of meta settings as input.
-#
-# 	Note:
-# 		It's generally recommended not to use this decorator, and subclass :class:`MetaRule` instead
-# 		(which registers automatically).
-#
-# 	'''
-#
-# 	def __init__(self, name: str, code: str, description: Optional[str] = None,
-# 	             priority: Optional[int] = 0, num_args: Optional[int] = 0, **kwargs):
-# 		'''
-#
-# 		Args:
-# 			name: name of item to be registered (defaults to its __name__)
-# 			code: code to invoke the meta rule from the command line (without the `-` prefix)
-# 			description: a short description of what the meta rule does (defaults to first line of its docstring)
-# 			priority: priority of the meta rule (higher priority meta rules are run first)
-# 			num_args: number of arguments that the meta rule takes (used when parsing :code:`sys.argv`)
-# 		'''
-# 		super().__init__(name=name, code=code, description=description, priority=priority, num_args=num_args, **kwargs)
-#
-#
-# 	@staticmethod
-# 	def register(name: str, item: Callable[[AbstractConfig, AbstractConfig], Optional[AbstractConfig]], *,
-# 	             code: str, description: Optional[str] = None, priority: Optional[int] = 0,
-# 	             num_args: Optional[int] = 0) -> None:
-# 		'''Registers a meta rule to the profile (so it is used by all projects).'''
-# 		get_profile().register_meta_rule(name, item, code=code, description=description, priority=priority,
-# 		                                 num_args=num_args)
-
 
 
