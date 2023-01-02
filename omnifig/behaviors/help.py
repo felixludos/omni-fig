@@ -190,7 +190,8 @@ Optional meta behaviors to modify the execution
 +---------+
 | configs |
 +---------+
-Specify any registered configs to compose and use for the script
+Specify any registered config files or paths to YAML files 
+to compose and pass to the script
 
 {configs}
 

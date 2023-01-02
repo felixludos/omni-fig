@@ -1,7 +1,7 @@
 
 name: tutorial-project
 
-package: src/
+module: src/
 
 
 

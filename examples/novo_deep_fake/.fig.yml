@@ -12,4 +12,4 @@ description:
 related: [] # list of other project names (whose past must be found in the profile's "projects" table)
 # related projects are (recursively) loaded before this project is loaded - so this can depend on it's relatives
 
-package: src
+module: src

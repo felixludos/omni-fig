@@ -10,14 +10,14 @@ PROFILES_PATH = TEST_PATH / 'example_profiles'
 
 PROJECTS_PATH = TEST_PATH / 'example_projects'
 
-os.environ['FIG_PROFILE'] = str(PROFILES_PATH / 'base.yaml')
+os.environ['OMNIFIG_PROFILE'] = str(PROFILES_PATH / 'base.yaml')
 
 
 import omnifig as fig
 
 
 def reset_profile(name='base'):
-	os.environ['FIG_PROFILE'] = str(PROFILES_PATH / f'{name}.yaml')
+	os.environ['OMNIFIG_PROFILE'] = str(PROFILES_PATH / f'{name}.yaml')
 	fig.ProfileBase._profile = None
 	return fig.get_profile()
 

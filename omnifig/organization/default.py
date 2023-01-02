@@ -374,7 +374,7 @@ class Profile(ProfileBase, default_profile=True):
 				return default
 
 
-	_profile_env_variable = 'FIG_PROFILE'
+	_profile_env_variable = 'OMNIFIG_PROFILE'
 
 
 	def __init__(self, data: Union[str, Path, Dict, None] = None):
@@ -465,9 +465,6 @@ class Profile(ProfileBase, default_profile=True):
 		pass
 
 
-	_default_project_name = 'default'
-
-
 	def _infer_project_path(self, ident: Union[str, Path, None]) -> Optional[Union[Path, str]]:
 		'''
 		Checks if the directory (current working directory by default) is inside a known project directory,
@@ -479,24 +476,21 @@ class Profile(ProfileBase, default_profile=True):
 		Returns:
 
 		'''
-		path = ident
-		if path is None:
-			path = Path().cwd()
+		# path = ident
+		if ident is None:
+			ident = Path().cwd()
 
-		contents = set(os.listdir(path))
+		contents = set(os.listdir(ident))
 		for fname in self.Project.info_file_names:
 			if fname in contents:
-				return path
+				return ident
 
-		full = path.absolute()
-		options = {name: Path(proj_path).absolute() for name, proj_path in self.data.get('projects', {}).items()}
+		known = {path: name for name, path in self.data.get('projects', {}).items()}
+		if str(ident) in known:
+			return ident
 
-		costs = {name: len(full.relative_to(proj_path).parts)
-		         for name, proj_path in options.items() if str(full).startswith(str(proj_path))}
-
-		if not costs:
-			return None
-		return min(costs, key=costs.get)
+		if len(ident.parts) > 1:
+			return self._infer_project_path(ident.parent)
 
 
 	def get_project(self, ident: Union[str, Path] = None, is_current: Optional[bool] = None) -> AbstractProject:
@@ -550,9 +544,8 @@ class Profile(ProfileBase, default_profile=True):
 			proj = self.Project(path, profile=self)
 			proj = proj.validate()
 
-		if 'name' not in proj.data:
-			proj.data['name'] = ident.stem if isinstance(ident, Path) \
-				else (self._default_project_name if ident is None else ident)
+		if 'name' not in proj.data and ident is not None:
+			proj.data['name'] = ident.stem if isinstance(ident, Path) else ident
 
 		if self._loaded_projects.get(proj.name, proj) is not proj:
 			# raise ValueError(f'Project with name {proj.name} already exists!')

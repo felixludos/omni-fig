@@ -43,7 +43,7 @@ def test_current_project2():
 	profile = reset_profile()
 	with cwd(Path('/')):
 		proj = fig.get_current_project()
-	assert proj.name == profile._default_project_name # 'default'
+	assert proj.name is None
 
 
 
@@ -134,6 +134,16 @@ def test_active_project():
 	assert cmp.cls.__module__ == 'my_code'
 	assert cmp.project is not proj
 	assert cmp.project is profile.get_project('example2')
+
+
+
+def test_parent_is_project():
+	profile = reset_profile('does-not-exist')
+
+	with cwd(tu.PROJECTS_PATH / 'p8' / 'some-dir' / 'deep'):
+		fig.initialize()
+
+		assert fig.get_current_project().name == 'p8'
 
 
 

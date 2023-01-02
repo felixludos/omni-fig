@@ -62,7 +62,7 @@ class GeneralProject(ProjectBase, name='general'):
 		prt.warning(f'Could not infer project path from {path} (using blank project)')
 
 
-	def _format_xray_entry(self, entry: NamedTuple) -> Tuple[str, Optional[str]]:
+	def _format_xray_entry(self, entry: NamedTuple) -> Tuple[List[str], Optional[str]]:
 		'''Prints a single artifact entry (e.g. script) with pretty formatting (including color)'''
 
 		desc = getattr(entry, 'description', None)
@@ -196,8 +196,13 @@ class GeneralProject(ProjectBase, name='general'):
 		'''
 		if self.root is not None:
 			# load any dependencies
-			for dep in self.data.get('dependencies', []):
-				self._profile.get_project(dep).load()
+			dep_dir = self.data.get('auto_dependency_dir', 'dependency')
+			if dep_dir is not None:
+				deps = self.data.get(dep_dir, [])
+				if isinstance(deps, str):
+					deps = [deps]
+				for dep in deps:
+					self._profile.get_project(dep).load()
 
 			# config files/directories
 			self.load_configs(self.data.get('configs', []))
@@ -207,24 +212,23 @@ class GeneralProject(ProjectBase, name='general'):
 				if path.is_dir():
 					self.load_configs([path])
 
-			# packages
-			pkgs = []
-			if 'package' in self.data:
-				if isinstance(self.data['package'], str):
-					pkgs.append(self.data['package'])
-				else:
-					pkgs.extend(self.data['package'])
-			if 'packages' in self.data:
-				if isinstance(self.data['packages'], str):
-					pkgs.append(self.data['packages'])
-				else:
-					pkgs.extend(self.data['packages'])
+			# import modules
+			module_dir = self.data.get('auto_module_dir', 'module')
+			modules = []
+			if module_dir is not None:
+				modules = self.data.get(module_dir, [])
+				if isinstance(modules, str):
+					modules = [modules]
 
-			# source files
-			src = self.data.get('src', [])
-			if isinstance(src, str):
-				src = [src]
-			self._run_dependencies(src, pkgs)
+			# run source files
+			src_dir = self.data.get('auto_src_dir', 'src')
+			src = []
+			if src_dir is not None:
+				src = self.data.get(src_dir, [])
+				if isinstance(src, str):
+					src = [src]
+
+			self._run_dependencies(src, modules)
 
 
 	def _activate(self, *args, **kwargs):
@@ -280,12 +284,9 @@ class GeneralProject(ProjectBase, name='general'):
 		return self
 
 
-	def __str__(self):
-		return f'{self.__class__.__name__}[{self.name}]({self.root})'
-
-
 	def __repr__(self):
-		return f'{self.__class__.__name__}[{self.name}]({self.root})'
+		name = self.name
+		return f'{self.__class__.__name__}[{"default" if name is None else name}]({self.root})'
 
 
 	def __eq__(self, other):
@@ -301,7 +302,7 @@ class GeneralProject(ProjectBase, name='general'):
 	@property
 	def name(self):
 		'''The name of the project'''
-		return self.data.get('name', '')
+		return self.data.get('name', None)
 
 
 	@property
