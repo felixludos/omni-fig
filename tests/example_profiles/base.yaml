@@ -11,4 +11,5 @@ projects:
   example5: tests/example_projects/p5
   example6: tests/example_projects/p6
   example7: tests/example_projects/p7
+  example9: tests/example_projects/p9
 

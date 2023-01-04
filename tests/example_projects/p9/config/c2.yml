@@ -1,0 +1,27 @@
+
+a: -1
+
+obj1:
+  _type: cmp3
+
+  e: 5
+
+
+obj2:
+  _type: cmp3
+
+  b: 100
+  c: 4
+
+
+obj3:
+  _type: cmp3
+
+  a: _x_
+
+obj4:
+  _type: cmp2
+
+  a: __x__
+  f: 0
+

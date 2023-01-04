@@ -2,23 +2,40 @@ Welcome to omni-fig!
 ==========================
 
 
+Introduction
+------------
+
 .. toctree::
    :maxdepth: 2
-   :caption: Guide
+   :caption: Introduction
 
    installation
    quickstart
    philosophy
 
+
+Guide
+-----
+
 .. toctree::
    :maxdepth: 2
-   :caption: Documentation
+   :caption: User Guide
 
+   project-structure
+   config-system
+
+
+API Documentation
+-----------------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API Documentation
+
+   top
    config
    organization
-   registration
-   abstract
-   common
+   customization
 
 
 

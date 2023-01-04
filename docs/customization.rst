@@ -1,47 +1,14 @@
-Configuration Management
-========================
-
-
-[missing]
-
-
-Config Object
--------------
+Customization
+=============
 
 [missing]
 
-.. .. automodule:: omnifig.config.nodes
-    :members:
-    :undoc-members:
-    :show-inheritance:
-    :private-members:
-    :special-members:
-    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
-    :member-order: bysource
-
-
-Config Manager
---------------
+Abstract Base Classes
+---------------------
 
 [missing]
 
-.. .. automodule:: omnifig.config.manager
-    :members:
-    :undoc-members:
-    :show-inheritance:
-    :private-members:
-    :special-members:
-    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
-    :member-order: bysource
-
-
-Exporting Config Objects
-------------------------
-
-[missing]
-
-
-.. .. automodule:: omnifig.exporting
+.. .. automodule:: omnifig.abstract
     :members:
     :undoc-members:
     :show-inheritance:
@@ -52,12 +19,12 @@ Exporting Config Objects
 
 
 
-Configurable Mixin
-------------------
+Custom Config Objects
+---------------------
 
 [missing]
 
-.. .. automodule:: omnifig.configurable
+.. .. automodule:: omnifig.config.abstract
     :members:
     :undoc-members:
     :show-inheritance:
@@ -65,5 +32,25 @@ Configurable Mixin
     :special-members:
     :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
     :member-order: bysource
+
+
+Mixins
+------
+
+[missing]
+
+
+.. .. automodule:: omnifig.mixins
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
+    :member-order: bysource
+
+
+
+
 
 

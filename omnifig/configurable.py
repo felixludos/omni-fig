@@ -20,6 +20,26 @@ class Configurable(AbstractConfigurable, Modifiable):
 		return getattr(self, '_my_config', None)
 
 
+	# @classmethod
+	# def inject_mods(cls, *mods, name=None):
+	# 	'''
+	# 	Mods should be types that are used to modify the cls. The order of the mods corresponds to the order
+	# 	in which the cls is "modified", so for example:
+	#
+	# 	```python
+	#
+	# 	class A(Configurable): pass
+	# 	class B: pass
+	# 	class C: pass
+	#
+	# 	out = A.inject_mods(C, B)
+	# 	assert out.mro() == [out, C, B, A, Modifiable, object]
+	# 	assert out.__name__ == 'C_B_A' # default name
+	# 	```
+	# 	'''
+	# 	return super().inject_mods(*reversed(mods), name=name)
+
+
 	class _config_builder_type:
 		'''Replaces the regular method and fills in the missing arguments from the config'''
 		def __init__(self, product: 'Configurable', config: AbstractConfig, *, silent: Optional[bool] = None):

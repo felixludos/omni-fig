@@ -30,3 +30,79 @@ Config System
 The code you write is only as valuable as you are able to use it in the way you want. This means, good code organization necessitates the power to specify exactly what the code should do in the form of arguments and configs. To that end, `omni-fig` provides a flexible config structure that uses a tree-like hierarchy to dynamically provide arguments for all components and subcomponents.
 
 The hierarchical structure not only allows grouping arguments but it also allows for argument "scopes" - ie. when an argument is not found in the current node, it defaults to check the parent. More universal arguments can be set on a higher level of the tree, but then optionally be overridden in subcomponents without affecting other components.
+
+..
+    Profiles and Projects
+    ---------------------
+
+
+
+    Modes and Meta Arguments
+    ------------------------
+
+    from the terminal, an interactive environment (eg. Jupyter), in a debugger (eg. Pycharm), or with a supercomputer that uses a job scheduling system.
+
+
+    Scripts
+    -------
+
+    Components
+    ----------
+
+    good hygiene dictates that the config object is not stored in any components (all required information should be pulled instead)
+
+    Modifiers
+    ---------
+
+    Initialization
+    --------------
+
+    inittime vs runtime
+
+    Execution
+    ---------
+
+    different ways to execute scripts
+
+    Topics
+    ------
+
+    - general philosophy: flexible power!
+        - the programmer is king -> compilers hinder fast development
+            - programmer centric development vs program centric development
+        - write lots of small, modular functions/classes
+        - register them as scripts/components or modifiers
+        - use a hierarchical config system to easily specific arbitrarily complex arguments/parameters
+        - at runtime the config object combines the simple modular objects to offer high flexibility and lots of power
+    - why `import` is not enough
+    - package vs leaf projects
+    - profiles and projects
+        - related projects
+    - config object (push, pull, export)
+        - features:
+            - Keys:
+                - '_{}' = protected - not visible to children
+                - ({1}, {2}, ...) = [{1}][{2}]...
+                - '{1}.{2}' = ['{1}']['{2}']
+                - '{1}.{2}' = ['{1}'][{2}] (where {2} is an int and self['{1}'] is a list)
+                - if {} not found: first check parent (if exists) otherwise create self[{}] = Config(parent=self)
+
+            - Values:
+                - '<>{}' = alias to key '{}'
+                - '_x_' = (only when merging) remove this key locally, if exists
+                - '__x__' = dont default this key and behaves as though it doesnt exist (except on iteration)
+                  (for values of "appendable" keys)
+                - "+{}" = '{}' gets appended to preexisting value if if it exists
+                    (otherwise, the "+" is removed and the value is turned into a list with itself as the only element)
+
+            - Also, this is Transactionable, so when creating subcomponents, the same instance is returned when pulling the same
+            sub component again.
+
+    - config files (hierarchy/inheritance)
+    - scripts
+        - meta args
+        - execution modes
+    - components (registration and creation)
+    - modifiers (auto-modifiers, modifications)
+        - auto-modifiers - dynamic type declarations, dynamically injecting behavior (mixins by config)
+    - lightweight alternatives (autocomponents, autoscripts)

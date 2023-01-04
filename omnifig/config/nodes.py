@@ -802,10 +802,10 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				return cls
 			mods = [mod.cls for mod in modifiers]
 			if issubclass(cls, Modifiable):
-				return cls.inject_mods(*mods)
+				return cls.inject_mods(*reversed(mods))
 			# default subclass
 			if len(mods):
-				bases = (*reversed(mods), cls)
+				bases = (*mods, cls)
 				cls = type('_'.join(base.__name__ for base in bases), bases, {})
 			return cls
 
@@ -1680,12 +1680,14 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 		Including removing any children with the value ``_x_`` (marked for removal).
 		'''
+		bad = []
 		for key, child in self.named_children():
 			if child.has_payload and child.payload == self._delete_value:
-				self.remove(key)
+				bad.append(key)
 			else:
 				child.validate()
-
+		for key in bad:
+			self.remove(key)
 
 	def silence(self, silent: bool = True) -> ContextManager:
 		'''Convience method for temporarily setting the silent flag of this config node.'''

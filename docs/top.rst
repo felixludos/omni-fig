@@ -1,47 +1,13 @@
-Configuration Management
-========================
+Project Organization
+====================
 
-
-[missing]
-
-
-Config Object
--------------
-
-[missing]
-
-.. .. automodule:: omnifig.config.nodes
-    :members:
-    :undoc-members:
-    :show-inheritance:
-    :private-members:
-    :special-members:
-    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
-    :member-order: bysource
-
-
-Config Manager
---------------
-
-[missing]
-
-.. .. automodule:: omnifig.config.manager
-    :members:
-    :undoc-members:
-    :show-inheritance:
-    :private-members:
-    :special-members:
-    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
-    :member-order: bysource
-
-
-Exporting Config Objects
-------------------------
+Registration
+------------
 
 [missing]
 
 
-.. .. automodule:: omnifig.exporting
+.. .. automodule:: omnifig.registration
     :members:
     :undoc-members:
     :show-inheritance:
@@ -52,12 +18,12 @@ Exporting Config Objects
 
 
 
-Configurable Mixin
-------------------
+Top-level Interface
+-------------------
 
 [missing]
 
-.. .. automodule:: omnifig.configurable
+.. .. automodule:: omnifig.top
     :members:
     :undoc-members:
     :show-inheritance:
@@ -65,5 +31,74 @@ Configurable Mixin
     :special-members:
     :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
     :member-order: bysource
+
+
+Behavior
+--------
+
+[missing]
+
+
+.. .. automodule:: omnifig.behavior.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
+    :member-order: bysource
+
+
+
+Help
+****
+
+[missing]
+
+
+.. .. automodule:: omnifig.behavior.help
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
+    :member-order: bysource
+
+
+
+Debug
+*****
+
+[missing]
+
+
+.. .. automodule:: omnifig.behavior.debug
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
+    :member-order: bysource
+
+
+
+Quiet
+*****
+
+[missing]
+
+
+.. .. automodule:: omnifig.behavior.quiet
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,__init__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__
+    :member-order: bysource
+
+
 
 

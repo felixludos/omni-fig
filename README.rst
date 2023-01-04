@@ -231,6 +231,10 @@ While this example should give you a basic idea for what a project might look li
 
 .. _No-Nonsense-News: https://github.com/felixludos/nnn/
 
+.. _omnicite: https://github.com/felixludos/omni-cite/
+
+.. _digidiplo: https://github.com/felixludos/digi-diplo/
+
 .. end-quickstart-marker-do-not-remove
 
 Citation
@@ -242,7 +246,7 @@ If you used `omnifig` in your work, please cite it using:
 .. code-block:: tex
 
    @misc{leeb2022omnifig,
-     title = {Omni-fig: Configuration and Project Management for Python},
+     title = {Omni-fig: Unleashing Project Configuration and Organization in Python},
      author = {Leeb, Felix},
      publisher = {GitHub},
      year = {2022}

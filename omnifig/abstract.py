@@ -1332,7 +1332,7 @@ class AbstractBehavior:
 	@staticmethod
 	def parse_argv(meta: Dict[str, Any], argv: List[str], script_name: Optional[str] = None) -> Optional[List[str]]:
 		'''
-		Optionally modifies the arguments when the project's :method:`main()` is called.
+		Optionally modifies the arguments when the project's :meth:`main()` is called.
 
 		Args:
 			meta: Meta-data extracted from the argv so far (can be modified here).
@@ -1380,7 +1380,7 @@ class AbstractBehavior:
 	@staticmethod
 	def pre_run(meta: AbstractConfig, config: AbstractConfig) -> Optional[AbstractConfig]:
 		'''
-		Runs before the script is executed, within the project :method:`run()`.
+		Runs before the script is executed, within the project :meth:`run()`.
 
 		Args:
 			meta: Meta config to configure behavior and script execution.
@@ -1454,10 +1454,10 @@ class AbstractBehavior:
 	@staticmethod
 	def cleanup():
 		'''
-		Function called at the end of the project :method:`main()` during cleanup.
+		Function called at the end of the project :meth:`main()` during cleanup.
 
-		Note that this is only called if the project :method:`main()`. To define a cleanup function for
-		the behavior that is called every time a script is run, use :method:`post_run()`.
+		Note that this is only called if the project :meth:`main()`. To define a cleanup function for
+		the behavior that is called every time a script is run, use :meth:`post_run()`.
 
 		Returns:
 			:code:`None`

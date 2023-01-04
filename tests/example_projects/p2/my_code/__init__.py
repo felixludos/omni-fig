@@ -2,7 +2,6 @@ import omnifig as fig
 
 fig._loaded_p2 = True
 
-
 @fig.script('add-1', description='simple add 1')
 def add_1(config, **kwargs):
 	return 1
@@ -52,6 +51,4 @@ class Mod3(Mod1):
 	@fig.config_aliases(a=['c'])
 	def __init__(self, a=1):
 		super().__init__(a=a, b=10)
-
-
 

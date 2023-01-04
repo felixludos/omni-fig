@@ -1,0 +1,27 @@
+
+
+obj1:
+  _type: cmp1
+  _mod: mod1
+
+obj2:
+  _type: cmp1
+  _mod: mod3
+
+  c: 9
+
+obj3:
+  _type: cmp1
+  _mod: mod3
+
+  b: 6
+
+
+obj4:
+  _type: cmp1
+  _mod: [mod2, mod3]
+
+obj5:
+  _type: cmp1
+  _mod: [mod3, mod2]
+

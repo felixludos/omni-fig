@@ -19,7 +19,7 @@ from omnifig import __version__, __author__
 
 project = 'omnifig'
 author = __author__
-copyright = '2022, {}'.format(author)
+copyright = '2023, {}'.format(author)
 
 
 ###################
@@ -42,6 +42,7 @@ extensions = [
     "sphinx.ext.githubpages",
     'sphinx_autodoc_typehints',
     "myst_parser",
+    'sphinx.ext.autosectionlabel',
 ]
 templates_path = []
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}

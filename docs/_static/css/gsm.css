@@ -27,3 +27,11 @@
 .wy-side-nav-search>a img.logo, .wy-side-nav-search .wy-dropdown>a img.logo {
     max-width: 60%;
 }
+
+span.caption-text {
+  color: red;
+}
+
+.wy-menu > .caption > span.caption-text {
+  color: #ffff00;
+}

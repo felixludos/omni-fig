@@ -84,12 +84,19 @@ The values of arguments also have a few special features worth noting:
 Code
 ----
 
-.. automodule:: omnifig.config
-    :members:
-    :undoc-members:
-    :show-inheritance:
-    :private-members:
-    :special-members:
-    :exclude-members: __module__,_getref,__new__,__weakref__,__dict__,load_config_from_path,process_single_config,merge_configs,Config_Printing,_Silent_Config,_set_silent,_get_silent,_get_printer,get_prefix,_send_prefix,_receive_prefix,_swap_prefix,_store_prefix,_pop_prefix,_append_prefix,__repr__,__str__,__setitem__,__getitem__,__contains__,get_nodefault,set_nodefault,contains_nodefault,_single_get,_process_val,_push,_pull,__init__,__len__,_next_idx,__next__,_record_action
-    :member-order: bysource
+[code info]
+
+.. automodule omnifig.config
+
+
+Features
+--------
+
+[features info]
+
+
+Code
+----
+
+[code info]
 
