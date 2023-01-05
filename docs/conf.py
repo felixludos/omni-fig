@@ -43,12 +43,15 @@ extensions = [
     'sphinx_autodoc_typehints',
     "myst_parser",
     'sphinx.ext.autosectionlabel',
+    'sphinx_rtd_dark_mode',
 ]
 templates_path = []
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
 exclude_trees = ["build"]
 pygments_style = "sphinx"
+
+default_dark_mode = False
 
 
 ##############

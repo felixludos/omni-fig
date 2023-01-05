@@ -1,7 +1,7 @@
 @import url("theme.css");
 
 .wy-side-nav-search {
-    background-color: #565656;
+    background-color: #5C2E4A; /*805E79 565656*/
 }
 
 .wy-side-nav-search a {
@@ -9,15 +9,15 @@
 }
 
 .wy-side-nav-search > div.version {
-    color: #f26822;
+    color: #74c004;
 }
 
 .wy-nav-top {
-    background: #404040;
+    background: #5C2E4A; /*404040*/
 }
 
 .wy-menu-vertical li.on a, .wy-menu-vertical li.current>a {
-    background: #ccc;
+    background: #FFA498;
 }
 
 .wy-side-nav-search input[type=text] {
@@ -28,10 +28,14 @@
     max-width: 60%;
 }
 
-span.caption-text {
-  color: red;
-}
+/*span.caption-text {*/
+/*  color: red;*/
+/*}*/
 
 .wy-menu > .caption > span.caption-text {
-  color: #ffff00;
+  color: #BF2424; /*A41A27*/
+}
+
+.rst-content div[class^=highlight] td.code {
+    color: #805E79;
 }

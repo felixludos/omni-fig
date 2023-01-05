@@ -2,9 +2,6 @@ Welcome to omni-fig!
 ==========================
 
 
-Introduction
-------------
-
 .. toctree::
    :maxdepth: 2
    :caption: Introduction
@@ -14,9 +11,6 @@ Introduction
    philosophy
 
 
-Guide
------
-
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
@@ -24,9 +18,6 @@ Guide
    project-structure
    config-system
 
-
-API Documentation
------------------
 
 .. toctree::
    :maxdepth: 2
