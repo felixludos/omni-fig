@@ -28,14 +28,14 @@
     max-width: 60%;
 }
 
-/*span.caption-text {*/
-/*  color: red;*/
-/*}*/
-
 .wy-menu > .caption > span.caption-text {
   color: #BF2424; /*A41A27*/
 }
 
-.rst-content div[class^=highlight] td.code {
-    color: #805E79;
-}
+
+/*.rst-content div[class^='highlight'] pre {*/
+/*    background-color: #805E79;*/
+/*    color: #F1DEC0;*/
+/*    border-radius: 10px;*/
+/*    border: 1px solid #5C2E4A;*/
+/*}*/

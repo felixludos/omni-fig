@@ -1,5 +1,6 @@
-Sphinx==2.2.0
+Sphinx
 sphinx-autodoc-typehints==1.10.3
 sphinx-rtd-theme==0.4.3
+sphinx-rtd-dark-mode
 myst-parser
 -r ../requirements.txt

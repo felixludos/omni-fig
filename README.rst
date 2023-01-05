@@ -28,10 +28,11 @@ Configuration and project organization without compromises
    :language: python
 
 .. Visit the project page_.
+  .. _page: https://www.notion.so/felixleeb/omni-fig-c5223f0ca9e54eb4b8d9749aade4a9d3
 
-.. _page: https://www.notion.so/felixleeb/omni-fig-c5223f0ca9e54eb4b8d9749aade4a9d3
+``omni-fig`` is a lightweight package to help you organize your python projects to make everything clear and easy to understand to collaborators and prospective users, while also offering unparalleled features to accelerate development.
 
-This package contains a powerful config system for you to provide arguments/information to your scripts (as separate yaml files, from the terminal, or directly in python) to enable your code to be conveniently run in a variety of execution environments (from the terminal, in a jupyter notebook, through an IDE debugger, etc.).
+The proposed general-purpose project structure is well suited for both small and large projects, and is designed to be easily extensible to fit your needs. Most importantly, with the powerful configuration system, you never have to worry about any boilerplate code to parse command line arguments, read config files again, or even import the desired project components ever again!
 
 
 The primary way to use this package is to create *projects* containing python source files and yaml (info and config) files (an example of which is discussed below). Each project uses ``component``, ``modifier``, and ``script`` to register artifacts which can then be referenced in the config.
