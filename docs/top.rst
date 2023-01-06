@@ -23,7 +23,7 @@ Top-level Interface
 
 [missing]
 
-.. .. automodule:: omnifig.top
+.. automodule:: omnifig.top
     :members:
     :undoc-members:
     :show-inheritance:
