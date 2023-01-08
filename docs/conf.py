@@ -35,6 +35,7 @@ version = "v{}".format(__version__)
 
 extensions = [
     "sphinx.ext.autodoc",
+    'sphinx.ext.autosummary',
     "sphinx.ext.doctest",
     "sphinx.ext.napoleon",
     'sphinx.ext.githubpages',
@@ -42,7 +43,7 @@ extensions = [
     "sphinx.ext.githubpages",
     'sphinx_autodoc_typehints',
     "myst_parser",
-    'sphinx.ext.autosectionlabel',
+    # 'sphinx.ext.autosectionlabel',
     'sphinx_rtd_dark_mode',
 ]
 templates_path = []
@@ -54,6 +55,15 @@ pygments_style = "github-dark" # 'one-dark'
 # pygments_style = "sphinx"
 
 default_dark_mode = False
+
+autodoc_default_options = {
+    'member-order': 'bysource',
+    'show-inheritance': True,
+    'no-inherited-members': True,
+    'special-members': '__init__',
+    'undoc-members': True,
+    'exclude-members': '__module__,_getref,__new__,__weakref__,__dict__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__'
+}
 
 
 ##############

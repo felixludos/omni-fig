@@ -292,9 +292,12 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			A delegation is a node where the value is itself interpretted as a query to a different node
 			(e.g. using the prefix "<>"). There are a few specific prefixes that can be used for different types of
 			delegations:
-				``<>``: delegate to a new node starting the search from the current node
-				``<o>``: delegate to a new node starting the search from the origin node
-				``<!>``: delegate to a new node for which the product is always newly created
+				
+				- ``<>``: delegate to a new node starting the search from the current node
+				
+				- ``<o>``: delegate to a new node starting the search from the origin node
+				
+				- ``<!>``: delegate to a new node for which the product is always newly created
 					(rather than reused if it already exists)
 
 			If the current node delegates, the unused queries and query chain may be updated through

@@ -63,7 +63,7 @@ class Behavior(AbstractBehavior):
 	def parse_argv(self, meta: Dict[str, Any], argv: List[str],
 	               script_name: Optional[str] = None) -> Optional[List[str]]:
 		'''
-		Optionally modifies the arguments when the project's :method:`main()` is called.
+		Optionally modifies the arguments when the project's :meth:`main()` is called.
 
 		Args:
 			meta: Meta-data extracted from the argv so far (can be modified here).

@@ -4,6 +4,8 @@ Philosophy
 .. role:: py(code)
    :language: python
 
+.. TODO: section on extensibility (e.g. including abstract base classes for common use cases)
+
 Python is an incredibly versatile language. The dynamic nature and expansive community allows developers to program with virtually no overhead, developing anything from highly specialized applications that make use of a plethora of packages to general scripts that fit into 100 lines of code.
 
 However, with great power comes great responsibility: in this case that means keeping our many little scripts and packages organized (and ideally documented and with unit tests). There are already some excellent packages that take care of documentation ``sphinx`` (with ``readthedocs``) and a very simple testing framework ``pytest`` (with ``Travis CI``). These tools can ensure the understandability and functionality of our code, but what about keeping the code itself organized?
@@ -30,3 +32,6 @@ Config System
 The code you write is only as valuable as you are able to use it in the way you want. This means, good code organization necessitates the power to specify exactly what the code should do in the form of arguments and configs. To that end, `omni-fig` provides a flexible config structure that uses a tree-like hierarchy to dynamically provide arguments for all components and subcomponents.
 
 The hierarchical structure not only allows grouping arguments but it also allows for argument "scopes" - ie. when an argument is not found in the current node, it defaults to check the parent. More universal arguments can be set on a higher level of the tree, but then optionally be overridden in subcomponents without affecting other components.
+
+
+
