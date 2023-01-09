@@ -43,7 +43,7 @@ extensions = [
     "sphinx.ext.githubpages",
     'sphinx_autodoc_typehints',
     "myst_parser",
-    # 'sphinx.ext.autosectionlabel',
+    'sphinx.ext.autosectionlabel',
     'sphinx_rtd_dark_mode',
 ]
 templates_path = []

@@ -7,11 +7,12 @@
     <img align="right" width="150" height="150" src="assets/logo_border.png" alt="omni-fig">
 
 
---------
+========
 omni-fig
---------
-
-Configuration and project organization without compromises
+========
+-----------------------------------------------------------
+Unleashing Project Configuration and Organization in Python
+-----------------------------------------------------------
 
 .. image:: https://readthedocs.org/projects/omnifig/badge/?version=latest
     :target: https://omnifig.readthedocs.io/en/latest/?badge=latest
@@ -30,6 +31,8 @@ Configuration and project organization without compromises
 .. Visit the project page_.
   .. _page: https://www.notion.so/felixleeb/omni-fig-c5223f0ca9e54eb4b8d9749aade4a9d3
 
+.. TODO: lightweight, general purpose configuration system
+
 ``omni-fig`` is a lightweight package to help you organize your python projects to make everything clear and easy to understand to collaborators and prospective users, while also offering unparalleled features to accelerate development.
 
 The proposed general-purpose project structure is well suited for both small and large projects, and is designed to be easily extensible to fit your needs. Most importantly, with the powerful configuration system, you never have to worry about any boilerplate code to parse command line arguments, read config files again, or even import the desired project components ever again!
@@ -40,18 +43,19 @@ The primary way to use this package is to create *projects* containing python so
 For lots of detailed examples in how the config system works, see the unit tests in ``tests/test_config.py`` and the documentation_, which also includes some examples.
 
 Install
-=======
+-------
 
 .. install-marker-do-not-remove
 
 Everything is tested with Python 3.7 on Ubuntu 18.04 and Windows 11, but in principle it should work on any system that can handle the dependencies.
 
-The easiest way to install the package is with pip:
+The easiest way to install the stable release is with pip:
 
 .. code-block:: bash
 
     pip install omnifig
 
+If you want to explore the examples or contribute to the project, you can install the latest version by cloning the repository and installing it with pip:
 If you want to explore the examples or want to contribute to the project, you can clone the repository and install the package in development mode:
 
 .. code-block:: bash
@@ -62,8 +66,62 @@ If you want to explore the examples or want to contribute to the project, you ca
 
 .. end-install-marker-do-not-remove
 
+
+Key Features
+------------
+
+.. highlights-marker-do-not-remove
+
+
+Here is an overview of some of the core features of ``omni-fig`` with links to more detailed guides.
+
+
+.. image:: assets/vignettes/Slide1.SVG
+    :width: 100%
+
+Check out the :ref:`file structure <highlight-file-structure>` of projects.
+
+.. image:: assets/vignettes/Slide2.SVG
+   :width: 100%
+
+Read more about the :ref:`command line interface <highlight-cli>`.
+
+.. image:: assets/vignettes/Slide3.SVG
+    :width: 100%
+
+Learn more about using ``omni-fig`` in :ref:`interactive programming environments <highlight-interactive>`.
+
+.. image:: assets/vignettes/Slide4.SVG
+   :width: 100%
+
+Learn more about :ref:`composing configuration files <highlight-config-composition>`.
+
+.. image:: assets/vignettes/Slide5.SVG
+    :width: 100%
+
+Read more about how to :ref:`access config values <highlight-config-access>`.
+
+.. image:: assets/vignettes/Slide6.SVG
+   :width: 100%
+
+Check out the guide for details on :ref:`project components <highlight-registration>`.
+
+.. image:: assets/vignettes/Slide7.SVG
+    :width: 100%
+
+See the power of automatically :ref:`instantiating objects <highlight-instantiation>` from the config.
+
+.. image:: assets/vignettes/Slide8.SVG
+   :width: 100%
+
+Learn more about :ref:`modifying components <highlight-modifiers>`.
+
+
+
+.. end-highlights-marker-do-not-remove
+
 Quickstart
-==========
+----------
 
 .. quickstart-marker-do-not-remove
 
@@ -239,10 +297,13 @@ While this example should give you a basic idea for what a project might look li
 
 .. end-quickstart-marker-do-not-remove
 
-Citation
-========
 
-If you used `omnifig` in your work, please cite it using:
+Citation
+--------
+
+.. citation-marker-do-not-remove
+
+If you used ``omni-fig`` in your work, please cite it using:
 
 
 .. code-block:: tex
@@ -255,6 +316,15 @@ If you used `omnifig` in your work, please cite it using:
    }
 
 
+.. end-citation-marker-do-not-remove
+
+
+Contributions
+-------------
+
+Contributions are very welcome! Please feel free to open an issue or pull request.
+
+.. Here's a list of features and extensions in the works:
 
 .. Road to 1.0
 	===========

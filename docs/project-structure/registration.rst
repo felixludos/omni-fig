@@ -1,3 +1,5 @@
+.. _highlight-registration:
+
 Registration
 ================
 
@@ -17,6 +19,10 @@ Aside from config files, ``omni-fig`` primarily keeps track of three different k
 
 .. TODO: autocomponents vs configurable
 
+.. _highlight-modifiers:
+
+Modifying Components
+--------------------
 
 [missing]
 

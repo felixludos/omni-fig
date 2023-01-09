@@ -1,3 +1,5 @@
+.. _highlight-instantiation:
+
 Automatic Instantiation
 ================================================================================
 
