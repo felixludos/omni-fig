@@ -51,7 +51,7 @@ source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
 exclude_trees = ["build", 'old']
 
-pygments_style = "github-dark" # 'one-dark'
+pygments_style = 'default' # "github-dark" # 'one-dark'
 # pygments_style = "sphinx"
 
 default_dark_mode = False

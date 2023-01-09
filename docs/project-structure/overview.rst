@@ -9,13 +9,13 @@ Each project has several registries to keep track of all associated config files
 
 To create a project, the only thing that is actually required is to have a project info file named ``.omnifig.yml`` in the root directoy (which may be empty). That project info file may contain the following fields (in YAML format):
 
-- ``name``: The name of the project. If not specified, the name will be the name of the directory containing the project info file.
+- ``name`` - The name of the project. If not specified, the name will be the name of the directory containing the project info file.
 
-- ``module``: Specifies one or multiple python modules that should be imported when the project is loaded. These should be specified as if you were using an import statement, e.g. ``mymodule.myscript`` instead of ``mymodule/myscript.py``. If there are multiple modules to import, they should be specified as a list of strings.
+- ``module`` - Specifies one or multiple python modules that should be imported when the project is loaded. These should be specified as if you were using an import statement, e.g. ``mymodule.myscript`` instead of ``mymodule/myscript.py``. If there are multiple modules to import, they should be specified as a list of strings.
 
-- ``src``: (advanced feature) Specifies one or multiple paths to python source files (relative to the project root directory) that should be run when the project is loaded. If there are multiple paths to import, they should be specified as a list of strings. Note that the difference between ``module`` and ``src`` is that ``module`` uses import which adds the module/s to ``sys.modules``, while ``src`` does not. If you are unsure which to use, generally if you would use ``import`` in your code, use ``module``, while if you want to specify the file or directory by its path, use ``src``.
+- ``src`` - (advanced feature) Specifies one or multiple paths to python source files (relative to the project root directory) that should be run when the project is loaded. If there are multiple paths to import, they should be specified as a list of strings. Note that the difference between ``module`` and ``src`` is that ``module`` uses import which adds the module/s to ``sys.modules``, while ``src`` does not. If you are unsure which to use, generally if you would use ``import`` in your code, use ``module``, while if you want to specify the file or directory by its path, use ``src``.
 
-- ``related``: (advanced feature) Specifies a list of names of other projects to load when this project is loaded. This is useful if you have a project that is a collection of other projects, and you want to load them all at once. Importantly, the projects must be specified by the same name that is used in the :ref:`profile <Profiles>`.
+- ``related`` - (advanced feature) Specifies a list of names of other projects to load when this project is loaded. This is useful if you have a project that is a collection of other projects, and you want to load them all at once. Importantly, the projects must be specified by the same name that is used in the :ref:`profile <Profiles>`.
 
 By default, if there is a directory called ``config`` in the project directory, then all yaml files inside will be registered while preserving the directory structure.
 
@@ -49,6 +49,6 @@ Where the ``.omnifig.yml`` file may look like this:
     module: scripts
 
 
-To see exactly what else projects can do, check out the documentation :ref:`here <Projects>`.
+To see exactly what else projects can do, check out the documentation on :ref:`projects <Project Base>` and their :ref:`default behavior <Default Projects>`.
 
 .. TODO: vignette B1 project organization

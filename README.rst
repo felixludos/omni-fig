@@ -44,20 +44,21 @@ Install
 
 .. install-marker-do-not-remove
 
-Everything is tested with Python 3.7 on Ubuntu 18.04 and Windows 10, but in principle it should work on any system that can handle the dependencies.
+Everything is tested with Python 3.7 on Ubuntu 18.04 and Windows 11, but in principle it should work on any system that can handle the dependencies.
 
-You can install this package through pip:
+The easiest way to install the package is with pip:
 
 .. code-block:: bash
 
     pip install omnifig
 
-You can clone this repo and install the local version for development:
+If you want to explore the examples or want to contribute to the project, you can clone the repository and install the package in development mode:
 
 .. code-block:: bash
 
     git clone https://github.com/felixludos/omni-fig
     pip install -e ./omni-fig
+
 
 .. end-install-marker-do-not-remove
 

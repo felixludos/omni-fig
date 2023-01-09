@@ -24,7 +24,7 @@ The proposed general-purpose project structure is well suited for both small and
 
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Project Structure
     :hidden:
 
@@ -38,7 +38,7 @@ The proposed general-purpose project structure is well suited for both small and
 
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Configuration System
     :hidden:
 
@@ -55,7 +55,7 @@ The proposed general-purpose project structure is well suited for both small and
 
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: API Documentation
     :glob:
     :hidden:
