@@ -1,3 +1,5 @@
+.. _behaviors-code:
+
 Behaviors
 ====================
 

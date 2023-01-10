@@ -36,7 +36,6 @@ The project configuration covers all the powerful features the configuration sys
     project-structure/projects
     project-structure/cli
     project-structure/interactive
-    project-structure/execution
     project-structure/registration
     project-structure/profiles
     project-structure/behavior

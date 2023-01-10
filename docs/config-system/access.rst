@@ -80,7 +80,7 @@ Currently there are no escape sequences, so any values starting with :code:`<>` 
     def escape_str(value):
         return value
 
-    cfg = fig.create_config(special={'_type': 'escapted-str', 'value':'<>some-value'})
+    cfg = fig.create_config(special={'_type': 'escaped-str', 'value':'<>some-value'})
 
     assert cfg.pull('special') == '<>some-value'
 
