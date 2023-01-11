@@ -1,4 +1,4 @@
 pyyaml
 toml
-omnibelt>=0.7
+omnibelt>=0.7.1
 tabulate
