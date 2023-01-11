@@ -44,10 +44,6 @@ For lots of examples in how the config system works check out the documentation_
 
 .. _documentation: https://omnifig.readthedocs.io/
 
-<<<<<<< HEAD
-For lots of detailed examples in how the config system works, see the unit tests in ``tests/test_config.py`` and the documentation_, which also includes some examples. (documentation is currently a work in progress)
-=======
->>>>>>> nodes
 
 Install
 -------
