@@ -10,9 +10,9 @@
 ========
 omni-fig
 ========
------------------------------------------------------------
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Unleashing Project Configuration and Organization in Python
------------------------------------------------------------
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 .. image:: https://readthedocs.org/projects/omnifig/badge/?version=latest
     :target: https://omnifig.readthedocs.io/en/latest/?badge=latest
@@ -35,19 +35,22 @@ Unleashing Project Configuration and Organization in Python
 
 ``omni-fig`` is a lightweight package to help you organize your python projects to make everything clear and easy to understand to collaborators and prospective users, while also offering unparalleled features to accelerate development.
 
-The proposed general-purpose project structure is well suited for both small and large projects, and is designed to be easily extensible to fit your needs. Most importantly, with the powerful configuration system, you never have to worry about any boilerplate code to parse command line arguments, read config files again, or even import the desired project components ever again!
+The proposed general-purpose project structure is well suited for both small and large projects, and is designed to be easily extensible to fit your needs. Most importantly, with the powerful configuration system, you never have to worry about any boilerplate code to parse command line arguments, read config files, or even import the top-level project components ever again!
 
 
-The primary way to use this package is to create *projects* containing python source files and yaml (info and config) files (an example of which is discussed below). Each project uses ``component``, ``modifier``, and ``script`` to register artifacts which can then be referenced in the config.
+.. The primary way to use this package is to create *projects* containing python source files and yaml (info and config) files (an example of which is discussed below). Each project uses ``component``, ``modifier``, and ``script`` to register artifacts which can then be referenced in the config.
 
-For lots of detailed examples in how the config system works, see the unit tests in ``tests/test_config.py`` and the documentation_, which also includes some examples.
+For lots of examples in how the config system works check out the documentation_ or ``examples/``.
+
+.. _documentation: https://omnifig.readthedocs.io/
+
 
 Install
 -------
 
 .. install-marker-do-not-remove
 
-Everything is tested with Python 3.7 on Ubuntu 18.04 and Windows 11, but in principle it should work on any system that can handle the dependencies.
+Everything is tested with Python 3.7 on Ubuntu 20.04 and Windows 11, but in principle it should work on any system that can handle the dependencies.
 
 The easiest way to install the stable release is with pip:
 
@@ -117,7 +120,6 @@ See the power of automatically :ref:`instantiating objects <highlight-instantiat
 Learn more about :ref:`modifying components <highlight-modifiers>`.
 
 
-
 .. end-highlights-marker-do-not-remove
 
 .. Quickstart
@@ -152,7 +154,7 @@ If you used ``omni-fig`` in your work, please cite it using:
 Contributions
 -------------
 
-Contributions are very welcome! Please feel free to open an issue or pull request.
+Feedback and contributions are very welcome! Please feel free to open an issue or pull request.
 
 .. Here's a list of features and extensions in the works:
 

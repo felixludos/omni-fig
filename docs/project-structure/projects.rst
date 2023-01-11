@@ -52,5 +52,6 @@ Where the ``.omnifig.yml`` file may look like this:
     name: some-name
     module: scripts
 
+See the feature slide :ref:`B1 <vignette-file-structure>`.
 
 To see exactly what else projects can do, check out the documentation on :ref:`projects <Project Base>` and their :ref:`default behavior <Default Projects>`.

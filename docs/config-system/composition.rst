@@ -157,3 +157,4 @@ Then, the following configs would be the result of composing the above config fi
     num-classes: 10
 
 
+See the feature slide :ref:`B4 <vignette-composition>`.

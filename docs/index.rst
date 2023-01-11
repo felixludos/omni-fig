@@ -53,7 +53,6 @@ The project configuration covers all the powerful features the configuration sys
     config-system/settings
     config-system/exporting
     config-system/creators
-    config-system/managers
 
 
 

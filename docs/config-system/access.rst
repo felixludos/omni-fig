@@ -52,6 +52,8 @@ When this yaml file is loaded (e.g. :code:`config = fig.create_config('myconfig'
 
 While this example should give you a sense for what kind of features the config system offers, a more comprehensive list of how queries in the config are resolved and the values are processed.
 
+See the feature slide :ref:`B5 <vignette-config-access>`.
+
 Queries
 -------
 
@@ -83,6 +85,7 @@ Currently there are no escape sequences, so any values starting with :code:`<>` 
     cfg = fig.create_config(special={'_type': 'escaped-str', 'value':'<>some-value'})
 
     assert cfg.pull('special') == '<>some-value'
+
 
 
 

@@ -42,6 +42,8 @@ Now, running something like ``python main.py <script> [<configs>...]`` is equiva
 Now running something like ``python launch.py [<configs>...]`` is equivalent to ``fig launch-server [<configs>...]``.
 
 
+See the feature slide :ref:`B2 <vignette-cli>`.
+
 
 Execution Sequence
 --------------------

@@ -9,6 +9,8 @@ Aside from config files, ``omni-fig`` primarily keeps track of three different k
 
 * Scripts are functions that should expect the first positional argument to be the config object.
 
+.. _component:
+
 * Components are classes that are recommended to subclass :class:`fig.Configurable <omnifig.configurable.Configurable>` (see :ref:`Configurable`) to extract all the arguments in :code:`__init__` from the config object automatically. If they do not subclass :class:`fig.Configurable <omnifig.configurable.Configurable>`, then they should expect the first positional argument to be the config object.
 
 .. TODO: vignette B8 modifying components
@@ -17,9 +19,9 @@ Aside from config files, ``omni-fig`` primarily keeps track of three different k
 
 For simple components and scripts (especially components which are functions), there are two convenience types called :class:`fig.autocomponent <omnifig.registration.autocomponent>` and :class:`fig.autoscript <omnifig.registration.autoscript>` respectively. These variants behave the same as the regular decorators, except that instead of passing the config object during initialization, the arguments of the registered class or function are extracted from the config object automatically (much like :class:`fig.Configurable <omnifig.configurable.Configurable>`).
 
-.. TODO: autocomponents vs configurable
+See the feature slide :ref:`B6 <vignette-registration>`.
 
-.. _highlight-modifiers:
+.. TODO: autocomponents vs configurable
 
 Configurable
 ------------
@@ -106,8 +108,30 @@ With these components, you can now instantiate them with the config for example:
     assert obj6.color == 'yellow'
     assert obj6.area == 49
 
+Note, that just because a class is a subclass of :class:`fig.Configurable <omnifig.configurable.Configurable>` does not mean you can't continue to instantiate the class as usual. So to continue the example above:
+
+.. code-block:: python
+
+    obj7 = Circle(3, color='purple')
+
+    assert obj7.color == 'purple'
+    assert obj7.radius == 3
+
+    obj8 = Square(4, color='orange')
+
+    assert obj8.color == 'orange'
+    assert obj8.side == 4
+
+    obj9 = Rectangle(5, 6, color='black')
+
+    assert obj9.color == 'black'
+    assert obj9.width == 5
+    assert obj9.height == 6
 
 
+
+
+.. _highlight-modifiers:
 
 Modifying Components
 --------------------
@@ -171,4 +195,6 @@ Now instead of needing to define every combination of :class:`Named`, :class:`Dr
     assert isinstance(obj3, Dark)
     assert type(obj3).__name__ == 'Named_Dark_Square'
 
+
+See the feature slide :ref:`B8 <vignette-modifiers>`.
 
