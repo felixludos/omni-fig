@@ -17,6 +17,7 @@ The `fig` command should be used like this:
 * ``configs`` - is an ordered list of names of registered config files that will be composed and passed to the script function.
 * ``args`` - any manually provided arguments to be added to the config object. Here each argument key must be preceded by a ``--`` and optionally followed by a value (which is parsed as yaml syntax), if not value is provided the key is set to :code:`True`.
 
+Even if the script name is specified in the config (under the key ``_meta.script_name``), you must include an underscore ``_`` in the command-line command.
 
 .. TODO: vignette B2 project organization
 
@@ -40,7 +41,6 @@ Now, running something like ``python main.py <script> [<configs>...]`` is equiva
         fig.entry('launch-server')
 
 Now running something like ``python launch.py [<configs>...]`` is equivalent to ``fig launch-server [<configs>...]``.
-
 
 See the feature slide :ref:`B2 <vignette-cli>`.
 
