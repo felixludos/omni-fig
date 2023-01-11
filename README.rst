@@ -79,42 +79,42 @@ Key Features
 Here is an overview of some of the core features of ``omni-fig`` with links to more detailed guides.
 
 
-.. image:: docs/_static/img/vignettes/Slide1.SVG
+.. image:: docs/_static/img/vignettes/Slide1.PNG
     :width: 100%
 
 Check out the :ref:`file structure <highlight-file-structure>` of projects.
 
-.. image:: docs/_static/img/vignettes/Slide2.SVG
+.. image:: docs/_static/img/vignettes/Slide2.PNG
    :width: 100%
 
 Read more about the :ref:`command line interface <highlight-cli>`.
 
-.. image:: docs/_static/img/vignettes/Slide3.SVG
+.. image:: docs/_static/img/vignettes/Slide3.PNG
     :width: 100%
 
 Learn more about using ``omni-fig`` in :ref:`interactive programming environments <highlight-interactive>`.
 
-.. image:: docs/_static/img/vignettes/Slide4.SVG
+.. image:: docs/_static/img/vignettes/Slide4.PNG
    :width: 100%
 
 Learn more about :ref:`composing configuration files <highlight-config-composition>`.
 
-.. image:: docs/_static/img/vignettes/Slide5.SVG
+.. image:: docs/_static/img/vignettes/Slide5.PNG
     :width: 100%
 
 Read more about how to :ref:`access config values <highlight-config-access>`.
 
-.. image:: docs/_static/img/vignettes/Slide6.SVG
+.. image:: docs/_static/img/vignettes/Slide6.PNG
    :width: 100%
 
 Check out the guide for details on :ref:`project components <highlight-registration>`.
 
-.. image:: docs/_static/img/vignettes/Slide7.SVG
+.. image:: docs/_static/img/vignettes/Slide7.PNG
     :width: 100%
 
 See the power of automatically :ref:`instantiating objects <highlight-instantiation>` from the config.
 
-.. image:: docs/_static/img/vignettes/Slide8.SVG
+.. image:: docs/_static/img/vignettes/Slide8.PNG
    :width: 100%
 
 Learn more about :ref:`modifying components <highlight-modifiers>`.
