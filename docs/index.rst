@@ -24,7 +24,6 @@ The project configuration covers all the powerful features the configuration sys
 
     installation
     highlights
-    quickstart
     philosophy
 
 

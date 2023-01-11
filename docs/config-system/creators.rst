@@ -30,7 +30,7 @@ Creators must be :ref:`registered <Registration>` just like components and modif
     >>> assert cfg.pull('x') == 2
     creating something special
 
-    >>> obj = cfg.create()
+    >>> obj = cfg.pull()
     creating something special
     >>> assert obj.x == 2
     >>> assert isinstance(obj, Something)

@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Callable, Type, \
 	Iterator, NamedTuple, ContextManager
-import abc
+# import abc
 from pathlib import Path
 from omnibelt import unspecified_argument, Registry, Primitive, JSONABLE
 
@@ -40,19 +40,16 @@ class AbstractConfig:
 
 
 	@property
-	@abc.abstractmethod
 	def project(self) -> 'AbstractProject':
 		'''Returns the project object associated with this config'''
 		raise NotImplementedError
 	@project.setter
-	@abc.abstractmethod
 	def project(self, project: 'AbstractProject'):
 		'''Sets the project object associated with this config'''
 		raise NotImplementedError
 
 
 	@property
-	@abc.abstractmethod
 	def root(self) -> 'AbstractConfig':
 		'''Returns the root node of the config object'''
 		raise NotImplementedError
