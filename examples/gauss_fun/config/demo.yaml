@@ -1,0 +1,5 @@
+
+_meta.script_name: sample # can be run with "fig _ demo"
+
+_base: [config1]
+

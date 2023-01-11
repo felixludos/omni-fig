@@ -1,0 +1,10 @@
+
+
+name: multi-profile
+
+projects:
+  example3: tests/example_projects/p3
+  example3-alt: tests/example_projects/p3/project2.yml
+
+
+

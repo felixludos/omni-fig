@@ -1,5 +1,4 @@
-
-_src: [common]
+_base: [common]
 
 dataset:
   _type: cifar

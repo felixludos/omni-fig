@@ -1,0 +1,15 @@
+
+name: base-profile
+
+# empty
+
+projects:
+  example1: tests/example_projects/p1
+  example2: tests/example_projects/p2
+  example3: tests/example_projects/p3
+  example4: tests/example_projects/p4
+  example5: tests/example_projects/p5
+  example6: tests/example_projects/p6
+  example7: tests/example_projects/p7
+  example9: tests/example_projects/p9
+

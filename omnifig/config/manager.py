@@ -1,41 +1,89 @@
-from typing import List, Dict, Tuple, Optional, Union, Any, Hashable, Sequence, Callable, Generator, Type, Iterable, \
-	Iterator, NamedTuple
+from typing import List, Dict, Optional, Union, Any, Sequence, Iterator, NamedTuple
+import os
 from pathlib import Path
 import io
 import yaml
-import toml
 from collections import OrderedDict
-from c3linearize import linearize
-from omnibelt import Path_Registry, load_yaml, JSONABLE, unspecified_argument, load_json
-from omnibelt.nodes import LocalNode
+from omnibelt import Path_Registry, JSONABLE, unspecified_argument, export, load_export, linearize, CycleDetectedError
 
 from ..abstract import AbstractConfig, AbstractProject, AbstractConfigManager
 from .nodes import ConfigNode
 
 
-_PathEntry = NamedTuple('_PathEntry', [('name', str), ('path', Path)])
 
 class ConfigManager(AbstractConfigManager):
 	_config_path_delimiter = '/'
 	_config_exts = ('yaml', 'yml', 'json', 'tml', 'toml')
 	_config_nones = {'None', 'none', '_none', '_None', 'null', 'nil', }
+	_config_parent_key = '_base'
 
 	ConfigNode = ConfigNode
 
-	Config_Registry = Path_Registry
+
+	class Config_Registry(Path_Registry, components=['project']):
+		'''Registry for config files.'''
+		pass
+
 
 	def __init__(self, project: AbstractProject):
-		self.registry = Path_Registry()
+		self.registry = self.Config_Registry()
 		self.project = project
 
-	def iterate_configs(self) -> Iterator[NamedTuple]:
-		return self.registry.values()
 
-	def register_config(self, name: str, path: Union[str, Path], **kwargs) -> NamedTuple:
+	def export(self, config: AbstractConfig, name: Union[str, Path], root: Optional[Path] = None) -> Path:
+		'''
+		Exports the given config to the given path (in yaml format).
+
+		Args:
+			config: object to export
+			name: of file to export to
+			root: directory to export to (if not provided, the current working directory is used)
+
+		Returns:
+			The path to which the config was exported
+
+		'''
+		return export(config, name=name, root=root)
+
+
+	def iterate_configs(self) -> Iterator[NamedTuple]:
+		'''
+		Iterates over all registered config file entries.
+
+		Returns:
+			An iterator over all registered config file entries.
+
+		'''
+		yield from self.registry.values()
+
+
+	def register_config(self, name: Union[str, Path], path: Union[str, Path] = None, **kwargs) -> NamedTuple:
+		'''
+		Registers a config file with the given name.
+
+		Note:
+			It is generally not recommended to register configs manually, but rather to use the ``register_config_dir``
+			method to register all configs in a directory at once.
+
+		Args:
+			name: to register the config under
+			path: of the config file (if not provided, the provided name is assumed to be a path)
+			**kwargs: Other arguments to pass to the ``Config_Registry.register`` method
+
+		Returns:
+			The entry of the config file that was registered
+
+		'''
+		if path is None:
+			path = name
+			name = None
+		if name is None:
+			name = Path(path).stem
 		return self.registry.new(name, path, **kwargs)
 
-	def register_config_dir(self, root: Union[str, Path], recursive=True, prefix=None, delimiter=None) \
-			-> List[NamedTuple]:
+
+	def register_config_dir(self, root: Union[str, Path], *, recursive: Optional[bool] = True,
+	                        prefix: Optional[str] = None, delimiter: Optional[str] = None) -> List[NamedTuple]:
 		'''
 		Registers all yaml files found in the given directory (possibly recursively)
 
@@ -52,11 +100,15 @@ class ConfigManager(AbstractConfigManager):
 
 		If a ``prefix`` is provided, it is appended to the beginning of the registered names
 
-		:param path: path to root directory to search through
-		:param recursive: search recursively through sub-directories for more config yaml files
-		:param prefix: prefix for names of configs found herein
-		:param joiner: string to merge directories when recursively searching (default ``/``)
-		:return: None
+		Args:
+			root: root directory to search through
+			recursive: search recursively through subdirectories for more config yaml files
+			prefix: prefix for names of configs found herein
+			delimiter: string to merge directories when recursively searching (default ``/``)
+
+		Returns:
+			A list of all config entries that were registered.
+
 		'''
 		if delimiter is None:
 			delimiter = self._config_path_delimiter
@@ -65,11 +117,11 @@ class ConfigManager(AbstractConfigManager):
 		root = Path(root)
 		entries = []
 		for ext in self._config_exts:
-			for path in root.glob(f'**/*.{ext}' if recursive else f'*.{ext}'):
+			for path in sorted(root.glob(f'**/*.{ext}' if recursive else f'*.{ext}')):
 				terms = path.relative_to(root).parts[:-1]
 				name = path.stem
 				ident = prefix + delimiter.join(terms + (name,))
-				entries.append(self.register_config(ident, path))
+				entries.append(self.register_config(ident, path, project=self.project))
 		return entries
 
 	def _parse_raw_arg(self, arg: str) -> JSONABLE:
@@ -78,155 +130,207 @@ class ConfigManager(AbstractConfigManager):
 			return None
 		return val
 
-	# try:
-	# 	if isinstance(mode, str):
-	# 		if mode == 'yaml':
-	# 			return yaml.safe_load(io.StringIO(arg))
-	# 		elif mode == 'python':
-	# 			return eval(arg, {}, {})
-	# 		else:
-	# 			pass
-	# 	else:
-	# 		return mode(arg)
-	# except:
-	# 	pass
-	# return arg
 
-	class AmbiguousRuleError(Exception):
-		pass
+	class UnknownBehaviorError(ValueError):
+		'''While parsing command-line arguments, a meta config was referenced that was not registered'''
+		def __init__(self, term):
+			super().__init__(f'{term!r} was not recognized (and consequently removed) by any registered Behaviors.')
 
-	class UnknownMetaError(ValueError):
-		pass
 
 	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> AbstractConfig:
-		waiting_key = None
-		waiting_meta = 0
+		'''
+		Parses command-line arguments and returns a config object that contains the parsed arguments.
 
-		remaining = list(reversed(argv))
-		
-		# print(argv, script_name)
-		
+		Args:
+			argv: raw command-line arguments
+			script_name: if not provided, the script name is inferred from ``argv``
+
+		Returns:
+			A config object containing the parsed arguments
+
+		Raises:
+			UnknownBehaviorError: if an unknown behavior config is encountered
+			ValueError: if an argument is invalid
+
+		'''
+
 		meta = {}
-		while len(remaining):
-			term = remaining.pop()
+		argv = list(argv)
 
-			if waiting_meta > 0:
-				val = self._parse_raw_arg(term)
-				if waiting_key in meta and isinstance(meta[waiting_key], list):
-					meta[waiting_key].append(val)
-				else:
-					meta[waiting_key] = val
-				waiting_meta -= 1
-				if waiting_meta == 0:
-					waiting_key = None
-
-			elif term.startswith('-') and not term.startswith('--'):
-				text = term[1:]
-				while len(text) > 0:
-					for rule in self.project.iterate_meta_rules():
-						name = rule.name
-						code = rule.code
-						if code is not None and text.startswith(code):
-							text = text[len(code):]
-							num = rule.num_args
-							if num:
-								if len(text):
-									raise self.AmbiguousRuleError(code, text)
-								waiting_key = name
-								waiting_meta = num
-								if num > 1:
-									meta[waiting_key] = []
-							else:
-								meta[name] = True
-						if not len(text):
-							break
-					else:
-						raise self.UnknownMetaError(text)
-
-			elif script_name is not unspecified_argument:
-				remaining.append(term)
-				break
-
-			elif term != '_' and script_name is unspecified_argument:
-				script_name = term
-				
-			else:
-				break
-
-		if script_name not in {None, unspecified_argument}:
-			meta['script_name'] = script_name
+		for behavior in self.project.behaviors():
+			out = behavior.parse_argv(meta, argv, script_name=script_name)
+			if out is not None:
+				argv = out
 
 		configs = []
-		while len(remaining):
-			term = remaining.pop()
-			
-			if term.startswith('--'):
-				remaining.append(term)
-				break
-			else:
-				configs.append(term)
-
-		waiting_arg_key = None
 		data = {}
-		while len(remaining):
+
+		remaining = list(reversed(argv))
+		if len(remaining):
+			# parse script (if provided)
 			term = remaining.pop()
-			
-			if term.startswith('--'):
-				if waiting_arg_key is not None:
-					data[waiting_arg_key] = True
+			if term.startswith('-') and not term.startswith('--'):
+				raise self.UnknownBehaviorError(term)
+			elif term.startswith('--'):
+				remaining.append(term)
+			elif script_name is not unspecified_argument:
+				remaining.append(term)
+			elif term != '_' and script_name is unspecified_argument:
+				script_name = term
+			if script_name not in {None, unspecified_argument}:
+				meta['script_name'] = script_name
 
-				key, *other = term[2:].split('=', 1)
-				if len(other) and len(other[0]):
-					if len(other) > 1:
-						raise ValueError(f'Invalid argument {term} (avoid using "=" in argument names)')
-					data[key] = self._parse_raw_arg(other[0])
+			# parse remaining (keyword) arguments
+			while len(remaining):
+				term = remaining.pop()
+
+				if term.startswith('--'):
+					remaining.append(term)
+					break
 				else:
-					waiting_arg_key = key
+					configs.append(term)
 
-			elif waiting_arg_key is not None:
-				data[waiting_arg_key] = self._parse_raw_arg(term)
-				waiting_arg_key = None
+			waiting_arg_key = None
+			while len(remaining):
+				term = remaining.pop()
 
-			else:
-				raise ValueError(f'Unexpected argument: {term}')
+				if term.startswith('--'):
+					if waiting_arg_key is not None:
+						data[waiting_arg_key] = True
 
-		if waiting_arg_key is not None:
-			data[waiting_arg_key] = True
+					key, *other = term[2:].split('=', 1)
+					if len(other) and len(other[0]):
+						if len(other) > 1:
+							raise ValueError(f'Invalid argument {term} (avoid using "=" in argument names)')
+						data[key] = self._parse_raw_arg(other[0])
+					else:
+						waiting_arg_key = key
 
-		if '_meta' in data:
-			data['_meta'].update(meta)
-		else:
-			data['_meta'] = meta
+				elif waiting_arg_key is not None:
+					data[waiting_arg_key] = self._parse_raw_arg(term)
+					waiting_arg_key = None
 
-		# print(configs, data)
+				else:
+					raise ValueError(f'Unexpected argument: {term}')
 
-		return self.create_config(configs, data)
+			if waiting_arg_key is not None:
+				data[waiting_arg_key] = True
 
-	def find_config_path(self, name: str) -> Path:
-		# if name not in self.registry:
-		# 	raise ValueError(f'Unknown config: {name}')
-		return self.find_config_entry(name).path
+		# configurize parsed data (including meta)
+		config = self.create_config(configs, data)
+		meta = self.create_config(None, meta)
+		meta_base = config.push_peek('_meta', {}, silent=True, overwrite=False)
+		meta_base.update(meta)
+		return config
 
-	class ConfigNotRegistered(KeyError): pass
 
-	def find_config_entry(self, name: str) -> AbstractConfig:
+	def find_local_config_entry(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the entry for a config by name.
+
+		Args:
+			name: used to register the config
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			The entry for the config
+
+		Raises:
+			ConfigNotFoundError: if the config is not registered
+
+		'''
 		try:
 			return self.registry.find(name)
 		except self.registry.NotFoundError:
 			pass
+		if default is not unspecified_argument:
+			return default
 		raise self.ConfigNotRegistered(name)
 
-	_config_parents_key = '_src'
+
+	def find_project_config_entry(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the entry for a config by name. Including checking the nonlocal projects.
+
+		Args:
+			name: of the config file used to register the config
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			The entry for the config
+
+		Raises:
+			ConfigNotFoundError: if the config is not registered
+
+		'''
+		return self.project.find_artifact('config', name, default=default)
+
+
+	def find_config_path(self, name: str, default: Optional[Any] = unspecified_argument) -> Path:
+		'''
+		Finds the path to a config file by name. Including checking the nonlocal projects.
+
+		Args:
+			name: of the config file used to register the config
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			The path to the config file
+
+		Raises:
+			ConfigNotFoundError: if the config is not registered
+
+		'''
+		if isinstance(name, Path) and name.is_file():
+			return name
+		elif os.path.isfile(name):
+			return Path(name)
+		try:
+			return self.find_project_config_entry(name).path
+		except self.ConfigNotRegistered:
+			if default is unspecified_argument:
+				raise
+			return default
+
 
 	@classmethod
 	def _find_config_parents(cls, path: Optional[Path], raw: Dict[str, Any]) -> List[str]:
-		src = raw.get(cls._config_parents_key, [])
-		if isinstance(src, str):
-			src = [src]
+		'''
+		Finds the base configs of a config file.
+
+		By default, the ``path`` is not used, and instead ``raw`` is checked for a ``_base`` key.
+
+		Args:
+			path: of the config file
+			raw: loaded data of the config file
+
+		Returns:
+			Names of the base configs of the config file (in order)
+
+		'''
+		src = []
+		if raw is None:
+			return src
+		if cls._config_parent_key is not None:
+			base = raw.get(cls._config_parent_key, [])
+			if isinstance(base, str):
+				base = [base]
+			src.extend(base)
 		assert isinstance(src, list), f'Invalid parents: {src}'
 		return src
 
+
 	def _merge_raw_configs(self, raws: List[JSONABLE]) -> AbstractConfig:
+		'''
+		Merges a list of raw configs into a single config object.
+
+		Args:
+			raws: list of raw configs (in order)
+
+		Returns:
+			The merged config
+
+		'''
 		singles = [self.configurize(raw) for raw in raws]
 
 		if not len(singles):
@@ -239,21 +343,58 @@ class ConfigManager(AbstractConfigManager):
 
 		return merged
 
-	# def _unify_config_node(self, node):
-	# 	for child in node.children():
-	# 		child.parent = node
-	# 		child.reporter = node.reporter
-	# 		self._unify_config_node(child)
 
-	def _process_full_config(self, config):
-		# self._unify_config_node(config)
-		pass
+	def load_raw_config(self, path: Union[str, Path]) -> JSONABLE:
+		'''
+		Loads raw data of a config file (formats: JSON, YAML, TOML).
 
-	def _load_raw_config(self, path: Path) -> JSONABLE:
-		return load_yaml(path, ordered=True)
+		Args:
+			path: to the config file
 
-	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None, *,
+		Returns:
+			The raw data of the config file
+
+		Raises:
+			ValueError: if the config file is not a valid format
+
+		'''
+		if path.suffix.endswith('.yml') or path.suffix.endswith('.yaml'):
+			# return load_yaml(path, ordered=True)
+			return load_export(path=path, fmt='yaml', ordered=True)
+		elif path.suffix == '.json':
+			# return load_json(path)
+			return load_export(path=path, fmt='json')
+		elif path.suffix in ('.toml', '.tml'):
+			# return toml.load(path, _dict=OrderedDict)
+			return load_export(path=path, fmt='toml', _dict=OrderedDict)
+		raise ValueError(f'Unknown config file type: {path}')
+
+
+	class ConfigCycleError(ValueError):
+		'''
+		Indicates that a cycle in the config bases was detected.
+		'''
+		def __init__(self, bad: List[str]):
+			super().__init__(f'Config cycle detected within: {", ".join(bad)}')
+
+
+	def create_config(self, configs: Optional[Sequence[Union[str, Path]]] = None, data: Optional[JSONABLE] = None, *,
 	                  project: Optional[AbstractProject] = unspecified_argument) -> AbstractConfig:
+		'''
+		Creates a config object from a list of configs and raw data.
+
+		Args:
+			configs: names of registered configs or paths to config files to load
+			data: raw data to merge into the config (e.g. from command line arguments)
+			project: to associate the resulting config with
+
+		Returns:
+			The config object
+
+		Raises:
+			ConfigNotFoundError: if a requested config is not registered
+
+		'''
 		if configs is None:
 			configs = []
 		if data is None:
@@ -268,7 +409,6 @@ class ConfigManager(AbstractConfigManager):
 		used_paths = {}
 
 		todo = list(configs)
-		# data[self._config_parents_key] = list(configs)
 		while len(todo):
 			name = todo.pop()
 			path = self.find_config_path(name)
@@ -276,96 +416,94 @@ class ConfigManager(AbstractConfigManager):
 				if not path.exists():
 					raise FileNotFoundError(path)
 				used_paths[name] = path
-				raws[path] = self._load_raw_config(path)
+				raws[path] = self.load_raw_config(path)
+				if raws[path] is None:
+					raws[path] = {}
 				ancestry_names[path] = name
 				parent_table[path] = self._find_config_parents(path, raws[path])
 				todo.extend(parent_table[path])
 
 		if len(used_paths) != len(todo):
 			graph = {key: [used_paths[name] for name in srcs] for key, srcs in parent_table.items()}
-			order = linearize(graph, heads=[None], order=True)[None]
+
+			try:
+				order = linearize(graph)[None]
+			except CycleDetectedError as c:
+				bad = c.remaining
+				del bad[None]
+				used_names = {path: name for name, path in used_paths.items()}
+				bad = [used_names[path] for path in bad]
+				raise self.ConfigCycleError(sorted(bad))
+
 			ancestry = [ancestry_names[p] for p in order[1:]]
 			order = [data] + [raws[p] for p in order[1:]]
-			# order = list(reversed(order))
 		else:
 			order = [data]
 			ancestry = []
 
-		# if ancestry_key is not None:
-		# 	ancestors = [raw.get(ancestry_key, None) for raw in order[1:]]
-
 		merged = self._merge_raw_configs(order)
 
-		merged._composition = tuple(ancestry)
-		merged._sources = tuple(configs)
+		merged._cro = tuple(map(str,ancestry))
+		merged._bases = tuple(map(str,configs))
 
 		if project is not None:
 			merged.project = project
 		merged.settings = merged.pull('_meta.settings', {}, silent=True)
 
 		merged.validate()
+		merged.manager = self
 		return merged
-	
-	def load_raw_config(self, path: Union[str, Path]) -> JSONABLE:
-		if path.suffix in ('.yaml', '.yml'):
-			return load_yaml(path, ordered=True)
-		elif path.suffix == '.json':
-			return load_json(path)
-		elif path.suffix in ('.toml', '.tml'):
-			return toml.load(path, _dict=OrderedDict)
-		raise ValueError(f'Unknown config file type: {path}')
 
-	def _configurize(self, raw: JSONABLE, parent: Optional[ConfigNode] = None, **kwargs) -> AbstractConfig:
-		return self.ConfigNode.from_raw(raw, parent=parent, **kwargs)
-		# if isinstance(raw, LocalNode):
-		# 	raw.parent = parent
-		# 	return raw
-		# if isinstance(raw, dict):
-		# 	node = self.ConfigNode.SparseNode(parent=parent, **kwargs)
-		# 	for key, value in raw.items():
-		# 		if key in node:
-		# 			node.get(key).update(self._configurize(value, parent=node, **kwargs))
-		# 		else:
-		# 			node.set(key, self._configurize(value, parent=node, **kwargs), **kwargs)
-		# elif isinstance(raw, (tuple, list)):
-		# 	node = self.ConfigNode.DenseNode(parent=parent, **kwargs)
-		# 	for idx, value in enumerate(raw):
-		# 		idx = str(idx)
-		# 		node.set(idx, self._configurize(value, parent=node, **kwargs), **kwargs)
-		# else:
-		# 	node = self.ConfigNode.DefaultNode(payload=raw, parent=parent, **kwargs)
-		# return node
-		
-	def configurize(self, raw: JSONABLE):
-		return self._configurize(raw)
-	
+
+	def configurize(self, raw: JSONABLE, **kwargs: Any) -> AbstractConfig:
+		'''
+		Converts raw data into a config object (using the config class of this manager ``ConfigNode``).
+
+		Args:
+			raw: python data structure to convert (e.g. from a JSON or YAML file)
+			**kwargs: additional arguments to pass to the config class constructor
+
+		Returns:
+			The config object
+
+		'''
+		return self.ConfigNode.from_raw(raw, **kwargs)
+
+
 	def merge_configs(self, *configs: AbstractConfig) -> AbstractConfig:
+		'''
+		Given a list of config objects, merges them into a single config object in the given order.
+
+		Args:
+			*configs: objects to merge
+
+		Returns:
+			The merged config object
+
+		'''
 		merged = self.create_config()
 		
 		todo = list(configs)
 		while len(todo):
 			self.update_config(merged, todo.pop())
 		return merged
-	
+
+
 	@staticmethod
-	def update_config(base: AbstractConfig, update: AbstractConfig, *, clear_product=True) -> AbstractConfig:
+	def update_config(base: AbstractConfig, update: AbstractConfig) -> AbstractConfig:
+		'''
+		Updates a config object with the contents of another config object.
+
+		Args:
+			base: config object to update
+			update: config object to merge into the base
+
+		Returns:
+			The updated config object
+
+		'''
 		return base.update(update)
 		
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

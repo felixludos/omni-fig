@@ -1,5 +1,5 @@
 
-_src: [data/rotate, models/basic, data/mnist]
+_base: [data/rotate, models/basic, data/mnist]
 
 _meta.script_name: train # name of the script you want to run
 

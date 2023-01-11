@@ -1,21 +1,15 @@
-from typing import Dict, Tuple, Optional, Any, Sequence, Callable, Iterator, NamedTuple
+from typing import Dict, Optional, Any, Sequence, Iterator, NamedTuple, Union, ContextManager, Type
+from pathlib import Path
 import sys
 from collections import OrderedDict
-from omnibelt import get_printer, Function_Registry
+from omnibelt import Class_Registry, JSONABLE, unspecified_argument
 
-from ..abstract import AbstractConfig, AbstractProfile
+from ..abstract import AbstractConfig, AbstractProfile, AbstractProject, AbstractBehavior
 from .workspaces import ProjectBase
 
-prt = get_printer(__name__)
 
 
-
-class _MetaRule_Registry(Function_Registry, components=['code', 'priority', 'num_args', 'description']):
-	'''The registry for meta rules (used by profiles).'''
-	pass
-
-
-class ProfileBase(AbstractProfile):  # profile that should be extended
+class ProfileBase(AbstractProfile):
 	'''
 	Generally, a run environment uses a single profile to keep track of loading projects,
 	and invoking the top level methods (such as :func:`entry()`, :func:`main()`, :func:`run()`,
@@ -26,36 +20,43 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 	'''
 
-	meta_rule_registry = _MetaRule_Registry()
-	'''Global registry for meta rules (used by the profile).'''
+	class _Behavior_Registry(Class_Registry, components=['description']):
+		'''The registry for behaviors (used by projects to modify the behavior when running scripts).'''
+		pass
+	behavior_registry = _Behavior_Registry() # one global instance (even independent of the profile instance)
+
 
 	_default_profile_cls = None
 	_profile = None
-	
+
+
 	def __init_subclass__(cls, default_profile: Optional[bool] = False, **kwargs):
 		super().__init_subclass__(**kwargs)
 		cls._profile = None
 		if default_profile is not None:
 			ProfileBase._default_profile_cls = cls
-	
+
+
 	# region Class Methods
 	Project: ProjectBase = ProjectBase
-	'''Default project class that is used when creating a new project'''
-	
+
+
 	@classmethod
-	def get_project_type(cls, ident: str) -> NamedTuple:
+	def get_project_type(cls, ident: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
 		'''
 		Gets the project type entry for the given identifier (from a registry).
 
 		Args:
 			ident: Name of the registered project type.
+			default: Default value to return if the identifier is not found.
 
 		Returns:
 			Project type entry.
 
 		'''
 		return cls.Project.get_project_type(ident)
-	
+
+
 	@classmethod
 	def replace_profile(cls, profile: 'ProfileBase' = None) -> 'ProfileBase':
 		'''
@@ -74,7 +75,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		old = cls._profile
 		cls._profile = profile
 		return old
-	
+
+
 	@classmethod
 	def get_profile(cls) -> 'ProfileBase':
 		'''
@@ -88,67 +90,69 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 			cls._profile = cls._default_profile_cls()
 			cls._profile.activate()
 		return cls._profile
-	
-	@classmethod
-	def register_meta_rule(cls, name: str, func: Callable[[AbstractConfig, Dict[str, Any]], Optional[AbstractConfig]],
-	                       *, code: str, description: Optional[str] = None, priority: Optional[int] = 0,
-	                       num_args: Optional[int] = 0) -> NamedTuple:
-		'''
-		Registers a new meta rule in the profile.
 
-		Meta rules are functions that are applied in order of their priority to the config object
-		before running a script to modify the behavior.
+
+	@classmethod
+	def register_behavior(cls, name: str, typ: Type[AbstractBehavior], *,
+	                      description: Optional[str] = None) -> NamedTuple:
+		'''
+		Registers a new behavior in the profile.
+
+		Behaviors are classes which are instantiated and managed by .
 
 		Args:
-			name: Name of the meta rule.
-			func: Callable meta rule function (input should be config object and dict of meta params,
-			output is None or a new config object).
-			code: Code to invoke the meta rule function (parsed into the config from :code:`sys.argv`).
-			priority: Order in which the meta rule is applied (higher priority is applied first).
-			num_args: When invoking the meta rule from the command line, the number of arguments
-			required for this meta rule
+			name: Name of the behavior.
+			typ: Behavior class (recommended to subclass :class:`AbstractBehavior`).
+			description: Description of the behavior.
 
 		Returns:
-			Registration entry for the meta rule.
+			Registration entry for the behavior.
 
 		'''
-		cls.meta_rule_registry.new(name, func, code=code, priority=priority, num_args=num_args,
-		                           description=description)
-	
+		cls.behavior_registry.new(name, typ, description=description)
+
+
 	@classmethod
-	def get_meta_rule(cls, name: str) -> NamedTuple:
+	def get_behavior(cls, name: str) -> NamedTuple:
 		'''
-		Gets the meta rule entry for the given identifier (from the registry).
+		Gets the behavior entry for the given identifier (from the registry).
 
 		Args:
-			name: Name of the registered meta rule.
+			name: Name of the registered behavior.
 
 		Returns:
-			Meta rule entry.
+			Behavior entry.
 
 		'''
-		return cls.meta_rule_registry.find(name)
-	
+		return cls.behavior_registry.find(name)
+
+
 	@classmethod
-	def iterate_meta_rules(cls) -> Iterator[NamedTuple]:
+	def iterate_behaviors(cls) -> Iterator[NamedTuple]:
 		'''
-		Iterates over all registered meta rules.
+		Iterates over all registered behaviors.
 
 		Returns:
-			Iterator over all meta rule entries.
+			Iterator over all behavior entries.
 
 		'''
-		entries = list(cls.meta_rule_registry.values())
-		for entry in sorted(entries, key=lambda e: (e.priority, e.name), reverse=True):
-			yield entry
-	
+		yield from cls.behavior_registry.values()
 	# endregion
+
 	
 	def __init__(self, data: Dict[str, Any] = None) -> None:
 		super().__init__(data)
 		self._loaded_projects = OrderedDict()
 		self._current_project_key = None
-	
+
+
+	@property
+	def path(self):
+		path = self.data.get('info_path', None)
+		if path is not None:
+			return Path(path)
+
+
 	# region Top Level Methods
 	def entry(self, script_name: Optional[str] = None) -> None:
 		'''
@@ -163,7 +167,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		'''
 		argv = sys.argv[1:]
 		self.main(argv, script_name=script_name)
-	
+
+
 	def initialize(self, *projects: str, **kwargs: Any) -> None:
 		'''
 		Initializes the specified projects (including activating them, which generally registers
@@ -177,13 +182,13 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		self.activate(**kwargs)
+		self.get_current_project().activate()
 		if len(projects):
 			for project in projects:
 				self.get_project(project).activate()
-		else:
-			self.get_current_project().activate()
-	
-	def main(self, argv: Sequence[str], *, script_name: str = None) -> None:
+
+
+	def main(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> None:
 		'''
 		Runs the script with the given arguments using :func:`main()` of the current project.
 
@@ -197,26 +202,43 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return self.get_current_project().main(argv, script_name=script_name)
-	
-	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
-	        kwargs: Optional[Dict[str, Any]] = None, **meta: Any):
+
+
+	def run_script(self, script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 		'''
-		Runs the script with the given arguments using :func:`run()` of the current project.
+		Runs the script registered with the given name and the given arguments using
+		:func:`run_script()` of the current project.
 
 		Args:
+			script_name: Name of the script to run (must be registered).
 			config: Config object to run the script with.
-			script_name: Name of the script to run (usually must be registered beforehand to find the function).
-			args: Manual arguments to pass to the script.
-			kwargs: Manual keyword arguments to pass to the script.
-			**meta: Meta arguments to modify the run mode (generally not recommended).
+			*args: Manual arguments to pass to the script.
+			**kwargs: Manual keyword arguments to pass to the script.
 
 		Returns:
 			The output of the script.
 
 		'''
-		return self.get_current_project().run(config, script_name=script_name, args=args, kwargs=kwargs)
-	
-	def quick_run(self, script_name, *configs, **parameters):
+		return self.get_current_project().run_script(script_name, config, *args, **kwargs)
+
+
+	def run(self, config: AbstractConfig, *args: Any, **kwargs: Any):
+		'''
+		Runs the script with the given arguments using :func:`run()` of the current project.
+
+		Args:
+			config: Config object to run the script with.
+			*args: Manual arguments to pass to the script.
+			**kwargs: Manual keyword arguments to pass to the script.
+
+		Returns:
+			The output of the script.
+
+		'''
+		return self.get_current_project().run(config, *args, **kwargs)
+
+
+	def quick_run(self, script_name: str, *configs: str, **parameters: Any):
 		'''
 		Creates a config object and runs the script using :func:`quick_run()` of the current project.
 
@@ -230,7 +252,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return self.get_current_project().quick_run(script_name, *configs, **parameters)
-	
+
+
 	def cleanup(self, *args: Any, **kwargs: Any) -> None:
 		'''
 		Calls :func:`cleanup()` of the current project.
@@ -244,12 +267,49 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return self.get_current_project().cleanup(*args, **kwargs)
-
 	# endregion
-	
+
+
+	def create_config(self, *configs: str, **parameters: JSONABLE) -> AbstractConfig:
+		'''
+		Process the provided data to create a config object (using the current project).
+
+		Args:
+			configs: usually a list of parent configs to be merged
+			parameters: any manual parameters to include in the config object
+
+		Returns:
+			Config object resulting from loading/merging `configs` and including `data`.
+		'''
+		return self.get_current_project().create_config(*configs, **parameters)
+
+
+	def parse_argv(self, argv: Sequence[str], script_name=None) -> AbstractConfig:
+		'''
+		Parses the given arguments and returns a config object.
+
+		Arguments are expected in the following order (all of which are optional):
+			1. Behaviors to modify the config loading process and script execution.
+			2. Name of the script to run.
+			3. Names of registered config files that should be loaded and merged (in order of precedence).
+			4. Manual config parameters (usually keys, prefixed by :code:`--` and corresponding values)
+
+		Args:
+			argv: List of arguments to parse (expected to be :code:`sys.argv[1:]`).
+			script_name: Manually specified name of the script (defaults to what is specified in the resulting config).
+
+		Returns:
+			Config object containing the parsed arguments.
+
+		'''
+		return self.get_current_project().parse_argv(argv, script_name=script_name)
+
+
+
 	def __str__(self):
 		return f'{self.__class__.__name__}[{self.name}]({", ".join(self._loaded_projects)})'
-	
+
+
 	def extract_info(self, other: 'ProfileBase') -> None:
 		'''
 		Extract data from the provided profile instance and store it in self.
@@ -266,7 +326,8 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		super().extract_info(other)
 		self._loaded_projects = other._loaded_projects  # .copy()
 		self._current_project_key = other._current_project_key
-	
+
+
 	def get_current_project(self) -> Project:
 		'''
 		Gets the current project instance.
@@ -276,8 +337,9 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		return self.get_project(self._current_project_key)
-	
-	def switch_project(self, ident=None) -> Project:
+
+
+	def switch_project(self, ident: Union[str, AbstractProject] = None) -> AbstractProject:
 		'''
 		Switches the current project to the one with the given identifier.
 
@@ -291,8 +353,9 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 		proj = self.get_project(ident)
 		self._current_project_key = proj.name
 		return proj
-	
-	def iterate_projects(self) -> Iterator[Project]:
+
+
+	def iterate_projects(self) -> Iterator[AbstractProject]:
 		'''
 		Iterates over all loaded projects.
 
@@ -301,6 +364,42 @@ class ProfileBase(AbstractProfile):  # profile that should be extended
 
 		'''
 		yield from self._loaded_projects.values()
+
+
+	def project_context(self, ident: Union[str, AbstractProject] = None) -> ContextManager[AbstractProject]:
+		'''
+		Context manager to temporarily switch to a different current project.
+
+		Args:
+			ident: Name of the project to switch to, defaults to the default project (with name: None).
+
+		Returns:
+			Context manager to switch to the specified project.
+
+		'''
+		return self._project_context(self, ident)
+
+
+	class _project_context:
+		'''
+		Context manager for temporarily switching the current project.
+
+		Args:
+			ident: name or path of project to switch to
+
+		'''
+
+		def __init__(self, profile: AbstractProfile, ident: Union[str, Path] = None):
+			self.profile = profile
+			self.ident = ident
+			self.old_project = None
+
+		def __enter__(self):
+			self.old_project = self.profile.get_current_project()
+			self.profile.switch_project(self.ident)
+
+		def __exit__(self, exc_type, exc_val, exc_tb):
+			self.profile.switch_project(self.old_project)
 
 
 

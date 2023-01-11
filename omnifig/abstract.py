@@ -1,39 +1,62 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Callable, Type, \
 	Iterator, NamedTuple, ContextManager
-import abc
+# import abc
 from pathlib import Path
 from omnibelt import unspecified_argument, Registry, Primitive, JSONABLE
 
 from .mixins import Activatable, FileInfo
 
 
-class AbstractConfig: # TODO: copy, deepcopy, etc
+
+class AbstractConfig:
 	'''Abstract class for config objects'''
+
+	# TODO: copy, deepcopy
 
 	_empty_default = unspecified_argument
 
+
 	class SearchFailed(KeyError):
+		'''Raised when a search fails'''
 		pass
 
+
 	@property
-	@abc.abstractmethod
+	def cro(self) -> Tuple[str, ...]:
+		'''
+		Returns the list of all config files that were composed to produce this config tree.
+		Analogous to the method resolution order (``mro``) for classes.
+		'''
+		raise NotImplementedError
+
+
+	@property
+	def bases(self) -> Tuple[str, ...]:
+		'''
+		Returns the list of config files that were explicitly mentioned to produce this config tree.
+		Analogous to ``__bases__`` for classes.
+		'''
+		raise NotImplementedError
+
+
+	@property
 	def project(self) -> 'AbstractProject':
 		'''Returns the project object associated with this config'''
 		raise NotImplementedError
 	@project.setter
-	@abc.abstractmethod
 	def project(self, project: 'AbstractProject'):
 		'''Sets the project object associated with this config'''
 		raise NotImplementedError
 
+
 	@property
-	@abc.abstractmethod
 	def root(self) -> 'AbstractConfig':
 		'''Returns the root node of the config object'''
 		raise NotImplementedError
 
+
 	def peek(self, query: Optional[str] = None, default: Optional[Any] = _empty_default, *,
-	         silent: Optional[bool] = False) -> 'AbstractConfig':
+	         silent: Optional[bool] = None) -> 'AbstractConfig':
 		'''
 		Returns a config object given by searching for the query in the config object.
 
@@ -49,8 +72,9 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		return self.peeks(query, default=default, silent=silent)
 
+
 	def pull(self, query: Optional[str] = None, default: Optional[Any] = _empty_default, *,
-	         silent: Optional[bool] = False) -> Any:
+	         silent: Optional[bool] = None) -> Any:
 		'''
 		Returns the value found by searching for the query in the config object.
 
@@ -66,7 +90,8 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		return self.pulls(query, default=default, silent=silent)
 
-	def push_pull(self, addr: str, value: Any, *, overwrite: bool = True, silent: Optional[bool] = False) -> Any:
+
+	def push_pull(self, addr: str, value: Any, *, overwrite: bool = True, silent: Optional[bool] = None) -> Any:
 		'''
 		Composes the push and pull methods into a single method. Can be used to set a value if none exists,
 		and otherwise pull the existing value.
@@ -84,7 +109,8 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		self.push(addr, value, overwrite=overwrite, silent=silent)
 		return self.pull(addr, silent=silent)
 
-	def push_peek(self, addr: str, value: Any, *, overwrite: bool = True, silent: Optional[bool] = False) \
+
+	def push_peek(self, addr: str, value: Any, *, overwrite: bool = True, silent: Optional[bool] = None) \
 			-> 'AbstractConfig':
 		'''
 		Composes the push and peek methods into a single method. Can be used to set a value if none exists,
@@ -103,8 +129,9 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		self.push(addr, value, overwrite=overwrite, silent=silent)
 		return self.peek(addr, silent=silent)
 
+
 	def peeks(self, *queries, default: Optional[Any] = _empty_default,
-	          silent: Optional[bool] = False) -> 'AbstractConfig':
+	          silent: Optional[bool] = None) -> 'AbstractConfig':
 		'''
 		Returns a config object given by searching for the queries in the config object.
 		If multiple queries are provided, each query is searched if the previous query fails.
@@ -120,7 +147,8 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		raise NotImplementedError
 
-	def pulls(self, *queries: str, default: Optional[Any] = _empty_default, silent: Optional[bool] = False) -> Any:
+
+	def pulls(self, *queries: str, default: Optional[Any] = _empty_default, silent: Optional[bool] = None) -> Any:
 		'''
 		Returns the value found by searching for the queries in the config object.
 
@@ -135,7 +163,8 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		raise NotImplementedError
 
-	def push(self, addr: str, value: Any, overwrite: bool = True, *, silent: Optional[bool] = False) -> bool:
+
+	def push(self, addr: str, value: Any, overwrite: bool = True, *, silent: Optional[bool] = None) -> bool:
 		'''
 		Sets the value at the given address.
 
@@ -151,6 +180,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		raise NotImplementedError
 
+
 	def update(self, update: 'AbstractConfig') -> 'AbstractConfig':
 		'''
 		Updates the config object with the given config object (recursively overwriting common keys).
@@ -163,7 +193,8 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
-	
+
+
 	def silence(self, silent: bool = True) -> ContextManager:
 		'''
 		Context manager to silence the config object.
@@ -191,6 +222,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		raise NotImplementedError
 
+
 	def peek_children(self, *, silent: Optional[bool] = None) -> Iterator['AbstractConfig']:
 		'''
 		Returns an iterator of the child config objects of self.
@@ -203,6 +235,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
+
 
 	def pull_named_children(self, *, force_create: Optional[bool] = False, silent: Optional[bool] = None) \
 			-> Iterator[Tuple[str, Any]]:
@@ -218,6 +251,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
+
 
 	def pull_children(self, *, force_create: Optional[bool] = False, silent: Optional[bool] = None) -> Iterator[Any]:
 		'''
@@ -247,6 +281,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
+
 
 	def peek_create(self, query, default: Optional[Any] = _empty_default, *args, **kwargs):
 		'''
@@ -284,6 +319,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 		'''
 		raise NotImplementedError
 
+
 	def peek_process(self, query, default: Optional[Any] = _empty_default, *args, **kwargs):
 		'''
 		Composes the peek and process methods into a single method.
@@ -300,6 +336,7 @@ class AbstractConfig: # TODO: copy, deepcopy, etc
 
 		'''
 		raise NotImplementedError
+
 
 
 class AbstractConfigurable:
@@ -325,6 +362,8 @@ class AbstractConfigurable:
 		'''
 		raise NotImplementedError
 
+
+
 class AbstractCertifiable(AbstractConfigurable):
 	'''Abstract mix-in for objects that can must be certified after intialization.'''
 
@@ -339,10 +378,18 @@ class AbstractCertifiable(AbstractConfigurable):
 		return self
 
 
+
 class AbstractConfigManager:
 	'''Abstract class for config managers.'''
 
+
+	class ConfigNotRegistered(KeyError):
+		'''A config was not registered'''
+		pass
+
+
 	ConfigNode = None
+
 
 	def register_config(self, name: str, path: Union[str, Path]) -> NamedTuple:
 		'''
@@ -358,6 +405,7 @@ class AbstractConfigManager:
 		'''
 		raise NotImplementedError
 
+
 	def register_config_dir(self, root: Union[str, Path]) -> List[NamedTuple]:
 		'''
 		Recursively registers all config files found in the given directory.
@@ -371,21 +419,6 @@ class AbstractConfigManager:
 		'''
 		raise NotImplementedError
 
-	def find_config_entry(self, name: str) -> NamedTuple:
-		'''
-		Finds the entry for the config file with the given name in the registry.
-
-		Args:
-			name: Name of the config file to find.
-
-		Returns:
-			The entry for the config file with the given name.
-
-		Raises:
-			:class:`KeyError`: If the config file is not registered.
-
-		'''
-		raise NotImplementedError
 
 	def iterate_configs(self) -> Iterator[NamedTuple]:
 		'''
@@ -397,12 +430,50 @@ class AbstractConfigManager:
 		'''
 		raise NotImplementedError
 
-	def find_config_path(self, name: str) -> Path:
+
+	def find_local_config_entry(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the entry for the config file with the given name in the registry.
+
+		Args:
+			name: Name of the config file to find.
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			The entry for the config file with the given name.
+
+		Raises:
+			:class:`KeyError`: If the config file is not registered.
+
+		'''
+		raise NotImplementedError
+
+
+	def find_project_config_entry(self, name: str, default: Optional[Any] = unspecified_argument) -> NamedTuple:
+		'''
+		Finds the entry for a config by name. Including checking the nonlocal projects.
+
+		Args:
+			name: of the config file used to register the config
+			default: Default value to return if the artifact is not found.
+
+		Returns:
+			The entry for the config
+
+		Raises:
+			ConfigNotFoundError: if the config is not registered
+
+		'''
+		raise NotImplementedError
+
+
+	def find_config_path(self, name: str, default: Optional[Any] = unspecified_argument) -> Path:
 		'''
 		Finds the path to the config file with the given name in the registry.
 
 		Args:
 			name: Name of the config file to find.
+			default: Default value to return if the artifact is not found.
 
 		Returns:
 			The path to the config file with the given name.
@@ -412,6 +483,7 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
+
 
 	def parse_argv(self, argv: Sequence[str], script_name: Optional[str] = unspecified_argument) -> AbstractConfig:
 		'''
@@ -433,6 +505,7 @@ class AbstractConfigManager:
 		'''
 		raise NotImplementedError
 
+
 	def create_config(self, configs: Optional[Sequence[str]] = None, data: Optional[JSONABLE] = None) -> AbstractConfig:
 		'''
 		Creates a config object from the given config file names and provided arguments.
@@ -446,7 +519,8 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
-	
+
+
 	def load_raw_config(self, path: Union[str, Path]) -> JSONABLE:
 		'''
 		Loads a config file from the given path and returns the raw config data
@@ -464,7 +538,8 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
-	
+
+
 	def configurize(self, raw: JSONABLE) -> AbstractConfig:
 		'''
 		Converts the given raw config data into a config object.
@@ -480,7 +555,8 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
-	
+
+
 	def merge_configs(self, *configs: AbstractConfig) -> AbstractConfig:
 		'''
 		Merges the given config objects into a single config object.
@@ -496,6 +572,7 @@ class AbstractConfigManager:
 
 		'''
 		raise NotImplementedError
+
 
 	@staticmethod
 	def update_config(base: AbstractConfig, update: AbstractConfig) -> AbstractConfig:
@@ -513,30 +590,16 @@ class AbstractConfigManager:
 		raise NotImplementedError
 
 
+
 class AbstractCustomArtifact:
 	@staticmethod
 	def top(config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 		raise NotImplementedError
 
+
 	def get_wrapped(self) -> Union[Callable, Type]:
 		raise NotImplementedError
 
-
-class AbstractScript:
-	'''Abstract class for scripts. (generally doesn't have to be used)'''
-
-	def __call__(self, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
-		raise NotImplementedError
-
-
-class AbstractComponent:
-	'''Abstract class for components. (generally doesn't have to be used)'''
-	pass
-
-
-class AbstractModifier:
-	'''Abstract class for modifiers. (generally doesn't have to be used)'''
-	pass
 
 
 class AbstractCreator:
@@ -560,8 +623,10 @@ class AbstractCreator:
 		'''
 		return cls(config, **kwargs)
 
+
 	def __init__(self, config: AbstractConfig, **kwargs: Any):
 		super().__init__(**kwargs)
+
 
 	def create(self, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 		'''
@@ -577,6 +642,7 @@ class AbstractCreator:
 
 		'''
 		return self.create_product(config, args=args, kwargs=kwargs)
+
 
 	def create_product(self, config: AbstractConfig, args: Optional[Tuple] = None,
 	                   kwargs: Optional[Dict[str,Any]] = None) -> Any:
@@ -599,14 +665,9 @@ class AbstractCreator:
 class AbstractRunMode(Activatable):
 	'''Abstract class for run modes. Run modes include Projects and Profiles'''
 
-	def main(self, argv: Sequence[str], *, script_name: Optional[str] = unspecified_argument) -> Any:
+	def main(self, argv: Sequence[str], script_name: Optional[str] = None) -> Any:
 		'''
-		Runs the script with the given arguments. First the arguments are parsed into a config object, and then
-		the specified script is run with the config object using :func:`run()`.
-
-		After parsing the arguments, the config object is validated with :func:`validate_main()`,
-		which can modify the run mode. Before running the script, :py:obj:`self` is activated with :func:`activate()`
-		(which usually loads any required files or packages for the script).
+		Runs the script with the given arguments using the config object obtained by parsing ``argv``.
 
 		Args:
 			argv: List of top-level arguments (expected to be :code:`sys.argv[1:]`).
@@ -617,18 +678,27 @@ class AbstractRunMode(Activatable):
 			The output of the script.
 
 		'''
-		self.activate() # TODO: move to after validate main
-		config = self.parse_argv(argv, script_name=script_name)
-		transfer = self.validate_main(config) # can update/modify the project based on the config
-		if transfer is not None:
-			return transfer.main(argv, script_name=script_name)
-		# self.activate() # load the project
-		out = self.run(config, script_name=script_name) # run based on the config
-		self.cleanup() # (optional) cleanup
-		return out # return output
+		raise NotImplementedError
 
-	def run(self, config: AbstractConfig, *, script_name: Optional[str] = unspecified_argument,
-	        args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None, **meta: Any) -> Any:
+
+	def run_script(self, script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
+		'''
+		Runs the script with the given arguments using :func:`run()` of the current project.
+
+		Args:
+			script_name: The script name to run (must be registered).
+			config: Config object to run the script with (must include the script under :code:`_meta.script_name`).
+			*args: Manual arguments to pass to the script.
+			**kwargs: Manual keyword arguments to pass to the script.
+
+		Returns:
+			The output of the script.
+
+		'''
+		raise NotImplementedError
+
+
+	def run(self, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 		'''
 		Runs a script with the given config object and other arguments.
 
@@ -636,20 +706,16 @@ class AbstractRunMode(Activatable):
 		which can modify the run mode.
 
 		Args:
-			config: Config object to run the script with.
-			script_name: Name of the script to run (usually must be registered beforehand to find the function).
+			config: Config object to run the script with (must include the script under :code:`_meta.script_name`).
 			args: Manual arguments to pass to the script.
 			kwargs: Manual keyword arguments to pass to the script.
-			**meta: Meta arguments to modify the run mode (generally not recommended).
 
 		Returns:
 			The output of the script.
 
 		'''
-		transfer = self.validate_run(config)
-		if transfer is not None:
-			return transfer.run(config, script_name=script_name)
-		return self.run_local(config, script_name=script_name, args=args, kwargs=kwargs, meta=meta)
+		raise NotImplementedError
+
 
 	def cleanup(self):
 		'''
@@ -660,21 +726,14 @@ class AbstractRunMode(Activatable):
 			:code:`None`
 
 		'''
-		pass
+		for behavior in self.behaviors():
+			behavior.cleanup()
 
-	def validate_main(self, config: AbstractConfig) -> Optional['AbstractRunMode']:
-		'''
-		Validates the config object after parsing the arguments and before activating :py:obj:`self`
-		(usually loading missing files and packages).
 
-		Args:
-			config: Config object to validate.
+	def behaviors(self) -> Iterator['AbstractBehavior']:
+		'''Iterates over all behaviors associated with this project.'''
+		raise NotImplementedError
 
-		Returns:
-			:code:`None` if the config is valid, otherwise the run mode to transfer to.
-
-		'''
-		pass
 
 	def validate_run(self, config: AbstractConfig) -> Optional['AbstractRunMode']:
 		'''
@@ -688,6 +747,7 @@ class AbstractRunMode(Activatable):
 
 		'''
 		pass
+
 
 	def parse_argv(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> AbstractConfig:
 		'''
@@ -709,24 +769,6 @@ class AbstractRunMode(Activatable):
 		'''
 		raise NotImplementedError
 
-	def run_local(self, config: AbstractConfig, *, script_name: Optional[str] = None, args: Optional[Tuple] = None,
-	        kwargs: Optional[Dict[str, Any]] = None, meta: Optional[Dict[str, Any]] = None) -> Any:
-		'''
-		Runs a script with the given config object and other arguments.
-
-		Args:
-			config: Config object to run the script with.
-			script_name: Manually specified name of the script (defaults to what is specified in the resulting config).
-			args: Manual arguments to pass to the script.
-			kwargs: Manual keyword arguments to pass to the script.
-			meta: Meta arguments to modify how the script is run (generally not recommended).
-
-		Returns:
-			The output of the script.
-
-		'''
-		raise NotImplementedError
-
 
 
 class AbstractProject(AbstractRunMode, FileInfo, Activatable):
@@ -734,10 +776,10 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 	Abstract class for projects. Projects track artifacts (eg. configs and components) in registries
 	and manage loading configs and running scripts.
 	'''
-
 	def __init__(self, path: Optional[Union[str, Path]] = None, profile: 'AbstractProfile' = None, **kwargs):
 		super().__init__(path, **kwargs)
 		self._profile = profile
+
 
 	def __eq__(self, other: 'AbstractProject') -> bool:
 		'''
@@ -752,6 +794,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 		'''
 		return self.data['info_path'] == other.data['info_path']
 
+
 	@property
 	def profile(self) -> 'AbstractProfile':
 		'''
@@ -764,16 +807,31 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 		return self._profile
 
 
-	def iterate_meta_rules(self) -> Iterator[NamedTuple]:
+	def nonlocal_projects(self) -> Iterator[NamedTuple]:
 		'''
-		Iterates over all meta rules in the project. By default, this iterates over all meta rules in the profile.
+		Iterator over all projects that are related to this one, followed by all active base projects
+		of the profile (without repeating any projects).
+
+		Returns:
+			An iterator over all projects that are related to this one, followed by all active base projects
+
+		'''
+		raise NotImplementedError
+
+
+	def behaviors(self) -> Iterator[NamedTuple]:
+		'''
+		Iterates over all behavior instances associated with this project.
+
+		By default, this creates an instance for all behaviors in the profile.
 
 		Returns:
 			Iterator over meta rules in order of priority (highest -> least).
 
 		'''
-		return self._profile.iterate_meta_rules()
-	
+		raise NotImplementedError
+
+
 	class UnknownArtifactError(Registry.NotFoundError):
 		'''Raised when trying to find an artifact that is not registered.'''
 		def __init__(self, artifact_type: str, ident: str):
@@ -782,8 +840,48 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 			self.ident = ident
 
 
-	def xray(self, artifact, sort=False, reverse=False, as_dict=False):
+	def xray(self, artifact: str, *, sort: Optional[bool] = False, reverse: Optional[bool] = False,
+	         as_list: Optional[bool] = False) -> Optional[List[NamedTuple]]:
+		'''
+		Prints a list of all artifacts of the given type accessible from this project
+		(including related and active base projects).
+
+		Args:
+			artifact: artifact type (e.g. 'script', 'config')
+			sort: sort the list of artifacts by name
+			reverse: reverse the order of the list of artifacts
+			as_list: instead of printing, return the list of artifacts
+
+		Returns:
+			list: if as_list is True, returns a list of artifacts
+
+		Raises:
+			UnknownArtifactTypeError: if the given artifact type does not exist
+
+		'''
 		raise NotImplementedError
+
+
+	def find_local_artifact(self, artifact_type: str, ident: str,
+	                        default: Optional[Any] = unspecified_argument) -> Optional[NamedTuple]:
+		'''
+		Finds the artifact with the given type and identifier in ``self``
+		without checking related projects or active projects in the profile.
+
+		Args:
+			artifact_type: The type of artifact to find.
+			ident: The identifier of the artifact to find.
+			default: The default value to return if the artifact is not found.
+
+		Returns:
+			The artifact entry from the registry corresponding to the given type.
+
+		Raises:
+			UnknownArtifactTypeError: If the artifact type is not registered.
+			UnknownArtifactError: If the artifact is not found and no default is given.
+
+			'''
+		raise self.UnknownArtifactError(artifact_type, ident)
 
 
 	def find_artifact(self, artifact_type: str, ident: str,
@@ -806,6 +904,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 		'''
 		raise self.UnknownArtifactError(artifact_type, ident)
 
+
 	def register_artifact(self, artifact_type: str, ident: str, artifact: Union[Type, Callable],
 	                      **kwargs: Any) -> NamedTuple:
 		'''
@@ -823,6 +922,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 
 		'''
 		raise NotImplementedError
+
 
 	def iterate_artifacts(self, artifact_type: str) -> Iterator[NamedTuple]:
 		'''
@@ -853,10 +953,11 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 		'''
 		raise NotImplementedError
 
+
 	def quick_run(self, script_name: str, *configs: str, **parameters: JSONABLE) -> Any:
 		'''
-		Composes :func:`create_config() and :func:`run()` into a single method to first create a config object
-		and then run the specified script.
+		Composes :func:`create_config() and :func:`run_script()` into a single method to
+		first create a config object and then run the specified script.
 
 		Args:
 			script_name: Name of the script to run (should be registered).
@@ -868,7 +969,7 @@ class AbstractProject(AbstractRunMode, FileInfo, Activatable):
 
 		'''
 		config = self.create_config(*configs, **parameters)
-		return self.run(config, script_name=script_name)
+		return self.run_script(script_name, config)
 
 
 
@@ -892,6 +993,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	@classmethod
 	def replace_profile(cls, profile: 'AbstractProfile') -> 'AbstractProfile':
 		'''
@@ -906,6 +1008,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	@classmethod
 	def get_profile(cls) -> 'AbstractProfile':
 		'''
@@ -917,51 +1020,49 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
-	@classmethod
-	def register_meta_rule(cls, name: str, func: Callable[[AbstractConfig, Dict[str, Any]], Optional[AbstractConfig]],
-	                       *, code: str, priority: Optional[int] = 0, num_args: Optional[int] = 0) -> NamedTuple:
-		'''
-		Registers a new meta rule in the profile.
 
-		Meta rules are functions that are applied in order of their priority to the config object
-		before running a script to modify the behavior.
+	@classmethod
+	def register_behavior(cls, name: str, typ: Type['AbstractBehavior'], *,
+	                      description: Optional[str] = None) -> NamedTuple:
+		'''
+		Registers a new behavior in the profile.
+
+		Behaviors are classes which are instantiated and managed by .
 
 		Args:
-			name: Name of the meta rule.
-			func: Callable meta rule function (input should be config object and dict of meta params,
-			output is None or a new config object).
-			code: Code to invoke the meta rule function (parsed into the config from :code:`sys.argv`).
-			priority: Order in which the meta rule is applied (higher priority is applied first).
-			num_args: When invoking the meta rule from the command line, the number of arguments
-			required for this meta rule
+			name: Name of the behavior.
+			typ: Behavior class (recommended to subclass :class:`AbstractBehavior`).
+			description: Description of the behavior.
 
 		Returns:
-			Registration entry for the meta rule.
+			Registration entry for the behavior.
 
 		'''
 		raise NotImplementedError
 
+
 	@classmethod
-	def get_meta_rule(cls, name: str) -> NamedTuple:
+	def get_behavior(cls, name: str) -> NamedTuple:
 		'''
-		Gets the meta rule entry for the given identifier (from the registry).
+		Gets the behavior entry for the given identifier (from the registry).
 
 		Args:
-			name: Name of the registered meta rule.
+			name: Name of the registered behavior.
 
 		Returns:
-			Meta rule entry.
+			Behavior entry.
 
 		'''
 		raise NotImplementedError
 
+
 	@classmethod
-	def iterate_meta_rules(cls) -> Iterator[NamedTuple]:
+	def iterate_behaviors(cls) -> Iterator[NamedTuple]:
 		'''
-		Iterates over all registered meta rules.
+		Iterates over all registered behaviors.
 
 		Returns:
-			Iterator over all meta rule entries.
+			Iterator over all behavior entries.
 
 		'''
 		raise NotImplementedError
@@ -980,6 +1081,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	def initialize(self, *projects: str) -> None:
 		'''
 		Initializes the specified projects (including activating them, which generally registers
@@ -993,6 +1095,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	def main(self, argv: Sequence[str], *, script_name: Optional[str] = None) -> Any:
 		'''
@@ -1009,17 +1112,17 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
-	def run(self, config, *, script_name=None, args: Optional[Tuple] = None,
-	        kwargs: Optional[Dict[str, Any]] = None, **meta: Any) -> Any:
+
+	def run_script(self, script_name: str, config: AbstractConfig, *args: Any, **kwargs: Any) -> Any:
 		'''
-		Runs the script with the given arguments using :func:`run()` of the current project.
+		Runs the script registered with the given name and the given arguments using
+		:func:`run_script()` of the current project.
 
 		Args:
+			script_name: Name of the script to run (must be registered).
 			config: Config object to run the script with.
-			script_name: Name of the script to run (usually must be registered beforehand to find the function).
-			args: Manual arguments to pass to the script.
-			kwargs: Manual keyword arguments to pass to the script.
-			**meta: Meta arguments to modify the run mode (generally not recommended).
+			*args: Manual arguments to pass to the script.
+			**kwargs: Manual keyword arguments to pass to the script.
 
 		Returns:
 			The output of the script.
@@ -1027,12 +1130,32 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
+	def run(self, config: AbstractConfig, *,
+	        args: Optional[Tuple] = None, kwargs: Optional[Dict[str, Any]] = None) -> Any:
+		'''
+		Runs the script with the given arguments using :func:`run()` of the current project.
+
+		This method assumes the script_name is already contained in the config, otherwise use :func:`run_script()`.
+
+		Args:
+			config: Config object to run the script with (must include the script under :code:`_meta.script_name`).
+			args: Manual arguments to pass to the script.
+			kwargs: Manual keyword arguments to pass to the script.
+
+		Returns:
+			The output of the script.
+
+		'''
+		raise NotImplementedError
+
+
 	def quick_run(self, script_name: str, *configs: str, **parameters: Any) -> Any:
 		'''
 		Creates a config object and runs the script using :func:`quick_run()` of the current project.
 
 		Args:
-			script_name: Name of the script to run (should be registered).
+			script_name: Name of the script to run (must be registered).
 			*configs: Names of registered config files to load and merge (in order of precedence).
 			**parameters: Manual config parameters to populate the config object with.
 
@@ -1042,12 +1165,48 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
 	def cleanup(self) -> None:
 		'''
-		Calls :func:`cleanup()` of the current project.
+		Calls :func:`cleanup()` of the current project. Generally not needed to be called manually.
 
 		Returns:
 			:code:`None`
+
+		'''
+		raise NotImplementedError
+
+
+	def create_config(self, *configs: str, **parameters: JSONABLE) -> AbstractConfig:
+		'''
+		Process the provided data to create a config object (using the current project).
+
+		Args:
+			configs: usually a list of parent configs to be merged
+			parameters: any manual parameters to include in the config object
+
+		Returns:
+			Config object resulting from loading/merging `configs` and including `data`.
+		'''
+		raise NotImplementedError
+
+
+	def parse_argv(self, argv: Sequence[str], script_name=None) -> AbstractConfig:
+		'''
+		Parses the given arguments and returns a config object.
+
+		Arguments are expected in the following order (all of which are optional):
+			1. Meta rules to modify the config loading process and run mode.
+			2. Name of the script to run.
+			3. Names of registered config files that should be loaded and merged (in order of precedence).
+			4. Manual config parameters (usually keys, prefixed by :code:`--` and corresponding values)
+
+		Args:
+			argv: List of arguments to parse (expected to be :code:`sys.argv[1:]`).
+			script_name: Manually specified name of the script (defaults to what is specified in the resulting config).
+
+		Returns:
+			Config object containing the parsed arguments.
 
 		'''
 		raise NotImplementedError
@@ -1068,6 +1227,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		return super().extract_info(other)
 
+
 	def get_current_project(self) -> AbstractProject:
 		'''
 		Gets the current project instance.
@@ -1077,6 +1237,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	def switch_project(self, ident: Optional[str] = None) -> AbstractProject:
 		'''
@@ -1091,6 +1252,21 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 		'''
 		raise NotImplementedError
 
+
+	def project_context(self, ident: Optional[Union[str, AbstractProject]] = None) -> ContextManager[AbstractProject]:
+		'''
+		Context manager to temporarily switch to a different current project.
+
+		Args:
+			ident: Name of the project to switch to, defaults to the default project (with name: None).
+
+		Returns:
+			Context manager to switch to the specified project.
+
+		'''
+		raise NotImplementedError
+
+
 	def iterate_projects(self) -> Iterator[AbstractProject]:
 		'''
 		Iterates over all loaded projects.
@@ -1100,6 +1276,7 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 		'''
 		raise NotImplementedError
+
 
 	def get_project(self, ident: Optional[str] = None) -> AbstractProject:
 		'''
@@ -1116,30 +1293,177 @@ class AbstractProfile(FileInfo, Activatable): # generally you should extend orga
 
 
 
-class AbstractMetaRule:
-	'''Alternative interface for meta rules.'''
+class AbstractBehavior:
+	'''Interface for meta rules.'''
 
-	class TerminationFlag(KeyboardInterrupt):
-		'''Raised if the subsequent script should not be run.'''
-		pass
-
-	@classmethod
-	def run(cls, config: AbstractConfig, meta: Dict[str, Any]) -> Optional[AbstractConfig]:
+	def __init__(self, project: AbstractProject, **kwargs: Any):
 		'''
-		Function called when the meta rule is invoked.
-		If the function returns a config object, it will be used in place of the input here.
+		Behaviors are usually instantiated by the project at the beginning :meth:`main()` method.
+
+		Otherwise, if :meth:`main()` is not used, the behaviors are instantiated in :meth:`run()`
+		right before the behaviors are filtered using :meth:`include()`.
 
 		Args:
-			config: Config object to run the script with.
-			meta: Meta arguments to modify the run mode (generally not recommended).
-
-		Returns:
-			New config object to use in place of the input, or :code:`None` to use the input.
-
-		Raises:
-			:class:`TerminationFlag`: If the subsequent script should not be run.
+			project: Project of this behavior instance.
+			**kwargs: Additional keyword arguments (unused).
 
 		'''
-		raise NotImplementedError
+		super().__init__(**kwargs)
 
+
+	class TerminationFlag(KeyboardInterrupt): # TODO: can decide the output
+		'''Raised if the subsequent script should not be run.'''
+
+		out = None
+		def __init__(self, out: Any = None):
+			'''
+			Prevents the subsequent script from being run.
+
+			Args:
+				out: User-defined output to be returned instead of the output of the script.
+			'''
+			super().__init__()
+			self.out = out
+
+
+	@staticmethod
+	def parse_argv(meta: Dict[str, Any], argv: List[str], script_name: Optional[str] = None) -> Optional[List[str]]:
+		'''
+		Optionally modifies the arguments when the project's :meth:`main()` is called.
+
+		Args:
+			meta: Meta-data extracted from the argv so far (can be modified here).
+			argv: List of arguments to parse (expected to be :code:`sys.argv[1:]`).
+			script_name: Manually specified name of the script (if not provided, it will be parsed from argv).
+
+		Returns:
+			Modified list of arguments (or :code:`None` if no modification is needed).
+
+		'''
+		pass
+
+	@staticmethod
+	def validate_project(config: AbstractConfig) -> Optional[AbstractProject]:
+		'''
+		Validates the project (provided in constructor) using the given config object before running it.
+
+		If a different project should be used, it can be returned here.
+
+		Args:
+			config: The config object to use for validation.
+
+		Returns:
+			The new project to use for the script execution or ``None`` if no new project was returned.
+
+		'''
+		pass
+
+
+	@staticmethod
+	def include(meta: AbstractConfig) -> bool:
+		'''
+		Checks if the current behavior should be included in the subsequent script execution.
+
+		Args:
+			meta: Meta config to configure behavior and script execution.
+
+		Returns:
+			:code:`True` if the behavior should be included, :code:`False` otherwise.
+
+		'''
+		return True
+
+
+	@staticmethod
+	def pre_run(meta: AbstractConfig, config: AbstractConfig) -> Optional[AbstractConfig]:
+		'''
+		Runs before the script is executed, within the project :meth:`run()`.
+
+		Args:
+			meta: Meta config to configure behavior and script execution.
+			config: Config object which will be passed to the script.
+
+		Returns:
+			New config object to pass to the script instead (or None to use the original config).
+
+		Raises:
+			:exc:`TerminationFlag`: If the subsequent script should not be run.
+
+		'''
+		pass
+
+
+	class IgnoreException(Exception):
+		'''Raised if the underlying exception raised while running the script should be ignored.'''
+		def __init__(self, out: Any = None):
+			'''
+			Instead of raising the exception, ``out`` will be returned.
+
+			Args:
+				out: User-defined output to be returned instead of raising the exception.
+			'''
+			super().__init__()
+			self.out = out
+
+
+	@staticmethod
+	def handle_exception(meta: AbstractConfig, config: AbstractConfig, exc: Exception) -> None:
+		'''
+		Runs if the script raises an exception.
+
+		Args:
+			meta: Meta config to configure behavior and script execution.
+			config: Config object to run the script with.
+			exc: Exception that was raised.
+
+		Returns:
+			:code:`None`
+
+		Raises:
+			:exc:`IgnoreException`: If the exception should be ignored.
+			:exc:`TerminationFlag`: If the subsequent behaviors should not be run.
+
+		'''
+		pass
+
+
+	@staticmethod
+	def post_run(meta: AbstractConfig, config: AbstractConfig, output: Any) -> Optional[Any]:
+		'''
+		Function called after the script is run.
+		If the function returns a value, it will be used as the output of the script.
+
+		Args:
+			meta: Meta config to configure behavior and script execution.
+			config: Config object used to run the script with.
+			output: Output of the script.
+
+		Returns:
+			New output of the script, or :code:`None` to use the original output.
+
+		Raises:
+			:exc:`TerminationFlag`: If the subsequent behaviors should not be run.
+
+		'''
+		pass
+
+
+	@staticmethod
+	def cleanup():
+		'''
+		Function called at the end of the project :meth:`main()` during cleanup.
+
+		Note that this is only called if the project :meth:`main()`. To define a cleanup function for
+		the behavior that is called every time a script is run, use :meth:`post_run()`.
+
+		Returns:
+			:code:`None`
+
+		'''
+		pass
+
+
+	def __cmp__(self, other):
+		'''Compares the behavior to another behavior for ordering.'''
+		raise NotImplementedError
 

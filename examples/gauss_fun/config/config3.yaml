@@ -1,0 +1,11 @@
+
+_base: [config1] # all these registered configs will be loaded and merged with this one
+
+path: 'backup-log.txt'
+
+logger:
+  _mod: multi
+
+  print_streams:
+  - _type: file
+  - _type: stdout

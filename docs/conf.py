@@ -19,7 +19,7 @@ from omnifig import __version__, __author__
 
 project = 'omnifig'
 author = __author__
-copyright = '2022, {}'.format(author)
+copyright = '2023, {}'.format(author)
 
 
 ###################
@@ -35,6 +35,7 @@ version = "v{}".format(__version__)
 
 extensions = [
     "sphinx.ext.autodoc",
+    'sphinx.ext.autosummary',
     "sphinx.ext.doctest",
     "sphinx.ext.napoleon",
     'sphinx.ext.githubpages',
@@ -42,42 +43,38 @@ extensions = [
     "sphinx.ext.githubpages",
     'sphinx_autodoc_typehints',
     "myst_parser",
+    'sphinx.ext.autosectionlabel',
+    'sphinx_rtd_dark_mode',
 ]
 templates_path = []
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
-exclude_trees = ["build"]
-pygments_style = "sphinx"
+exclude_trees = ["build", 'old']
+
+pygments_style = 'default' # "github-dark" # 'one-dark'
+# pygments_style = "sphinx"
+
+default_dark_mode = False
+
+autodoc_default_options = {
+    'member-order': 'bysource',
+    'show-inheritance': True,
+    'no-inherited-members': True,
+    'special-members': '__init__',
+    'undoc-members': True,
+    'exclude-members': '__module__,_getref,__new__,__weakref__,__dict__,__repr__,__str__,__hash__,__eq__,__ne__,__lt__,__le__,__gt__,__ge__'
+}
 
 
 ##############
 # html theme #
 ##############
 
-html_theme = "sphinx_rtd_theme"
-html_theme_options = {}
-html_static_path = []
-htmlhelp_basename = "roboball2ddoc"
 
 
 #####################
 # api documentation #
 #####################
-
-
-# def skip(app, what, name, obj, would_skip, options):
-#     if name == "__init__":
-#         return False
-#     return would_skip
-#
-#
-# def setup(app):
-#     app.connect("autodoc-skip-member", skip)
-#
-#
-# autoclass_content = "both"
-
-
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -89,6 +86,7 @@ htmlhelp_basename = "roboball2ddoc"
 import sphinx_rtd_theme
 
 # logo
+# html_logo = '_static/img/logo_border.png' # should be wide
 html_logo = '_static/img/logo_border.png' # should be wide
 
 # logo
@@ -118,7 +116,7 @@ html_style = 'css/gsm.css'
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'figDoc'
+htmlhelp_basename = 'omnifigDoc'
 
 
 # -- Extension configuration -------------------------------------------------

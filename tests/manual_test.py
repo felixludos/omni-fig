@@ -8,7 +8,7 @@ if __name__ == '__main__':
 	import _test_util as tu
 	
 	
-	fig.get_current_project().register_config_dir(os.path.join(tu.TEST_PATH, 'example', 'config'), recursive=True)
+	fig.get_current_project().register_config_dir(os.path.join(tu.TEST_PATH, 'old', 'example_configs'), recursive=True)
 	
 	A = fig.create_config('test1')
 	

@@ -1,5 +1,5 @@
 
-_src: [common]
+_base: [common]
 
 model:
   _type: net

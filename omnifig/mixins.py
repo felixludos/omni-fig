@@ -1,7 +1,10 @@
 from typing import Dict, Union, Any
+import yaml
 from pathlib import Path
 from collections import OrderedDict
 from omnibelt import load_yaml
+
+from . import __logger__ as prt
 
 
 
@@ -19,10 +22,12 @@ class Activatable:
 		super().__init__(*args, **kwargs)
 		self._is_activated = False
 
+
 	@property
 	def is_activated(self) -> bool:
 		'''Flag whether the object is currently activated'''
 		return self._is_activated
+
 
 	def activate(self, *args: Any, **kwargs: Any) -> None:
 		'''
@@ -38,8 +43,9 @@ class Activatable:
 		'''
 		if self._is_activated:
 			return
-		self._activate(*args, **kwargs)
 		self._is_activated = True
+		self._activate(*args, **kwargs)
+
 
 	def _activate(self, *args: Any, **kwargs: Any) -> None:
 		'''
@@ -57,6 +63,7 @@ class Activatable:
 		'''
 		pass
 
+
 	def deactivate(self, *args, **kwargs):
 		'''
 		Top-level method to deactivate the object.
@@ -73,6 +80,7 @@ class Activatable:
 			return
 		self._deactivate(*args, **kwargs)
 		self._is_activated = False
+
 
 	def _deactivate(self, *args, **kwargs):
 		'''
@@ -95,6 +103,7 @@ class Activatable:
 class FileInfo:
 	'''Mix-in class for objects that loads and stores information from a file.'''
 
+
 	@staticmethod
 	def load_raw_info(path: Path) -> Dict[str, Any]:
 		'''
@@ -107,12 +116,18 @@ class FileInfo:
 			:code:`dict` containing the loaded info
 
 		'''
-		raw = load_yaml(path, ordered=True) if path.exists() else None
+		raw = None
+		try:
+			if path.exists():
+				raw = load_yaml(path, ordered=True)
+		except yaml.YAMLError:
+			prt.error(f'Error loading yaml file: {path}')
 		if raw is None:
 			raw = {}
 		raw['info_path'] = str(path) # automatically set info_path to the path
 		raw['info_dir'] = str(path.parent)
 		return raw
+
 
 	def __init__(self, data: Union[str, Path, Dict[str, Any]] = None, **kwargs: Any):
 		'''
@@ -131,16 +146,20 @@ class FileInfo:
 			data = OrderedDict()
 		self.data = data
 
+
 	@property
 	def name(self):
 		'''The name of the object, as specified in the info file.'''
 		return self.data.get('name', '')
 
+
 	def __repr__(self):
 		return f'{self.__class__.__name__}({self.name})'
 
+
 	def __str__(self):
 		return f'{self.__class__.__name__}[{self.name}]({", ".join(self.data.keys())})'
+
 
 	def extract_info(self, other: 'FileInfo'):
 		'''

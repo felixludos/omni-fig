@@ -1,0 +1,4 @@
+
+name: other-p3
+
+src: [scripts.py, script2.py]

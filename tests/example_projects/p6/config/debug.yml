@@ -1,0 +1,17 @@
+
+_meta.quiet: yes
+
+_base: [c1]
+
+some-value: 1
+
+x: 1
+y: 2
+
+
+good:
+  _type: cmp1
+
+  x: 100
+  y: those meddling kids
+
