@@ -84,7 +84,7 @@ You can additionally specify the following:'''
 			info['doc'] = doc
 
 			if name is not None:
-				info['script_info'] = f' ({name})'
+				info['script_info'] = f'(found in {name})'
 
 			info['usage'] = cls._format_usage(entry.name)
 

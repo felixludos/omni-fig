@@ -737,7 +737,11 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				if modifiers is None:
 					modifiers = []
 				elif isinstance(modifiers, dict):
-					modifiers = [mod for mod, _ in sorted(modifiers.items(), key=lambda x: (x[1], x[0]))]
+					if len(modifiers):
+						key = next(iter(modifiers))
+						modifiers = [mod for _, mod in sorted(modifiers.items(), key=lambda x: int(x[0]))] \
+							if key.isdigit() \
+							else [mod for mod, _ in sorted(modifiers.items(), key=lambda x: (int(x[1]), x[0]))]
 				elif isinstance(modifiers, str):
 					modifiers = [modifiers]
 				elif isinstance(modifiers, (list, tuple)):

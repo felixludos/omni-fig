@@ -1,3 +1,4 @@
+_base: [common]
 
 dataset:
   _type: cifar

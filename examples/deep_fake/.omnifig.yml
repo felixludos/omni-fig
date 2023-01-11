@@ -1,5 +1,5 @@
 
-name: novo_fake
+name: deep-fake
 
 description:
   "Example omni-fig project for a deep learning related project - note
@@ -12,4 +12,4 @@ description:
 related: [] # list of other project names (whose past must be found in the profile's "projects" table)
 # related projects are (recursively) loaded before this project is loaded - so this can depend on it's relatives
 
-module: src
+module: [train_model, src] # list of modules to load (relative to the project directory)

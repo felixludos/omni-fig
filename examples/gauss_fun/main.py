@@ -4,8 +4,9 @@ import sys
 import random
 import omnifig as fig
 
-@fig.script('sample-low-prob')
+@fig.script('sample', description='Sample a low probability event')
 def sample_low_prob(config): # config object
+	'''Uses complicated algorithms to find reasonably large/small numbers'''
 
 	mylogger = config.pull('logger') # create a logger object according to specifications in the config
 
@@ -86,10 +87,10 @@ class MultiStream(fig.Configurable):
 
 
 @fig.modifier('remove-credits')
-class NoCredit:
-	def __init__(self, config, *args, **kwargs):
+class NoCredit(fig.Configurable):
+	def __init__(self, *args, remove_names=(), **kwargs):
 		super().__init__(*args, **kwargs)
-		for name in config.pull('remove_names', []):
+		for name in remove_names:
 			if name in self.credits:
 				self.credits.remove(name)
 				print(f'Removed {name} from credits')
@@ -97,4 +98,4 @@ class NoCredit:
 
 
 if __name__ == '__main__':
-	fig.entry('sample-low-prob')
+	fig.entry('sample')

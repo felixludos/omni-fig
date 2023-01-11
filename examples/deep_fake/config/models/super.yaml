@@ -1,4 +1,4 @@
-
+_base: [common]
 
 model:
   _type: net

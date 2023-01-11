@@ -1,8 +1,0 @@
-
-
-model:
-  _type: net
-
-  layers: [20, 20]
-
-  nonlin: relu
