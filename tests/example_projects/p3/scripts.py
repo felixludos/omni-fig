@@ -1,5 +1,5 @@
 import util
-import pandas
+# import pandas
 
 import omnifig as fig
 
