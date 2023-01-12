@@ -33,6 +33,8 @@ Unleashing Project Configuration and Organization in Python
 
 .. TODO: lightweight, general purpose configuration system
 
+|
+
 ``omni-fig`` is a lightweight package to help you organize your python projects to make everything clear and easy to understand to collaborators and prospective users, while also offering unparalleled features to accelerate development.
 
 The proposed general-purpose project structure is well suited for both small and large projects, and is designed to be easily extensible to fit your needs. Most importantly, with the powerful configuration system, you never have to worry about any boilerplate code to parse command line arguments, read config files, or even import the top-level project components ever again!
