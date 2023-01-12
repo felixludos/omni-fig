@@ -80,42 +80,42 @@ Here is an overview of some of the core features of ``omni-fig`` with links to m
 .. image:: docs/_static/img/vignettes/Slide1.PNG
     :width: 100%
 
-Check out the :ref:`file structure <highlight-file-structure>` of projects.
+Check out the `file structure <https://omnifig.readthedocs.io/en/latest/project-structure/projects.html#highlight-file-structure>` of projects.
 
 .. image:: docs/_static/img/vignettes/Slide2.PNG
    :width: 100%
 
-Read more about the :ref:`command line interface <highlight-cli>`.
+Read more about the `command line interface <https://omnifig.readthedocs.io/en/latest/project-structure/cli.html#highlight-cli>`.
 
 .. image:: docs/_static/img/vignettes/Slide3.PNG
     :width: 100%
 
-Learn more about using ``omni-fig`` in :ref:`interactive programming environments <highlight-interactive>`.
+Learn more about using ``omni-fig`` in `interactive programming environments <https://omnifig.readthedocs.io/en/latest/project-structure/interactive.html#highlight-interactive>`.
 
 .. image:: docs/_static/img/vignettes/Slide4.PNG
    :width: 100%
 
-Learn more about :ref:`composing configuration files <highlight-config-composition>`.
+Learn more about `composing configuration files <https://omnifig.readthedocs.io/en/latest/config-system/composition.html#highlight-config-composition>`.
 
 .. image:: docs/_static/img/vignettes/Slide5.PNG
     :width: 100%
 
-Read more about how to :ref:`access config values <highlight-config-access>`.
+Read more about how to `access config values <https://omnifig.readthedocs.io/en/latest/config-system/access.html#highlight-config-access>`.
 
 .. image:: docs/_static/img/vignettes/Slide6.PNG
    :width: 100%
 
-Check out the guide for details on :ref:`project components <highlight-registration>`.
+Check out the guide for details on `project components <https://omnifig.readthedocs.io/en/latest/project-structure/registration.html#highlight-registration>`.
 
 .. image:: docs/_static/img/vignettes/Slide7.PNG
     :width: 100%
 
-See the power of automatically :ref:`instantiating objects <highlight-instantiation>` from the config.
+See the power of automatically `instantiating objects <https://omnifig.readthedocs.io/en/latest/config-system/instantiation.html#highlight-instantiation>` from the config.
 
 .. image:: docs/_static/img/vignettes/Slide8.PNG
    :width: 100%
 
-Learn more about :ref:`modifying components <highlight-modifiers>`.
+Learn more about `modifying components <https://omnifig.readthedocs.io/en/latest/project-structure/registration.html#highlight-modifiers>`.
 
 
 .. end-highlights-marker-do-not-remove
