@@ -1,6 +1,7 @@
 from typing import List, Dict, Tuple, Optional, Union, Any, Sequence, Type, Iterator, NamedTuple, ContextManager
 from pathlib import Path
 from contextlib import nullcontext
+from copy import deepcopy
 import yaml
 from collections import OrderedDict
 from omnibelt import unspecified_argument, Primitive, primitive, Modifiable
@@ -201,8 +202,6 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				result = self.origin
 			else:
 				result, self.unused_queries, self.query_chain = self._resolve_query(self.origin, *self.queries)
-				if result is None:
-					raise self.SearchFailed(*self.query_chain)
 			self.query_node = result
 			self.result_node = self.process_node(result)
 			return self.result_node
@@ -316,6 +315,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				SearchFailed: if the node is not valid or a delegation could not be resolved
 
 			'''
+			if node is None:
+				raise self.SearchFailed(*self.query_chain)
 			if self.origin.empty_value is node:
 				return node
 			if node.has_payload:
@@ -1337,8 +1338,21 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			self.reporter = self.Reporter()
 		if self.settings is None:
 			self.settings = self.Settings()
-
-
+	
+	
+	def __deepcopy__(self, memodict={}):
+		'''Deep copy of the node (and all subnodes). Does not include the parent node.'''
+		new = self.from_raw(self.to_python())
+		new._settings = deepcopy(self._settings)
+		new._manager = self._manager
+		new._project = self._project
+		new._trace = self._trace
+		new._product = self._product
+		new._cro = self._cro
+		new._bases = self._bases
+		return new
+	
+	
 	def __eq__(self, other):
 		'''Compares this config node to another object.'''
 		return type(self) == type(other) \
@@ -1644,7 +1658,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 	def __str__(self):
 		'''Returns a string representation of the contents of this config node.'''
-		return self.to_yaml()
+		return f'<{self.payload!r}>' if self.is_leaf else self.to_yaml()
 
 
 	def __repr__(self):

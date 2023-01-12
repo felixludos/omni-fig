@@ -9,5 +9,5 @@ from .config import ConfigNode as Node
 from . import exporting as _exporting
 from .behaviors import Behavior
 
-from .configurable import Configurable, Certifiable, config_aliases
+from .configurable import Configurable, Certifiable, config_aliases, silent_config_args
 
