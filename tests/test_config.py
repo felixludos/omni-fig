@@ -603,4 +603,24 @@ def test_pull_cycle():
 		assert False, 'CycleError not raised'
 
 
+def test_underscores():
+
+	A = fig.create_config(a_b=1, _b=2, **{'-c': 3, 'd-e': 4, '--f': 5})
+
+	assert A.pull('a_b') == 1
+	assert A.pull('_b') == 2
+	assert A.pull('_c') == 3
+	assert A.pull('d_e') == 4
+	assert A.pull('__f') == 5
+
+	assert A.pull('a-b') == 1
+	assert A.pull('-b') == 2
+	assert A.pull('-c') == 3
+	assert A.pull('d-e') == 4
+	assert A.pull('--f') == 5
+
+	print()
+	print(A)
+
+
 

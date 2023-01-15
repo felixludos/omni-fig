@@ -5,6 +5,9 @@ Accessing Config Values
 
 Once the config object is :ref:`created <Composing Config Files>`, the primary way to access values in the config is via the :meth:`pull() <omnifig.abstract.AbstractConfig.pull>` (while you can update individual values using :meth:`push() <omnifig.abstract.AbstractConfig.push>`). Optionally, you can provide a default value to be returned if the query is not found. If no default value is provided, a :exc:`SearchFailed <omnifig.abstract.AbstractConfig.SearchFailed>` error is raised (which is subclass of :exc:`KeyError`). Additionally, the :meth:`pulls() <omnifig.abstract.AbstractConfig.pulls>` method allows you to provide any number of fallback queries.
 
+.. note::
+   ``_`` and ``-`` are interchangeable in config keys
+
 When reading (aka *pulling*) arguments from the config, if an argument is not found in the current branch and the query is not hidden (i.e. it does not begin with :code:`_`), it will automatically defer to the higher branches (aka *parent* branch) as well, which allows users to define more or less "global" arguments depending on how deep the node containing the argument actually is. Although this behavior can be changed using the ``ask_parents`` key in the :ref:`config settings <Config Settings>`.
 
 For example, given the config object that is loaded from the this yaml file (registered as ``myconfig``):
