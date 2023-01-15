@@ -109,6 +109,20 @@ def test_help7():
 
 
 
+def test_help8():
+	reset_profile()
+	fig.switch_project('example6')
+
+	argv = ['--y', '99', '-h']
+
+	print()
+	out = fig.main(argv)
+
+	assert out is None
+
+
+
+
 def test_debug():
 	reset_profile()
 	fig.switch_project('example6')

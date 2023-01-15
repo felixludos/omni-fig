@@ -1720,6 +1720,19 @@ class ConfigSparseNode(AutoTreeSparseNode, ConfigNode):
 	'''A config node that treats its children as being in a dict.'''
 	_python_structure = dict
 
+	def _get(self, addr: str):
+		return super()._get(addr.replace('_', '-'))
+
+	def _set(self, addr: str, node):
+		return super()._set(addr.replace('_', '-'), node)
+
+	def _remove(self, addr: str):
+		del self._children[addr.replace('_', '-')]
+
+	def _has(self, addr: str):
+		return addr.replace('_', '-') in self._children
+
+
 
 
 class ConfigDenseNode(AutoTreeDenseNode, ConfigNode):
