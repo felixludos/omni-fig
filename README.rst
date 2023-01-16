@@ -46,6 +46,7 @@ For lots of examples in how the config system works check out the documentation_
 
 .. _documentation: https://omnifig.readthedocs.io/
 
+.. _highlights: https://omnifig.readthedocs.io/en/latest/highlights.html
 
 Install
 -------
@@ -75,6 +76,8 @@ Key Features
 
 .. highlights-marker-do-not-remove
 
+
+.. Check out an overview of some of the core features of ``omni-fig``: `highlights`_.
 
 Here is an overview of some of the core features of ``omni-fig`` with links to more detailed guides.
 
