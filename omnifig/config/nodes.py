@@ -435,7 +435,7 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				key = self.alias_fmt.join([queries[0], '...', queries[-1]])
 			else:
 				key = self.alias_fmt.join(queries)
-			return key
+			return key.replace('_', '-')
 
 
 		def _stylize(self, node: 'ConfigNode', line: str) -> str:
