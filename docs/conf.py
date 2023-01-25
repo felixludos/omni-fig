@@ -87,7 +87,7 @@ import sphinx_rtd_theme
 
 # logo
 # html_logo = '_static/img/logo_border.png' # should be wide
-html_logo = '_static/img/new_logo.png' # should be wide
+html_logo = '_static/img/new_logo_square.png' # should be wide
 
 # logo
 # html_favicon = '_static/img/favicon/favicon.ico'

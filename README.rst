@@ -4,7 +4,7 @@
 
 .. raw:: html
 
-    <img align="right" width="120" height="120" src="assets/new_logo.png" alt="omni-fig">
+    <img align="right" width="200" height="200" src="assets/new_logo_square.png" alt="omni-fig">
 
 
 ========
