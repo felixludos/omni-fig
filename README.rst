@@ -4,7 +4,7 @@
 
 .. raw:: html
 
-    <img align="right" width="200" height="200" src="assets/new_logo_square.png" alt="omni-fig">
+    <img align="right" width="220" height="220" src="assets/new_logo_square.png" alt="omni-fig">
 
 
 ========
@@ -144,6 +144,10 @@ Contributions
 -------------
 
 Feedback and contributions are very welcome! Please feel free to open an issue or pull request.
+
+
+Thank you to Amanda Leeb for designing the logo!
+
 
 .. Here's a list of features and extensions in the works:
 
