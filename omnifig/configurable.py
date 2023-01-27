@@ -195,7 +195,7 @@ class Certifiable(Configurable, AbstractCertifiable):
 
 	Note, that ``__certify__`` is only called if the object is initialized through the config (e.g. through ``pull()``).
 	'''
-	def __certify__(self, config: AbstractConfig):
+	def __certify__(self, config: AbstractConfig, **kwargs):
 		return self
 
 
