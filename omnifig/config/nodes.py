@@ -1721,16 +1721,25 @@ class ConfigSparseNode(AutoTreeSparseNode, ConfigNode):
 	_python_structure = dict
 
 	def _get(self, addr: str):
-		return super()._get(addr.replace('_', '-'))
+		try:
+			return super()._get(addr)
+		except self._MissingKey:
+			try:
+				return super()._get(addr.replace('-', '_'))
+			except self._MissingKey:
+				pass
+			raise
 
 	def _set(self, addr: str, node):
-		return super()._set(addr.replace('_', '-'), node)
+		return super()._set(addr, node)
 
 	def _remove(self, addr: str):
-		del self._children[addr.replace('_', '-')]
+		if addr in self._children:
+			del self._children[addr]
 
 	def _has(self, addr: str):
-		return addr.replace('_', '-') in self._children
+		return addr in self._children or addr.replace('-', '_') in self._children
+
 
 
 
