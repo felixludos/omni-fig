@@ -14,10 +14,10 @@ class Configurable(AbstractConfigurable, Modifiable):
 	to seamlessly fill in missing arguments with the config object.
 	'''
 	_my_config = None
-	@property
-	def my_config(self) -> AbstractConfig:
-		'''The config object that this object is associated with'''
-		return getattr(self, '_my_config', None)
+	# @property
+	# def my_config(self) -> AbstractConfig:
+	# 	'''The config object that this object is associated with'''
+	# 	return getattr(self, '_my_config', None)
 
 
 	# @classmethod
