@@ -335,7 +335,33 @@ def test_update_sub():
 	assert D.pull('0') == -4
 	assert D.pull('alpha.0') == -9
 	assert D.pull('unknown') == 'bad'
-	
+
+
+def test_repeat_create():
+	raw = ['tomato']
+	A = fig.create_config(fruit=raw)
+
+	node = A.peek('fruit')
+	fruit = node.create()
+
+	assert raw is not fruit
+	assert isinstance(fruit, list) and len(fruit) == 1 and fruit[0] == 'tomato'
+
+	cached = node.pull()
+	assert cached is not fruit
+	cached2 = node.process()
+	assert cached is cached2
+	cached3 = A.pull('fruit')
+	assert cached is cached3
+
+	fruit2 = node.create()
+	assert fruit2 is not fruit
+	assert fruit2 == fruit
+
+	fruit3 = node.create()
+	assert fruit3 is not fruit2
+	assert fruit3 == fruit2
+
 	
 def test_update_dict():
 

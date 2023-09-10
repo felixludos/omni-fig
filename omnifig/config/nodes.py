@@ -424,6 +424,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 				The formatted key (including aliases and parents)
 
 			'''
+			if trace is None:
+				return '.'
 			queries = trace.query_chain
 
 			if trace.parent_search is not None:
@@ -631,13 +633,14 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 
 			'''
 			trace = node.trace
-			key = self.get_key(trace)
-			N = len(node)
+			if trace is not None:
+				key = self.get_key(trace)
+				N = len(node)
 
-			t, x = ('dict', 'item') if isinstance(node, trace.origin.SparseNode) else ('list', 'element')
-			x = f'{x}s' if N != 1 else x
-			line = f'{key} [{t} with {N} {x}]'
-			return self.log(self._stylize(node, line), silent=silent)
+				t, x = ('dict', 'item') if isinstance(node, trace.origin.SparseNode) else ('list', 'element')
+				x = f'{x}s' if N != 1 else x
+				line = f'{key} [{t} with {N} {x}]'
+				return self.log(self._stylize(node, line), silent=silent)
 
 
 		def create_component(self, node: 'ConfigNode', *, component_type: str = None,
