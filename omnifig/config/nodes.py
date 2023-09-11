@@ -1714,8 +1714,13 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			self.remove(key)
 
 	def silence(self, silent: bool = True) -> ContextManager:
-		'''Convience method for temporarily setting the silent flag of this config node.'''
+		'''Convenience method for temporarily setting the silent flag of this config node.'''
 		return self.context(silent=silent)
+
+	def print(self, *terms: Any, force: bool = False, sep: str = ' ', end: str = '\n', **kwargs):
+		'''Convenience method for printing iff (`force` or not self.silent)'''
+		if force or not self.silent:
+			print(*terms, sep=sep, end=end, **kwargs)
 
 
 
