@@ -1368,7 +1368,8 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 		return hash(self.my_address())
 
 
-	def export(self, name: Union[str, Path], root: Optional[Union[str, Path]] = None) -> Optional[Path]:
+	def export(self, name: Union[str, Path], root: Optional[Union[str, Path]] = None,
+			   fmt: Optional[str] = None) -> Optional[Path]:
 		'''
 		Exports the given config to the given path (in yaml format).
 
@@ -1376,12 +1377,13 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 			config: object to export
 			name: of file name or path to export to (without extension)
 			root: directory to export to (if not provided, the current working directory is used)
+			fmt: format to export to (if not provided, the extension of the file name is used, and defaults to yaml)
 
 		Returns:
 			The path to which the config was exported
 
 		'''
-		return self.manager.export(self, name, root=root)
+		return self.manager.export(self, name, root=root, fmt=fmt)
 
 
 	@property

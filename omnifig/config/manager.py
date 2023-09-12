@@ -30,7 +30,8 @@ class ConfigManager(AbstractConfigManager):
 		self.project = project
 
 
-	def export(self, config: AbstractConfig, name: Union[str, Path], root: Optional[Path] = None) -> Path:
+	def export(self, config: ConfigNode, name: Union[str, Path], root: Optional[Path] = None,
+			   fmt: Optional[str] = None) -> Path:
 		'''
 		Exports the given config to the given path (in yaml format).
 
@@ -38,12 +39,13 @@ class ConfigManager(AbstractConfigManager):
 			config: object to export
 			name: of file to export to
 			root: directory to export to (if not provided, the current working directory is used)
+			fmt: format to export to (if not provided, the extension of the file name is used, and defaults to yaml)
 
 		Returns:
 			The path to which the config was exported
 
 		'''
-		return export(config, name=name, root=root)
+		return export(config, name=name, root=root, fmt=fmt)
 
 
 	def iterate_configs(self) -> Iterator[NamedTuple]:

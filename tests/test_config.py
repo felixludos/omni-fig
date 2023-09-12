@@ -237,6 +237,8 @@ def test_push3():
 	assert A.pull('fruit.10') == 'veggies'
 	assert A.pull('fruit.11', 'nope') == 'nope'
 	assert A.pull('fruit.20', 'no way') == 'no way'
+
+
 def test_push4():
 	A = fig.create_config('test1')
 	
@@ -272,6 +274,21 @@ def test_push4():
 	a = A.push_pull('a.x', 2, overwrite=False)
 	assert a == 1
 	assert A.pull('a.x') == 1
+
+
+def test_create_silent():
+	import io, contextlib
+
+	buffer = io.StringIO()
+	with contextlib.redirect_stdout(buffer):
+		A = fig.create_config(arg1='test')
+
+		node = A.peek('arg1')
+		assert node.create_silent() == 'test'
+
+	printed = buffer.getvalue()
+	assert printed == ''
+
 
 
 def test_aliases():
@@ -393,6 +410,7 @@ def test_update_dict():
 
 
 def test_export():
+	fig.get_current_project().register_config_dir(tu.CONFIG_PATH, recursive=True)
 
 	# load/change/export
 	A = fig.create_config('test2', **{'a.d': 50})

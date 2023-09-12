@@ -1,9 +1,11 @@
 from typing import Union, Any, Type, Optional
 from pathlib import Path
+import yaml
 from omnibelt import Exporter, ExportManager, get_now
 from omnibelt import exporting_common as _
 
 from .abstract import AbstractConfig
+# from .config.nodes import ConfigSparseNode, ConfigDenseNode
 from .top import create_config
 
 
@@ -33,8 +35,7 @@ class ConfigExporter(Exporter, extensions=['.fig.yml', '.fig.yaml'], types=[Abst
 
 
 	@staticmethod
-	def _export_payload(payload: Any, path: Union[Path, str],
-	                    src: Type[ExportManager]) -> Optional[Path]:
+	def _export_payload(payload: Any, path: Union[Path, str], src: Type[ExportManager]) -> Optional[Path]:
 		'''
 		Exports the given payload to the given path.
 
@@ -70,10 +71,13 @@ class ConfigExporter(Exporter, extensions=['.fig.yml', '.fig.yaml'], types=[Abst
 
 
 
-
-
-
-
+# def _sparse_config_node_representer(dumper, node):
+# 	return dumper.represent_dict({k: v for k, v in node.peek_named_children(silent=True)})
+# yaml.add_representer(ConfigSparseNode, _sparse_config_node_representer)
+#
+# def _dense_config_node_representer(dumper, node):
+# 	return dumper.represent_list([v for k, v in node.peek_named_children(silent=True)])
+# yaml.add_representer(ConfigDenseNode, _dense_config_node_representer)
 
 
 
