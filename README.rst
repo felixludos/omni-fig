@@ -53,7 +53,7 @@ Install
 
 .. install-marker-do-not-remove
 
-Everything is tested with Python 3.7 on Ubuntu 20.04 and Windows 11, but in principle it should work on any system that can handle the dependencies.
+Everything is tested with Python 3.8 on Ubuntu 20.04 and Windows 11, but in principle it should work on any system that can handle the dependencies.
 
 The easiest way to install the stable release is with pip:
 
