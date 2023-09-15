@@ -55,6 +55,20 @@ class AbstractConfig:
 		raise NotImplementedError
 
 
+	def export(self, name: Union[str, Path], *, root: Optional[Union[str, Path]] = None,
+			   fmt: Optional[str] = None) -> Optional[Path]:
+		'''
+		Exports the config object to the given path.
+
+		Args:
+			name: Name/path to export the config object to.
+			root: Path to use as the root of the config object (defaults to the current working directory).
+			fmt: Format to export the config object in (if None, will be inferred from the path).
+
+		'''
+		raise NotImplementedError
+
+
 	def peek(self, query: Optional[str] = None, default: Optional[Any] = _empty_default, *,
 	         silent: Optional[bool] = None) -> 'AbstractConfig':
 		'''
@@ -271,6 +285,21 @@ class AbstractConfig:
 	def create(self, *args: Any, **kwargs: Any) -> Any:
 		'''
 		Creates a new value based on the contents of self.
+
+		Args:
+			*args: Manual arguments to pass to the value constructor.
+			**kwargs: Manual keyword arguments to pass to the value constructor.
+
+		Returns:
+			The newly created value.
+
+		'''
+		raise NotImplementedError
+
+
+	def create_silent(self, *args: Any, **kwargs: Any) -> Any:
+		'''
+		Creates a new value based on the contents of self silently.
 
 		Args:
 			*args: Manual arguments to pass to the value constructor.

@@ -88,7 +88,7 @@ class Configurable(AbstractConfigurable, Modifiable):
 			if default is inspect.Parameter.empty:
 				default = self.config._empty_default
 			aliases = self.aliases.get(name, ())
-			silent = None
+			silent = self.silent
 			if self.silences is not None and name in self.silences:
 				silent = True
 			return self.config.pulls(name, *aliases, default=default, silent=silent)
