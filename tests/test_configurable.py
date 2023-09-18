@@ -105,3 +105,22 @@ def test_mod_configurable():
 
 
 
+def test_key_error():
+	@fig.component('something')
+	class Something(fig.Configurable):
+		def __init__(self, a=1, b={}):
+			self.a = a
+			self.b = b
+			print(b['nonexistent'])
+
+	cfg = fig.create_config(_type='something')
+
+	try:
+		cfg.create()
+	except KeyError as e:
+		assert e.args[0] == 'nonexistent'
+	else:
+		assert False, 'KeyError not raised'
+
+
+

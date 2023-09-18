@@ -91,7 +91,8 @@ class Configurable(AbstractConfigurable, Modifiable):
 			silent = self.silent
 			if self.silences is not None and name in self.silences:
 				silent = True
-			return self.config.pulls(name, *aliases, default=default, silent=silent)
+			out = self.config.pulls(name, *aliases, default=default, silent=silent)
+			return out
 
 
 		def fix_args(self, method: Callable, obj: Any, args: Tuple, kwargs: Dict[str, Any]) \
