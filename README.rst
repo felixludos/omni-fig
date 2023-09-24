@@ -23,6 +23,10 @@ Unleashing Project Configuration and Organization in Python
     :target: https://github.com/felixludos/omni-fig/actions/workflows/tests.yaml
     :alt: Unit-Tests
 
+.. image:: https://joss.theoj.org/papers/8eb5d7f02686b32f3102a5a03f92f169/status.svg
+   :target: https://joss.theoj.org/papers/8eb5d7f02686b32f3102a5a03f92f169
+   :alt: JOSS status
+
 .. setup-marker-do-not-remove
 
 .. role:: py(code)
