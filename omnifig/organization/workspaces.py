@@ -59,7 +59,7 @@ class GeneralProject(ProjectBase, name='general'):
 				p = path / name
 				if p.exists():
 					return p
-		prt.warning(f'Could not infer project path from {path} (using blank project)')
+		# prt.warning(f'Could not infer project path from {path} (using blank project)')
 
 
 	def _format_xray_entry(self, entry: NamedTuple) -> Tuple[List[str], Optional[str]]:
