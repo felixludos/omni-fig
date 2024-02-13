@@ -17,7 +17,8 @@ from _test_util import reset_profile
 
 def test_help():
 	reset_profile()
-	fig.switch_project('example6')
+	proj = fig.switch_project('example6')
+	proj.activate()
 
 	argv = ['-h', '--y', '99']
 
@@ -30,7 +31,8 @@ def test_help():
 
 def test_help2():
 	reset_profile()
-	fig.switch_project('example6')
+	proj = fig.switch_project('example6')
+	proj.activate()
 
 	argv = ['add', '-h', '--y', '99']
 
@@ -95,7 +97,7 @@ def test_help6():
 
 def test_help7():
 	reset_profile()
-	fig.switch_project('example6')
+	proj = fig.switch_project('example6')
 
 	argv = ['fig', 'mirror', '-h']
 
@@ -111,7 +113,7 @@ def test_help7():
 
 def test_help8():
 	reset_profile()
-	fig.switch_project('example6')
+	proj = fig.switch_project('example6')
 
 	argv = ['--y', '99', '-h']
 
@@ -125,7 +127,8 @@ def test_help8():
 
 def test_debug():
 	reset_profile()
-	fig.switch_project('example6')
+	proj = fig.switch_project('example6')
+	proj.activate()
 
 	print()
 

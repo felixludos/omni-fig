@@ -257,7 +257,7 @@ class GeneralProject(ProjectBase, name='general'):
 		'''Imports all specified packages and runs the specified python files'''
 		modules = [*map(Path,srcs), *packages]
 		if len(modules):
-			include_modules(*modules, root=self.root)
+			include_modules(*modules, root=self.root, package_name=self.name)
 
 	# region Organization
 	def extract_info(self, other: 'GeneralProject') -> None:
