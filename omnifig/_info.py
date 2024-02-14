@@ -2,14 +2,14 @@
 name = 'omnifig'
 long_name = 'omni-fig'
 
-version = '1.0.4'
+version = '1.0.5'
 
 url = 'https://github.com/felixludos/omni-fig'
 
 description = 'Unleashing Project Configuration and Organization'
 
 author = 'Felix Leeb'
-author_email = 'felixludos.info@gmail.com'
+author_email = 'felixludos@hotmail.com'
 
 license = 'MIT'
 
