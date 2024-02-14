@@ -35,7 +35,8 @@ def test_bad_profile():
 def test_current_project():
 	profile = reset_profile()
 	proj = fig.get_current_project()
-	assert proj.name == 'omni-fig' # inferred
+	# assert proj.name == 'omni-fig' # inferred
+	assert proj.name is None
 
 
 
@@ -125,7 +126,8 @@ def test_active_project():
 
 	proj = fig.get_current_project()
 
-	assert proj.name == 'omni-fig'
+	# assert proj.name == 'omni-fig'
+	assert proj.name is None
 
 	cmp = proj.find_component('cmp1', None)
 
@@ -152,7 +154,8 @@ def test_explicit_project_file():
 	profile = reset_profile('multi')
 
 	proj = profile.get_current_project()
-	assert proj.name == 'omni-fig'
+	# assert proj.name == 'omni-fig'
+	assert proj.name is None
 
 	proj3 = profile.get_project('example3')
 	assert proj3.name == 'example3'
@@ -193,25 +196,30 @@ def test_explicit_project_file():
 def test_load_noncurrent_project(): # "hijack" project contents
 	reset_profile()
 
-	default = fig.get_current_project()
+	# default = fig.get_current_project()
+	default = fig.get_profile().create_project('test-project')
 
-	assert default.name == 'omni-fig'
+	# assert default.name == 'omni-fig'
+	assert default.name == 'test-project'
 	assert not default.is_activated
 
 	proj = fig.get_project('example2')
 
-	assert fig.get_current_project().name == 'omni-fig'
+	# assert fig.get_current_project().name == 'omni-fig'
+	assert fig.get_current_project().name == 'test-project'
 	assert not default.is_activated
 
 	proj.load()
 
-	assert fig.get_current_project().name == 'omni-fig'
+	# assert fig.get_current_project().name == 'omni-fig'
+	assert fig.get_current_project().name == 'test-project'
 	assert not default.is_activated
 	assert not proj.is_activated
 
 	assert len(list(default.iterate_components())) == 4
 
-	assert fig.get_current_project().name == 'omni-fig'
+	# assert fig.get_current_project().name == 'omni-fig'
+	assert fig.get_current_project().name == 'test-project'
 	assert default.is_activated
 	assert not proj.is_activated
 
@@ -303,7 +311,7 @@ def test_find_base_projects():
 
 	fig.initialize('example2', 'example4')
 
-	assert fig.get_current_project().name == 'omni-fig'
+	assert fig.get_current_project().name is None
 
 	proj = fig.get_project()
 	p2 = fig.get_project('example2')
@@ -340,7 +348,7 @@ def test_related():
 	fig.initialize('example2')
 	assert len(list(profile.iterate_projects())) == 2
 
-	assert fig.get_current_project().name == 'omni-fig'
+	assert fig.get_current_project().name is None
 
 	proj = fig.switch_project('example4')
 	assert len(list(profile.iterate_projects())) == 3

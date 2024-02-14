@@ -1,8 +1,10 @@
 from typing import Optional, Union, Sequence, NamedTuple, Tuple, Any, Dict, List, Type, Iterator, Callable
+import sys
 from pathlib import Path
 from tabulate import tabulate
+from collections import OrderedDict
 import inspect
-from omnibelt import unspecified_argument, Class_Registry, Function_Registry, colorize, include_modules
+from omnibelt import unspecified_argument, Class_Registry, Function_Registry, colorize, include_module
 
 from .. import __logger__ as prt
 from ..abstract import AbstractConfig, AbstractProject, AbstractBehavior, AbstractCustomArtifact
@@ -177,6 +179,7 @@ class GeneralProject(ProjectBase, name='general'):
 		super().__init__(path, **kwargs)
 		self._behaviors = None
 		self._path = None if path is None else path.absolute()
+		self._modules = OrderedDict()
 		self.config_manager = config_manager
 		self._artifact_registries = {
 			'script': script_registry,
@@ -231,6 +234,14 @@ class GeneralProject(ProjectBase, name='general'):
 			self._run_dependencies(src, modules)
 
 
+	def unload(self):
+		'''Unloads all dependencies for the project (opposite of :meth:`load`).'''
+		for module, (mod, deps) in self._modules.items():
+			for name, dep in deps.items():
+				if name in sys.modules:
+					del sys.modules[name]
+
+
 	def _activate(self, *args, **kwargs):
 		'''
 		Activates the project including the info from the data file
@@ -241,6 +252,13 @@ class GeneralProject(ProjectBase, name='general'):
 		prt.info(f'Activating project {self.name} ({self.root})')
 		with self._profile.project_context(self):
 			self.load()
+
+
+	def _deactivate(self, *args, **kwargs):
+		'''Deactivates the project including unloading all dependencies.'''
+		super()._deactivate(*args, **kwargs)
+		prt.info(f'Deactivating project {self.name} ({self.root})')
+		self.unload()
 
 	def load_configs(self, paths: Sequence[Union[str ,Path]] = ()) -> None:
 		'''Registers all specified config files and directories'''
@@ -256,8 +274,22 @@ class GeneralProject(ProjectBase, name='general'):
 	                      packages: Optional[Sequence[str]] = ()) -> None:
 		'''Imports all specified packages and runs the specified python files'''
 		modules = [*map(Path,srcs), *packages]
-		if len(modules):
-			include_modules(*modules, root=self.root, package_name=self.name)
+		for module in modules:
+			# if module in self._modules:
+			# 	mod, dependencies = self._modules[module]
+			# 	sys.modules.update(dependencies)
+			# else:
+			mod, dependencies = include_module(module, root=self.root)
+
+			root = str(Path(mod.__file__).parent.resolve())
+
+			sub = {name: dep for name, dep in dependencies.items()
+				   if str(Path(dep.__file__).resolve()).startswith(root)}
+			self._modules[module] = mod, sub
+
+		for owner, submodules in self._modules.values():
+			for name, sub in submodules.items():
+				del sys.modules[name] # remove any local modules from sys.modules
 
 	# region Organization
 	def extract_info(self, other: 'GeneralProject') -> None:
@@ -300,6 +332,9 @@ class GeneralProject(ProjectBase, name='general'):
 	def name(self):
 		'''The name of the project'''
 		return self.data.get('name', None)
+	@name.setter
+	def name(self, value: str):
+		self.data['name'] = value
 
 
 	@property

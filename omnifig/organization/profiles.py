@@ -339,6 +339,27 @@ class ProfileBase(AbstractProfile):
 		return self.get_project(self._current_project_key)
 
 
+	def create_project(self, name: str, path: Path = None, set_as_current: bool = True) -> AbstractProject:
+		'''
+		Creates a new project instance and registers it.
+
+		Args:
+			name: Name of the project.
+			path: Path to the project (defaults to the current working directory).
+			set_as_current: If True, sets the new project as the current project.
+
+		Returns:
+			New project instance.
+
+		'''
+		proj = self.Project(path, profile=self)
+		proj.name = name
+		self._loaded_projects[name] = proj
+		if set_as_current:
+			self._current_project_key = name
+		return proj
+
+
 	def switch_project(self, ident: Union[str, AbstractProject] = None) -> AbstractProject:
 		'''
 		Switches the current project to the one with the given identifier.
@@ -351,6 +372,11 @@ class ProfileBase(AbstractProfile):
 
 		'''
 		proj = self.get_project(ident)
+		# current = self.get_current_project()
+		# if proj is not current:
+		# 	# current.deactivate()
+		# 	proj.activate()
+		# 	self._current_project_key = proj.name
 		self._current_project_key = proj.name
 		return proj
 

@@ -29,11 +29,13 @@ class Project(GeneralProject, name='default'):
 		'''
 		pass
 	
-	def __init__(self, path: Optional[Union[str, Path]], *,
+	def __init__(self, path: Optional[Union[str, Path]] = None, *,
 	             creator_registry: Optional[Creator_Registry] = None,
 	             component_registry: Optional[Component_Registry] = None,
 	             modifier_registry: Optional[Modifier_Registry] = None,
 	             **kwargs):
+		if path is None:
+			path = Path().cwd()
 		if creator_registry is None:
 			creator_registry = self.Creator_Registry()
 		if component_registry is None:
@@ -506,8 +508,8 @@ class Profile(ProfileBase, default_profile=True):
 			ValueError: If the project is found, but it has a name that a different project is already using.
 
 		'''
-		if is_current is None:
-			is_current = self._current_project_key is None
+		# if is_current is None:
+		# 	is_current = self._current_project_key is None
 
 		if ident is None:
 			if self._current_project_key is not None:
