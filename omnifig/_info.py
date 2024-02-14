@@ -24,7 +24,7 @@ try:
 	with open(os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), 'requirements.txt'), 'r') as f:
 		install_requires = f.readlines()
 except:
-	install_requires = ['pyyaml', 'toml', 'omnibelt>=0.8.1', 'tabulate']
+	install_requires = ['pyyaml', 'toml', 'omnibelt>=0.8.3', 'tabulate']
 
 entry_points = {'console_scripts': 'fig = omnifig.top:entry'}
 
