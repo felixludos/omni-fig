@@ -284,7 +284,7 @@ class GeneralProject(ProjectBase, name='general'):
 			root = str(Path(mod.__file__).parent.resolve())
 
 			sub = {name: dep for name, dep in dependencies.items()
-				   if str(Path(dep.__file__).resolve()).startswith(root)}
+				   if getattr(dep, '__file__', None) is not None and str(Path(dep.__file__).resolve()).startswith(root)}
 			self._modules[module] = mod, sub
 
 		for owner, submodules in self._modules.values():
