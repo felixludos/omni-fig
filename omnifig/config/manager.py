@@ -403,7 +403,8 @@ class ConfigManager(AbstractConfigManager):
 			data = {}
 		if project is unspecified_argument:
 			project = self.project
-		assert len(self._find_config_parents(None, data)) == 0, 'Passed in args cannot have a parents key'
+		configs = list(configs) + list(self._find_config_parents(None, data))
+		# assert len(self._find_config_parents(None, data)) == 0, 'Passed in args cannot have a parents key'
 
 		ancestry_names = {}
 		parent_table = {None: configs}
