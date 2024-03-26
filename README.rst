@@ -147,7 +147,7 @@ If you used ``omni-fig`` in your work, please cite it using:
 Contributions
 -------------
 
-Feedback and contributions are very welcome! Please feel free to open an issue or pull request.
+Feedback and contributions are very welcome! Please feel free to open an issue or pull request if you have any suggestions or would like to contribute a feature. For additional information or specific questions, please open an issue or reach out to me directly.
 
 
 Thank you to Amanda Leeb for designing the logo!
@@ -158,7 +158,7 @@ Thank you to Amanda Leeb for designing the logo!
 .. Road to 1.0
 	===========
 
-	Major features to be added in the near future:
+	Major features to be added in the future:
 
 	- configuration macros for modifying every part of the config behavior
 	- customized the print messages or logging when using a config
