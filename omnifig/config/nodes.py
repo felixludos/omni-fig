@@ -812,6 +812,11 @@ class ConfigNode(AutoTreeNode, AbstractConfig):
 					raise ValueError(f'Cannot apply modifiers to custom artifacts: {component.name!r}')
 				return cls
 			mods = [mod.cls for mod in modifiers]
+			if not isinstance(cls, type):
+				if len(mods):
+					raise ValueError(f'Cannot apply modifiers to non-class components: {component.name!r}')
+				assert callable(cls), f'Invalid component: {component.name!r} ({cls!r})'
+				return cls
 			if issubclass(cls, Modifiable):
 				return cls.inject_mods(*reversed(mods))
 			# default subclass
