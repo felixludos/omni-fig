@@ -91,7 +91,7 @@ class Configurable(AbstractConfigurable, Modifiable):
 			silent = self.silent
 			if self.silences is not None and name in self.silences:
 				silent = True
-			out = self.config.pulls(name, *aliases, default=default, silent=silent)
+			out = self.config.pulls(name.replace('_', '-'), *aliases, default=default, silent=silent)
 			return out
 
 
