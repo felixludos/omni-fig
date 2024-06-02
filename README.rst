@@ -18,7 +18,6 @@ Unleashing Project Configuration and Organization in Python
     :target: https://omnifig.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
-
 .. image:: https://github.com/felixludos/omni-fig/actions/workflows/tests.yaml/badge.svg
     :target: https://github.com/felixludos/omni-fig/actions/workflows/tests.yaml
     :alt: Unit-Tests
@@ -26,6 +25,10 @@ Unleashing Project Configuration and Organization in Python
 .. image:: https://joss.theoj.org/papers/8eb5d7f02686b32f3102a5a03f92f169/status.svg
    :target: https://joss.theoj.org/papers/8eb5d7f02686b32f3102a5a03f92f169
    :alt: JOSS status
+
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.11424102.svg
+   :target: https://doi.org/10.5281/zenodo.11424102
+   :alt: Zenodo Archive
 
 .. setup-marker-do-not-remove
 
