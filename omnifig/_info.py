@@ -2,7 +2,7 @@
 name = 'omnifig'
 long_name = 'omni-fig'
 
-version = '1.0.5'
+version = '1.0.6'
 
 url = 'https://github.com/felixludos/omni-fig'
 
@@ -24,7 +24,7 @@ try:
 	with open(os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), 'requirements.txt'), 'r') as f:
 		install_requires = f.readlines()
 except:
-	install_requires = ['pyyaml', 'toml', 'omnibelt>=0.8.3', 'tabulate']
+	install_requires = ['pyyaml', 'toml', 'omnibelt>=0.8.5', 'tabulate']
 
 entry_points = {'console_scripts': 'fig = omnifig.top:entry'}
 
