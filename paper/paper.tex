@@ -1,0 +1,548 @@
+\documentclass[10pt,a4paper,onecolumn]{article}
+\usepackage{marginnote}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{authblk,etoolbox}
+\usepackage{titlesec}
+\usepackage{calc}
+\usepackage{tikz}
+\usepackage{hyperref}
+\hypersetup{colorlinks,breaklinks=true,
+            urlcolor=[rgb]{0.0, 0.5, 1.0},
+            linkcolor=[rgb]{0.0, 0.5, 1.0}}
+\usepackage{caption}
+\usepackage{tcolorbox}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{seqsplit}
+\usepackage{xstring}
+
+\usepackage{float}
+\let\origfigure\figure
+\let\endorigfigure\endfigure
+\renewenvironment{figure}[1][2] {
+    \expandafter\origfigure\expandafter[H]
+} {
+    \endorigfigure
+}
+
+
+\usepackage{fixltx2e} % provides \textsubscript
+\usepackage[
+  backend=biber,
+%  style=alphabetic,
+%  citestyle=numeric
+]{biblatex}
+\bibliography{paper.bib}
+
+% --- Splitting \texttt --------------------------------------------------
+
+\let\textttOrig=\texttt
+\def\texttt#1{\expandafter\textttOrig{\seqsplit{#1}}}
+\renewcommand{\seqinsert}{\ifmmode
+  \allowbreak
+  \else\penalty6000\hspace{0pt plus 0.02em}\fi}
+
+
+% --- Pandoc does not distinguish between links like [foo](bar) and
+% --- [foo](foo) -- a simplistic Markdown model.  However, this is
+% --- wrong:  in links like [foo](foo) the text is the url, and must
+% --- be split correspondingly.
+% --- Here we detect links \href{foo}{foo}, and also links starting
+% --- with https://doi.org, and use path-like splitting (but not
+% --- escaping!) with these links.
+% --- Another vile thing pandoc does is the different escaping of
+% --- foo and bar.  This may confound our detection.
+% --- This problem we do not try to solve at present, with the exception
+% --- of doi-like urls, which we detect correctly.
+
+
+\makeatletter
+\let\href@Orig=\href
+\def\href@Urllike#1#2{\href@Orig{#1}{\begingroup
+    \def\Url@String{#2}\Url@FormatString
+    \endgroup}}
+\def\href@Notdoi#1#2{\def\tempa{#1}\def\tempb{#2}%
+  \ifx\tempa\tempb\relax\href@Urllike{#1}{#2}\else
+  \href@Orig{#1}{#2}\fi}
+\def\href#1#2{%
+  \IfBeginWith{#1}{https://doi.org}%
+  {\href@Urllike{#1}{#2}}{\href@Notdoi{#1}{#2}}}
+\makeatother
+
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newenvironment{CSLReferences}[3] % #1 hanging-ident, #2 entry spacing
+ {% don't indent paragraphs
+  \setlength{\parindent}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1 \everypar{\setlength{\hangindent}{\cslhangindent}}\ignorespaces\fi
+  % set entry spacing
+  \ifnum #2 > 0
+  \setlength{\parskip}{#2\baselineskip}
+  \fi
+ }%
+ {}
+\usepackage{calc}
+\newcommand{\CSLBlock}[1]{#1\hfill\break}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{#1}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{#1}}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+
+% --- Page layout -------------------------------------------------------------
+\usepackage[top=3.5cm, bottom=3cm, right=1.5cm, left=1.0cm,
+            headheight=2.2cm, reversemp, includemp, marginparwidth=4.5cm]{geometry}
+
+% --- Default font ------------------------------------------------------------
+\renewcommand\familydefault{\sfdefault}
+
+% --- Style -------------------------------------------------------------------
+\renewcommand{\bibfont}{\small \sffamily}
+\renewcommand{\captionfont}{\small\sffamily}
+\renewcommand{\captionlabelfont}{\bfseries}
+
+% --- Section/SubSection/SubSubSection ----------------------------------------
+\titleformat{\section}
+  {\normalfont\sffamily\Large\bfseries}
+  {}{0pt}{}
+\titleformat{\subsection}
+  {\normalfont\sffamily\large\bfseries}
+  {}{0pt}{}
+\titleformat{\subsubsection}
+  {\normalfont\sffamily\bfseries}
+  {}{0pt}{}
+\titleformat*{\paragraph}
+  {\sffamily\normalsize}
+
+
+% --- Header / Footer ---------------------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+%\renewcommand{\headrulewidth}{0.50pt}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{\hspace{-0.75cm}\includegraphics[width=5.5cm]{/usr/local/share/openjournals/joss/logo.png}}
+\fancyhead[C]{}
+\fancyhead[R]{}
+\renewcommand{\footrulewidth}{0.25pt}
+
+\fancyfoot[L]{\parbox[t]{0.98\headwidth}{\footnotesize{\sffamily ¿citation\_author?, (2024). omni-fig:
+Unleashing Project Configuration and Organization in
+Python. \textit{Journal of Open Source Software}, ¿VOL?(¿ISSUE?), ¿PAGE?. \url{https://doi.org/DOI unavailable}}}}
+
+
+\fancyfoot[R]{\sffamily \thepage}
+\makeatletter
+\let\ps@plain\ps@fancy
+\fancyheadoffset[L]{4.5cm}
+\fancyfootoffset[L]{4.5cm}
+
+% --- Macros ---------
+
+\definecolor{linky}{rgb}{0.0, 0.5, 1.0}
+
+\newtcolorbox{repobox}
+   {colback=red, colframe=red!75!black,
+     boxrule=0.5pt, arc=2pt, left=6pt, right=6pt, top=3pt, bottom=3pt}
+
+\newcommand{\ExternalLink}{%
+   \tikz[x=1.2ex, y=1.2ex, baseline=-0.05ex]{%
+       \begin{scope}[x=1ex, y=1ex]
+           \clip (-0.1,-0.1)
+               --++ (-0, 1.2)
+               --++ (0.6, 0)
+               --++ (0, -0.6)
+               --++ (0.6, 0)
+               --++ (0, -1);
+           \path[draw,
+               line width = 0.5,
+               rounded corners=0.5]
+               (0,0) rectangle (1,1);
+       \end{scope}
+       \path[draw, line width = 0.5] (0.5, 0.5)
+           -- (1, 1);
+       \path[draw, line width = 0.5] (0.6, 1)
+           -- (1, 1) -- (1, 0.6);
+       }
+   }
+
+% --- Title / Authors ---------------------------------------------------------
+% patch \maketitle so that it doesn't center
+\patchcmd{\@maketitle}{center}{flushleft}{}{}
+\patchcmd{\@maketitle}{center}{flushleft}{}{}
+% patch \maketitle so that the font size for the title is normal
+\patchcmd{\@maketitle}{\LARGE}{\LARGE\sffamily}{}{}
+% patch the patch by authblk so that the author block is flush left
+\def\maketitle{{%
+  \renewenvironment{tabular}[2][]
+    {\begin{flushleft}}
+    {\end{flushleft}}
+  \AB@maketitle}}
+\makeatletter
+\renewcommand\AB@affilsepx{ \protect\Affilfont}
+%\renewcommand\AB@affilnote[1]{{\bfseries #1}\hspace{2pt}}
+\renewcommand\AB@affilnote[1]{{\bfseries #1}\hspace{3pt}}
+\renewcommand{\affil}[2][]%
+   {\newaffiltrue\let\AB@blk@and\AB@pand
+      \if\relax#1\relax\def\AB@note{\AB@thenote}\else\def\AB@note{#1}%
+        \setcounter{Maxaffil}{0}\fi
+        \begingroup
+        \let\href=\href@Orig
+        \let\texttt=\textttOrig
+        \let\protect\@unexpandable@protect
+        \def\thanks{\protect\thanks}\def\footnote{\protect\footnote}%
+        \@temptokena=\expandafter{\AB@authors}%
+        {\def\\{\protect\\\protect\Affilfont}\xdef\AB@temp{#2}}%
+         \xdef\AB@authors{\the\@temptokena\AB@las\AB@au@str
+         \protect\\[\affilsep]\protect\Affilfont\AB@temp}%
+         \gdef\AB@las{}\gdef\AB@au@str{}%
+        {\def\\{, \ignorespaces}\xdef\AB@temp{#2}}%
+        \@temptokena=\expandafter{\AB@affillist}%
+        \xdef\AB@affillist{\the\@temptokena \AB@affilsep
+          \AB@affilnote{\AB@note}\protect\Affilfont\AB@temp}%
+      \endgroup
+       \let\AB@affilsep\AB@affilsepx
+}
+\makeatother
+\renewcommand\Authfont{\sffamily\bfseries}
+\renewcommand\Affilfont{\sffamily\small\mdseries}
+\setlength{\affilsep}{1em}
+
+
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+    \usepackage{fontspec}
+
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+
+\usepackage{hyperref}
+\hypersetup{unicode=true,
+            pdftitle={omni-fig: Unleashing Project Configuration and Organization in Python},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+
+% --- We redefined \texttt, but in sections and captions we want the
+% --- old definition
+\let\addcontentslineOrig=\addcontentsline
+\def\addcontentsline#1#2#3{\bgroup
+  \let\texttt=\textttOrig\addcontentslineOrig{#1}{#2}{#3}\egroup}
+\let\markbothOrig\markboth
+\def\markboth#1#2{\bgroup
+  \let\texttt=\textttOrig\markbothOrig{#1}{#2}\egroup}
+\let\markrightOrig\markright
+\def\markright#1{\bgroup
+  \let\texttt=\textttOrig\markrightOrig{#1}\egroup}
+
+
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+\title{omni-fig: Unleashing Project Configuration and Organization in
+Python}
+
+        \author[1]{Felix Leeb}
+    
+      \affil[1]{Max Planck Institute for Intelligent Systems, Tübingen,
+Germany}
+  \date{\vspace{-7ex}}
+
+\begin{document}
+\maketitle
+
+\marginpar{
+
+  \begin{flushleft}
+  %\hrule
+  \sffamily\small
+
+  {\bfseries DOI:} \href{https://doi.org/DOI unavailable}{\color{linky}{DOI unavailable}}
+
+  \vspace{2mm}
+
+  {\bfseries Software}
+  \begin{itemize}
+    \setlength\itemsep{0em}
+    \item \href{N/A}{\color{linky}{Review}} \ExternalLink
+    \item \href{NO_REPOSITORY}{\color{linky}{Repository}} \ExternalLink
+    \item \href{DOI unavailable}{\color{linky}{Archive}} \ExternalLink
+  \end{itemize}
+
+  \vspace{2mm}
+
+  \par\noindent\hrulefill\par
+
+  \vspace{2mm}
+
+  {\bfseries Editor:} \href{https://example.com}{Pending
+Editor} \ExternalLink \\
+  \vspace{1mm}
+    {\bfseries Reviewers:}
+  \begin{itemize}
+  \setlength\itemsep{0em}
+    \item \href{https://github.com/Pending Reviewers}{@Pending
+Reviewers}
+    \end{itemize}
+    \vspace{2mm}
+
+  {\bfseries Submitted:} N/A\\
+  {\bfseries Published:} N/A
+
+  \vspace{2mm}
+  {\bfseries License}\\
+  Authors of papers retain copyright and release the work under a Creative Commons Attribution 4.0 International License (\href{http://creativecommons.org/licenses/by/4.0/}{\color{linky}{CC BY 4.0}}).
+
+  
+  \end{flushleft}
+}
+
+\hypertarget{abstract}{%
+\section{Abstract}\label{abstract}}
+
+We present a lightweight package to take care of the configuration and
+organization of all your Python projects. Although \texttt{omni-fig} is
+well suited for projects of virtually any size or complexity, it is
+specifically designed for research projects where a small development
+team doesn't want to waste time on boilerplate code or a bespoke user
+interface. Nevertheless, the intuitive project structure encourages
+developers to good design practices making it easier for collaborators
+and prospective users to rapidly find and understand the core
+contributions they need. The feature-rich configuration system
+completely abstracts the implementation from the specification of
+parameters, so the developer can focus entirely on creating new
+functionality, while the user can quickly and precisely specify the
+desired functionality by composing modular config files, through the
+command line interface, or even in an interactive environment like
+Jupyter. \texttt{omni-fig} transforms the project organization and
+configuration from a bothersome distraction into a joy, thereby
+improving clarity while also accelerating development.
+
+\hypertarget{introduction}{%
+\section{Introduction}\label{introduction}}
+
+One particularly promising trend in computational research, especially
+in machine learning, is that releasing the code associated with projects
+is becoming increasingly common (Pineau et al., 2021). Not only is this
+crucial for reproducibility (Guyon, n.d.), but this also fosters
+interdisciplinary research and progress in industry (Aho et al., 2020).
+
+However, the needs of developers differ significantly from those of
+potential users. \emph{Developers} (and especially researchers) prefer
+flexible, open-ended tools tailored for extensibility to prototype and
+synthesize novel methods. Meanwhile, \emph{users} prefer tools that
+automate details and provide a simple interface that is digestible and
+directly applicable to some downstream problem. Even fellow researchers
+exploring new methods want to quickly understand the essence of the
+contribution rather than getting bogged down in some idiosyncrasies of a
+project. For example, in machine learning, this has given rise to a
+variety of development practices (Ebert et al., 2016; Treveil et al.,
+2020) and AutoML packages (He et al., 2021) to make cutting edge methods
+more highly accessible for a variety of real-world applications.
+However, the opaque rigid interfaces and product-oriented focus cater
+more to the end-user, thereby increasing friction in design and
+synthesis for developers.
+
+\hypertarget{statement-of-need}{%
+\section{Statement of Need}\label{statement-of-need}}
+
+Project organization and configuration is an important albeit
+unglamorous part of every project. Neglecting this aspect can
+significantly impede prototyping and development as well as making the
+project less understandable and useable for any potential user or
+collaborator. Consequently, quite a few packages already exist to help
+with this task.
+
+Perhaps the most similar to our proposed \texttt{omni-fig} is
+\texttt{hydra} (Yadan, 2019), which is a popular configuration framework
+that provides a feature-rich user interface, even including composing
+config files to some extent. However, from the developer's perspective,
+the project structure of \texttt{hydra} is more constrained and the
+configuration system is built on top of \texttt{OmegaConf}
+(\emph{OmegaConf - Flexible {P}ython Configuration System}, 2012),
+making more advanced features such as automatic instantiation of objects
+nonexistent or more cumbersome. Packages such as \texttt{OmegaConf} or
+\texttt{pydantic} (Colvin, 2019), on the other hand, focus more on
+integrations and performance but lack high-level features and a
+user-friendly interface. Slightly less comparable are a variety of
+packages designed for more specific applications with fixed project
+structures, such as \texttt{dynaconf} (Rocha, 2018), \texttt{gin-config}
+(Holtmann-Rice et al., 2018), and \texttt{confr} (Arro, 2022). Finally,
+there are some built-in libraries that are commonly used for the
+command-line interface and configuration, such as \texttt{argparse}
+(\emph{Argparse - Parser for Command-Line Options, Arguments and
+Sub-Commands}, n.d.) and \texttt{configparser} (\emph{Configparser -
+Configuration File Parser}, n.d.). However, these provide minimal
+features and scale poorly to more complex, evolving projects.
+
+All too often, the trade-off between power and simplicity results in
+software (particularly research projects) containing cutting-edge
+features barely perceptible behind a limited or even nonexistent user
+interface. Here, a good project configuration framework can bridge the
+gap between developers and users. The user wants to select functionality
+in a concise and intuitive way while still allowing fine-grained control
+when needed. Meanwhile, the developer first and foremost wants the
+configuration system to seamlessly provide the necessary parameters
+without interfering with the broader design and implementation of the
+functionality.
+
+\hypertarget{summary}{%
+\section{Summary}\label{summary}}
+
+Here \texttt{omni-fig} strikes a favorable balance in that it was
+designed from the ground up to cater specifically to the needs of both
+the \emph{developer} and the \emph{user}.
+
+The primary way the \emph{developer} interacts with \texttt{omni-fig} is
+by registering any functionality as a \texttt{script} (for functions),
+\texttt{component} (for classes), or \texttt{modifier} (for mixins),
+creating config files as needed, and then accessing config parameters
+using the config object at runtime. Once registered, the objects can be
+accessed anywhere in the project through the config object, thereby
+incentivizing the developer to register any functionality that can be
+customized by configuration. Meanwhile, since config files can easily be
+composed, the developer is incentivized to separate configuration in a
+modular way. Finally, at runtime, the developer doesn't have to worry
+about how the config parameters are specified (e.g., as a command line
+argument or in a config file), but can simply access them through the
+config object. This abstraction allows arbitrarily complex objects, even
+including mix-ins added dynamically at runtime (see \texttt{modifier}),
+to be instantiated automatically.
+
+From the user's perspective, the modular config files and explicit
+registration of top-level functionality greatly improve the transparency
+of the project. For example, just running \texttt{fig\ -h} returns a
+custom help message displaying all registered scripts in the project.
+Then the high-level modularity of the config files allows the developer
+to effortlessly create demos by composing existing config files to
+showcase the key features of the project.
+
+For more information, check out the
+\href{https://omnifig.readthedocs.io/en/latest/}{documentation} which
+includes an
+\href{https://omnifig.readthedocs.io/en/latest/highlights.html}{overview}
+of the key features with examples. We are also continuously working on
+new features such as adding integrations and improving error messages.
+In any case, contributions and feedback are always very welcome!
+
+\hypertarget{acknowledgments}{%
+\section{Acknowledgments}\label{acknowledgments}}
+
+This work was supported by the German Federal Ministry of Education and
+Research (BMBF): Tübingen AI Center, FKZ: 01IS18039B, and by the Machine
+Learning Cluster of Excellence, EXC number 2064/1 -- Project number
+390727645. The authors thank the International Max Planck Research
+School for Intelligent Systems (IMPRS-IS) for supporting Felix Leeb. The
+authors would also like to thank Vincent Berenz for his feedback and
+suggestions, and Amanda Leeb for designing the omni-fig logo.
+
+\hypertarget{references}{%
+\section*{References}\label{references}}
+\addcontentsline{toc}{section}{References}
+
+\hypertarget{refs}{}
+\begin{CSLReferences}{1}{0}
+\leavevmode\hypertarget{ref-aho2020demystifying}{}%
+Aho, T., Sievi-Korte, O., Kilamo, T., Yaman, S., \& Mikkonen, T. (2020).
+Demystifying data science projects: A look on the people and process of
+data science today. \emph{International Conference on Product-Focused
+Software Process Improvement}, 153--167.
+\url{https://doi.org/10.1007/978-3-030-64148-1_10}
+
+\leavevmode\hypertarget{ref-argparse}{}%
+\emph{Argparse - parser for command-line options, arguments and
+sub-commands}. (n.d.).
+\url{https://docs.python.org/3/library/argparse.html}
+
+\leavevmode\hypertarget{ref-arro2022confr}{}%
+Arro, M. (2022). \emph{Confr--a configuration system for machine
+learning projects}.
+
+\leavevmode\hypertarget{ref-pydantic}{}%
+Colvin, S. (2019). \emph{Pydantic - data parsing and validation using
+{P}ython type hints}. Github. \url{https://github.com/pydantic/pydantic}
+
+\leavevmode\hypertarget{ref-configparser}{}%
+\emph{Configparser - configuration file parser}. (n.d.).
+\url{https://docs.python.org/3/library/configparser.html}
+
+\leavevmode\hypertarget{ref-ebert2016devops}{}%
+Ebert, C., Gallardo, G., Hernantes, J., \& Serrano, N. (2016). DevOps.
+\emph{IEEE Software}, \emph{33}(3), 94--100.
+
+\leavevmode\hypertarget{ref-guyonartificial}{}%
+Guyon, I. (n.d.). \emph{Artificial intelligence for all}.
+
+\leavevmode\hypertarget{ref-he2021automl}{}%
+He, X., Zhao, K., \& Chu, X. (2021). AutoML: A survey of the
+state-of-the-art. \emph{Knowledge-Based Systems}, \emph{212}, 106622.
+\url{https://doi.org/10.1016/j.knosys.2020.106622}
+
+\leavevmode\hypertarget{ref-ginconfig}{}%
+Holtmann-Rice, D., Guadarrama, S., \& Silberman, N. (2018). \emph{Gin
+config - provides a lightweight configuration framework for {P}ython}.
+Github. \url{https://github.com/google/gin-config}
+
+\leavevmode\hypertarget{ref-omegaconf}{}%
+\emph{OmegaConf - flexible {P}ython configuration system}. (2012).
+Github. \url{https://github.com/omry/omegaconf}
+
+\leavevmode\hypertarget{ref-pineau2021improving}{}%
+Pineau, J., Vincent-Lamarre, P., Sinha, K., Larivière, V., Beygelzimer,
+A., d'Alché-Buc, F., Fox, E., \& Larochelle, H. (2021). Improving
+reproducibility in machine learning research: A report from the NeurIPS
+2019 reproducibility program. \emph{Journal of Machine Learning
+Research}, \emph{22}.
+
+\leavevmode\hypertarget{ref-dynaconf}{}%
+Rocha, B. (2018). \emph{Dynaconf - configuration management for
+{P}ython}. Github. \url{https://github.com/dynaconf/dynaconf}
+
+\leavevmode\hypertarget{ref-treveil2020introducing}{}%
+Treveil, M., Omont, N., Stenac, C., Lefevre, K., Phan, D., Zentici, J.,
+Lavoillotte, A., Miyazaki, M., \& Heidmann, L. (2020). \emph{Introducing
+MLOps}. O'Reilly Media.
+
+\leavevmode\hypertarget{ref-hydra}{}%
+Yadan, O. (2019). \emph{Hydra - a framework for elegantly configuring
+complex applications}. Github.
+\url{https://github.com/facebookresearch/hydra}
+
+\end{CSLReferences}
+
+\end{document}
