@@ -2,7 +2,7 @@
 name = 'omnifig'
 long_name = 'omni-fig'
 
-version = '1.0.7'
+version = '1.0.8'
 
 url = 'https://github.com/felixludos/omni-fig'
 
@@ -13,7 +13,7 @@ author_email = 'felixludos@hotmail.com'
 
 license = 'MIT'
 
-readme = 'README.rst'
+# readme = 'README.rst'
 
 packages = ['omnifig']
 
