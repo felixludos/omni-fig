@@ -13,7 +13,7 @@ author_email = 'felixludos@hotmail.com'
 
 license = 'MIT'
 
-# readme = 'README.rst'
+readme = 'README.rst'
 
 packages = ['omnifig']
 
