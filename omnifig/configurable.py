@@ -73,7 +73,7 @@ class Configurable(AbstractConfigurable, Modifiable):
 				self.config = config
 
 
-		def find_missing_arg(self, name: str, default: Optional[Any] = inspect.Parameter.empty) -> Any:
+		def find_missing_arg(self, name: str, default: Optional[inspect.Parameter] = inspect.Parameter.empty) -> Any:
 			'''
 			Finds the missing argument in the config (including aliases)
 
@@ -85,12 +85,21 @@ class Configurable(AbstractConfigurable, Modifiable):
 				The value of the argument from the config
 
 			'''
+			param = None
+			if default is not inspect.Parameter.empty:
+				assert isinstance(default, inspect.Parameter)
+				param = default
+				default = param.default
 			if default is inspect.Parameter.empty:
 				default = self.config._empty_default
 			aliases = self.aliases.get(name, ())
 			silent = self.silent
-			if self.silences is not None and name in self.silences:
+			if (self.silences is not None and name in self.silences) \
+				or (param is not None and (name == 'args' and param.kind == inspect.Parameter.VAR_POSITIONAL) 
+										or (name == 'kwargs' and param.kind == inspect.Parameter.VAR_KEYWORD)):
 				silent = True
+				if default is self.config._empty_default:
+					default = () if name == 'args' else {}
 			out = self.config.pulls(name.replace('_', '-'), *aliases, default=default, silent=silent)
 			return out
 
