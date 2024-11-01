@@ -124,3 +124,40 @@ def test_key_error():
 
 
 
+def test_nested_configurable():
+	@fig.component('parent')
+	class Parent(fig.Configurable):
+		def __init__(self, a: int = 10, b: int = 1):
+			self.a = a
+			self.b = b
+
+	@fig.component('child1')
+	class Child1(Parent):
+		def __init__(self, sibling: 'Child2' = None, a: int = -10, b: str = 'hello'):
+			super().__init__(a=a)
+			self.sibling = sibling
+			self.b = b
+
+	@fig.component('child2')
+	class Child2(Parent):
+		def __init__(self, a: int = -1, c: str = 'other'):
+			super().__init__(a=a)
+			self.c = c
+
+	cfg = fig.create_config(**{'_type': 'child1', 'a': 5,
+							   'sibling._type': 'child2', 'sibling.a': 2, 'sibling.c': 3})
+
+	obj = cfg.create()
+
+	assert obj.a == 5
+	assert obj.sibling.a == 2
+
+	assert obj.b == 'hello'
+	assert obj.sibling.b == 1
+
+	assert obj.sibling.c == 3
+
+
+
+
+
