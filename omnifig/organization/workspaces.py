@@ -287,6 +287,7 @@ class GeneralProject(ProjectBase, name='general'):
 				   if getattr(dep, '__file__', None) is not None and str(Path(dep.__file__).resolve()).startswith(root)}
 			self._modules[module] = mod, sub
 
+		# TODO: the below lines must be commented out to enable multiprocessing in/involving the dependencies
 		for owner, submodules in self._modules.values():
 			for name, sub in submodules.items():
 				del sys.modules[name] # remove any local modules from sys.modules

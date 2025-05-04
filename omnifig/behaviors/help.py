@@ -16,9 +16,12 @@ class Help(Behavior, name='help', code='h', priority=99, num_args=0, description
 	'''
 
 	@staticmethod
-	def _format_script_entry(entry: NamedTuple, verbose: bool = False) -> List[str]:
+	def _format_script_entry(entry: NamedTuple, verbose: bool = False) -> Optional[List[str]]:
 		'''Formats a script entry for printing help message.'''
 		ident = entry.name
+		if ident.startswith('_'):
+			return None
+			
 		desc = getattr(entry, 'description', '')
 
 		proj = getattr(entry, 'project', None)
@@ -95,6 +98,7 @@ You can additionally specify the following:'''
 	def format_scripts(cls, config: AbstractConfig, entries: Iterator[NamedTuple], verbose: bool = False) -> str:
 		'''Formats the help message about the available scripts.'''
 		rows = [cls._format_script_entry(s, verbose=verbose) for s in entries]
+		rows = [r for r in rows if r is not None]
 
 		if not len(rows):
 			return '  -- No scripts registered --'
