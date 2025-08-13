@@ -1,5 +1,6 @@
 from ._info import __version__, __author__, __info__, __logger__
 
+from .abstract import SearchFailed
 from .organization import get_profile, ProfileBase, ProjectBase, GeneralProject, Profile
 from .registration import script, component, modifier, creator, autocomponent, autoscript
 from .top import get_current_project, get_project, switch_project, iterate_projects, \

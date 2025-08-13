@@ -7,6 +7,10 @@ from omnibelt import unspecified_argument, Registry, Primitive, JSONABLE
 from .mixins import Activatable, FileInfo
 
 
+class SearchFailed(KeyError):
+	'''Raised when a search fails'''
+	pass
+
 
 class AbstractConfig:
 	'''Abstract class for config objects'''
@@ -15,11 +19,7 @@ class AbstractConfig:
 
 	_empty_default = unspecified_argument
 
-
-	class SearchFailed(KeyError):
-		'''Raised when a search fails'''
-		pass
-
+	SearchFailed = SearchFailed
 
 	@property
 	def cro(self) -> Tuple[str, ...]:
